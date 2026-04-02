@@ -218,8 +218,11 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                         value: isSelected,
                         onChanged: (val) {
                           setDialogState(() {
-                            if (val == true) selectedActs.add(act);
-                            else selectedActs.remove(act);
+                            if (val == true) {
+                              selectedActs.add(act);
+                            } else {
+                              selectedActs.remove(act);
+                            }
                           });
                         },
                         activeColor: AppColors.primary,
@@ -481,7 +484,11 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   }
 
   Widget _actesTabView(AppLocalizations loc) {
-    return Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text("Sélection des actes médicaux", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 16)), if (selectedActs.isNotEmpty) _actionBtn(loc.t('createInvoice'), AppColors.primary, () => _createInvoiceFromActs({}))]), const Divider(), Expanded(child: ListView.builder(itemCount: availableActs.length, itemBuilder: (context, index) { final act = availableActs[index]; final isSelected = selectedActs.contains(act); return CheckboxListTile(title: Text(act['name']), subtitle: Text("${act['list_price']} DH"), value: isSelected, onChanged: (val) { setState(() { if (val == true) selectedActs.add(act); else selectedActs.remove(act); }); }, activeColor: AppColors.primary); }))]));
+    return Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text("Sélection des actes médicaux", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 16)), if (selectedActs.isNotEmpty) _actionBtn(loc.t('createInvoice'), AppColors.primary, () => _createInvoiceFromActs({}))]), const Divider(), Expanded(child: ListView.builder(itemCount: availableActs.length, itemBuilder: (context, index) { final act = availableActs[index]; final isSelected = selectedActs.contains(act); return CheckboxListTile(title: Text(act['name']), subtitle: Text("${act['list_price']} DH"), value: isSelected, onChanged: (val) { setState(() { if (val == true) {
+      selectedActs.add(act);
+    } else {
+      selectedActs.remove(act);
+    } }); }, activeColor: AppColors.primary); }))]));
   }
 
   Widget _tableHeader(AppLocalizations loc) => Container(padding: const EdgeInsets.all(12), decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.textPrimary, width: 2))), child: Row(children: [Expanded(flex: 2, child: _th("N° DOSSIER CONS.")), Expanded(flex: 2, child: _th(loc.t('colDate').toUpperCase())), Expanded(flex: 4, child: _th(loc.t('reason').toUpperCase())), Expanded(flex: 3, child: _th(loc.t('colStatus').toUpperCase()))]));

@@ -404,11 +404,12 @@ class OdooApi {
     return data != null && data['result'] != null ? {'success': true, 'id': data['result']} : {'success': false};
   }
 
-  static Future<Map<String, dynamic>> updateMedicalRecord({required int recordId, required String motif, required String diagnostic, required String prescription, required String observations, required String state, String medicalFileNumber = ''}) async {
+  static Future<Map<String, dynamic>> updateMedicalRecord({required int recordId, required String motif, required String diagnostic, required String prescription, required String observations, required String state, String medicalFileNumber = '', String? datetime}) async {
     final cookie = await _getSessionCookie();
     final data = await _callRpc('/web/dataset/call_kw', {'model': 'medical.consultation', 'method': 'write', 'args': [[recordId], {
       'motif': motif, 'diagnostic': diagnostic, 'prescription': prescription, 'observations': observations, 'state': state,
-      'medical_file_number': medicalFileNumber
+      'medical_file_number': medicalFileNumber,
+      if (datetime != null) 'date_consultation': datetime,
     }], 'kwargs': {}}, cookie: cookie);
     return data?['result'] == true ? {'success': true} : {'success': false};
   }

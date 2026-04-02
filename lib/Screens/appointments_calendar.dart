@@ -37,8 +37,8 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
       OdooApi.getPatients(),
     ]);
     
-    final records = results[0] as List;
-    _allPatients = results[1] as List;
+    final records = results[0];
+    _allPatients = results[1];
     
     final Map<DateTime, List<dynamic>> eventSource = {};
 
@@ -66,6 +66,83 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
     return _events[DateTime(day.year, day.month, day.day)] ?? [];
   }
 
+  void _showEditAppointmentDialog(Map event, AppLocalizations loc) {
+    final initialDateTime = DateTime.parse(event['date_consultation']).toLocal();
+    DateTime selectedDate = DateTime(initialDateTime.year, initialDateTime.month, initialDateTime.day);
+    TimeOfDay selectedTime = TimeOfDay(hour: initialDateTime.hour, minute: initialDateTime.minute);
+    final motifCtrl = TextEditingController(text: event['motif'] ?? "Consultation");
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(children: [const Icon(Icons.edit_calendar_rounded, color: AppColors.primary), const SizedBox(width: 10), Text("Modifier le Rendez-vous", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 18))]),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text("Patient: ${event['patient_id'] is List ? event['patient_id'][1] : "Patient Inconnu"}", style: GoogleFonts.dmSans(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: motifCtrl,
+                  decoration: InputDecoration(labelText: "Motif du rendez-vous", prefixIcon: const Icon(Icons.notes_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                ),
+                const SizedBox(height: 20),
+                InkWell(
+                  onTap: () async {
+                    final date = await showDatePicker(context: context, initialDate: selectedDate, firstDate: DateTime.now().subtract(const Duration(days: 365)), lastDate: DateTime.now().add(const Duration(days: 365)));
+                    if (date != null) setDialogState(() => selectedDate = date);
+                  },
+                  child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.inputFill, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)), child: Row(children: [const Icon(Icons.event, size: 18, color: AppColors.primary), const SizedBox(width: 12), Text(DateFormat('dd/MM/yyyy').format(selectedDate), style: GoogleFonts.dmSans())])),
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () async {
+                    final time = await showTimePicker(context: context, initialTime: selectedTime);
+                    if (time != null) setDialogState(() => selectedTime = time);
+                  },
+                  child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.inputFill, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)), child: Row(children: [const Icon(Icons.access_time_rounded, size: 18, color: AppColors.primary), const SizedBox(width: 12), Text(selectedTime.format(context), style: GoogleFonts.dmSans())])),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
+            ElevatedButton(
+              onPressed: () async {
+                final scheduledDateTime = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, selectedTime.hour, selectedTime.minute);
+                
+                showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
+                
+                final res = await OdooApi.updateMedicalRecord(
+                  recordId: event['id'],
+                  motif: motifCtrl.text.trim(),
+                  diagnostic: event['diagnostic'] ?? '',
+                  prescription: event['prescription'] ?? '',
+                  observations: event['observations'] ?? '',
+                  state: event['state'] ?? 'waiting',
+                  medicalFileNumber: event['medical_file_number'] ?? '',
+                  datetime: scheduledDateTime.toString().substring(0, 19),
+                );
+                
+                if (mounted) Navigator.pop(context); // Close loader
+                if (mounted) Navigator.pop(context); // Close dialog
+                
+                if (res['success']) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Rendez-vous mis à jour avec succès")));
+                  _loadData();
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+              child: const Text("Enregistrer"),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showScheduleAppointmentDialog(AppLocalizations loc) {
     DateTime selectedDate = _selectedDay ?? DateTime.now();
     TimeOfDay selectedTime = const TimeOfDay(hour: 9, minute: 0);
@@ -84,7 +161,7 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
               children: [
                 DropdownButtonFormField<Map>(
                   decoration: InputDecoration(labelText: "Sélectionner un patient", prefixIcon: const Icon(Icons.person_outline), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-                  value: selectedPatient,
+                  initialValue: selectedPatient,
                   items: _allPatients.map((p) => DropdownMenuItem<Map>(value: p, child: Text(p['name'] ?? ''))).toList(),
                   onChanged: (val) => setDialogState(() => selectedPatient = val),
                 ),
@@ -235,7 +312,7 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
                                   if (_getEventsForDay(_selectedDay ?? _focusedDay).isEmpty)
                                     Center(child: Padding(padding: const EdgeInsets.symmetric(vertical: 40), child: Text("Aucun rendez-vous", style: GoogleFonts.dmSans(color: AppColors.textMuted))))
                                   else
-                                    ..._getEventsForDay(_selectedDay ?? _focusedDay).map((event) => _appointmentTile(event)),
+                                    ..._getEventsForDay(_selectedDay ?? _focusedDay).map((event) => _appointmentTile(event, loc)),
                                 ],
                               ),
                             ),
@@ -251,37 +328,41 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
     );
   }
 
-  Widget _appointmentTile(Map event) {
+  Widget _appointmentTile(Map event, AppLocalizations loc) {
     final time = DateTime.parse(event['date_consultation']).toLocal();
     final patientName = event['patient_id'] is List ? event['patient_id'][1] : "Patient Inconnu";
     
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(8)),
-            child: Text(DateFormat('HH:mm').format(time), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(patientName, style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text(event['motif'] ?? "Consultation", style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textSecond), overflow: TextOverflow.ellipsis),
-              ],
+    return InkWell(
+      onTap: () => _showEditAppointmentDialog(event, loc),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(8)),
+              child: Text(DateFormat('HH:mm').format(time), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
             ),
-          ),
-          const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(patientName, style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text(event['motif'] ?? "Consultation", style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textSecond), overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
+          ],
+        ),
       ),
     );
   }
