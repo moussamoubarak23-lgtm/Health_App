@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OdooApi {
-  static String _baseUrl = 'http://192.168.1.7:8069';
+  static String _baseUrl = 'http://192.168.11.102:8069';
   static String get baseUrl => _baseUrl;
 
   static const String dbName = String.fromEnvironment(
@@ -19,7 +19,7 @@ class OdooApi {
   // ─── INITIALISATION ─────────────────────────────────────────────────────────
   static Future<void> initConfig() async {
     final prefs = await SharedPreferences.getInstance();
-    _baseUrl = prefs.getString('odoo_server_url') ?? 'http://192.168.1.7:8069';
+    _baseUrl = prefs.getString('odoo_server_url') ?? 'http://192.168.11.102:8069';
   }
 
   static Future<void> setServerUrl(String newUrl) async {
@@ -391,6 +391,60 @@ class OdooApi {
     } catch (e) {
       return {'success': false, 'error': e.toString()};
     }
+  }
+
+  // ─── SÉCRÉTAIRES ────────────────────────────────────────────────────────────
+  static Future<List<dynamic>> getSecretaries() async {
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getInt('uid') ?? 0;
+    final cookie = await _getSessionCookie();
+    final data = await _callRpc('/web/dataset/call_kw', {
+      'model': 'medical.secretary', 'method': 'search_read',
+      'args': [[['doctor_id', '=', uid]]],
+      'kwargs': {'fields': ['id', 'first_name', 'last_name', 'full_name', 'gender', 'birth_date', 'phone', 'mobile', 'email', 'secretary_code', 'national_id', 'address', 'employee_id', 'hire_date', 'office_number', 'working_hours', 'active', 'notes'], 'limit': 100}
+    }, cookie: cookie);
+    return data?['result'] ?? [];
+  }
+
+  static Future<Map<String, dynamic>> createSecretary(Map<String, dynamic> vals) async {
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getInt('uid') ?? 0;
+    final cookie = await _getSessionCookie();
+    vals['doctor_id'] = uid;
+    final data = await _callRpc('/web/dataset/call_kw', {
+      'model': 'medical.secretary', 'method': 'create',
+      'args': [vals], 'kwargs': {},
+    }, cookie: cookie);
+    return data != null && data['result'] != null ? {'success': true, 'id': data['result']} : {'success': false};
+  }
+
+  static Future<Map<String, dynamic>> updateSecretary(int id, Map<String, dynamic> vals) async {
+    final cookie = await _getSessionCookie();
+    final data = await _callRpc('/web/dataset/call_kw', {
+      'model': 'medical.secretary', 'method': 'write',
+      'args': [[id], vals], 'kwargs': {},
+    }, cookie: cookie);
+    return data?['result'] == true ? {'success': true} : {'success': false};
+  }
+
+  static Future<Map<String, dynamic>> deleteSecretary(int id) async {
+    final cookie = await _getSessionCookie();
+    final data = await _callRpc('/web/dataset/call_kw', {
+      'model': 'medical.secretary', 'method': 'unlink',
+      'args': [[id]], 'kwargs': {},
+    }, cookie: cookie);
+    return data?['result'] == true ? {'success': true} : {'success': false};
+  }
+
+  static Future<List<dynamic>> getSecretaryLogs(int secretaryId) async {
+    final cookie = await _getSessionCookie();
+    final data = await _callRpc('/web/dataset/call_kw', {
+      'model': 'mail.message', 
+      'method': 'search_read',
+      'args': [[['author_id.medical_secretary_id', '=', secretaryId]]],
+      'kwargs': {'fields': ['id', 'body', 'date', 'model', 'res_id'], 'limit': 50, 'order': 'date desc'}
+    }, cookie: cookie);
+    return data?['result'] ?? [];
   }
 
   // ─── GESTION GÉNÉRALE ───────────────────────────────────────────────────────
