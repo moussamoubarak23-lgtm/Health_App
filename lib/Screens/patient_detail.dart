@@ -172,6 +172,62 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     if (result['success']) { setState(() => selectedActs = []); if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).t('invoiceCreated')))); _loadData(); }
   }
 
+  void _showActSelectionDialog(AppLocalizations loc) {
+    setState(() => selectedActs = []);
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text("Facturer la consultation", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
+          content: SizedBox(
+            width: 450,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text("Sélectionnez les actes effectués :", style: GoogleFonts.dmSans(fontSize: 14)),
+                const SizedBox(height: 12),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.4),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: availableActs.length,
+                    itemBuilder: (context, index) {
+                      final act = availableActs[index];
+                      final isSelected = selectedActs.contains(act);
+                      return CheckboxListTile(
+                        title: Text(act['name']),
+                        subtitle: Text("${act['list_price']} DH"),
+                        value: isSelected,
+                        onChanged: (val) {
+                          setDialogState(() {
+                            if (val == true) selectedActs.add(act);
+                            else selectedActs.remove(act);
+                          });
+                        },
+                        activeColor: AppColors.primary,
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _createInvoiceFromActs();
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+              child: Text(loc.t('createInvoice')),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showQuickEditRecord(Map record, AppLocalizations loc) {
     String initialDossier = _s(record['medical_file_number']);
     if (initialDossier.isEmpty) initialDossier = _s(currentPatient['medical_file_number']);
@@ -208,7 +264,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
 
           if (mounted) Navigator.pop(context);
           if (res['success']) _loadData();
-        }, style: ElevatedButton.styleFrom(backgroundColor: AppColors.green), child: const Text("Valider & Confirmer"))],
+        }, style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white), child: const Text("Valider et Confirmer"))],
       ),
     );
   }
@@ -317,7 +373,19 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
           Expanded(flex: 2, child: Text(dossier.isEmpty ? "—" : dossier, style: const TextStyle(fontWeight: FontWeight.bold))),
           Expanded(flex: 2, child: Text(_s(r['date_consultation']).substring(0, _s(r['date_consultation']).length >= 10 ? 10 : 0))),
           Expanded(flex: 4, child: Text(_s(r['motif']), overflow: TextOverflow.ellipsis)),
-          Expanded(flex: 3, child: Row(children: [_statusBadge(r['state'], loc), const SizedBox(width: 8), Tooltip(message: "Détails", child: InkWell(onTap: () => _viewRecordDetails(r, loc), child: const Icon(Icons.visibility_outlined, color: AppColors.primary, size: 22))), if (r['state'] == 'waiting') ...[const SizedBox(width: 8), Tooltip(message: "Valider", child: InkWell(onTap: () => _showQuickEditRecord(r, loc), child: const Icon(Icons.edit_note_rounded, color: AppColors.primary, size: 24)))]])),
+          Expanded(flex: 3, child: Row(children: [
+            _statusBadge(r['state'], loc),
+            const SizedBox(width: 8),
+            Tooltip(message: "Détails", child: InkWell(onTap: () => _viewRecordDetails(r, loc), child: const Icon(Icons.visibility_outlined, color: AppColors.primary, size: 22))),
+            if (r['state'] == 'confirmed') ...[
+              const SizedBox(width: 8),
+              Tooltip(message: "Facturer", child: InkWell(onTap: () => _showActSelectionDialog(loc), child: const Icon(Icons.receipt_long_outlined, color: AppColors.primary, size: 22))),
+            ],
+            if (r['state'] == 'waiting') ...[
+              const SizedBox(width: 8),
+              Tooltip(message: "Valider", child: InkWell(onTap: () => _showQuickEditRecord(r, loc), child: const Icon(Icons.edit_note_rounded, color: AppColors.primary, size: 24))),
+            ]
+          ])),
         ]),
       );
     },
