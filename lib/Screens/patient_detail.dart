@@ -6,6 +6,8 @@ import 'package:medical_app/app_localizations.dart';
 import 'package:medical_app/Widgets/sidebar.dart';
 import 'package:medical_app/language_provider.dart';
 import 'package:medical_app/theme.dart';
+import 'package:intl/intl.dart' as intl;
+import 'package:shared_preferences/shared_preferences.dart';
 
 enum PatientTab { consultations, vaccination, actes, ordonnances, bilanBio, bilanRx, certificats, compteRendu, comptabilite, factures }
 
@@ -243,6 +245,77 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     );
   }
 
+  void _showScheduleAppointmentDialog(AppLocalizations loc) {
+    DateTime selectedDate = DateTime.now().add(const Duration(days: 1));
+    TimeOfDay selectedTime = const TimeOfDay(hour: 9, minute: 0);
+    final motifCtrl = TextEditingController(text: "Consultation");
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(children: [const Icon(Icons.calendar_month_rounded, color: AppColors.primary), const SizedBox(width: 10), Text("Planifier un Rendez-vous", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 18))]),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _editField("Motif du rendez-vous", motifCtrl, Icons.notes_rounded),
+              const SizedBox(height: 20),
+              InkWell(
+                onTap: () async {
+                  final date = await showDatePicker(context: context, initialDate: selectedDate, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)));
+                  if (date != null) setDialogState(() => selectedDate = date);
+                },
+                child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.inputFill, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)), child: Row(children: [const Icon(Icons.event, size: 18, color: AppColors.primary), const SizedBox(width: 12), Text(intl.DateFormat('dd/MM/yyyy').format(selectedDate), style: GoogleFonts.dmSans())])),
+              ),
+              const SizedBox(height: 12),
+              InkWell(
+                onTap: () async {
+                  final time = await showTimePicker(context: context, initialTime: selectedTime);
+                  if (time != null) setDialogState(() => selectedTime = time);
+                },
+                child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.inputFill, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)), child: Row(children: [const Icon(Icons.access_time_rounded, size: 18, color: AppColors.primary), const SizedBox(width: 12), Text(selectedTime.format(context), style: GoogleFonts.dmSans())])),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
+            ElevatedButton(
+              onPressed: () async {
+                final scheduledDateTime = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, selectedTime.hour, selectedTime.minute);
+                final prefs = await SharedPreferences.getInstance();
+                final doctorId = prefs.getInt('uid') ?? 0;
+                
+                showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
+                final res = await OdooApi.addMedicalRecord(
+                  patientId: currentPatient['id'],
+                  doctorId: doctorId,
+                  datetime: scheduledDateTime.toString().substring(0, 19),
+                  consultationReason: motifCtrl.text.trim(),
+                  diagnostic: '',
+                  prescription: '',
+                  observations: '',
+                  status: 'waiting',
+                  medicalFileNumber: _s(currentPatient['medical_file_number']),
+                );
+                
+                if (mounted) Navigator.pop(context); // Close loader
+                if (mounted) Navigator.pop(context); // Close dialog
+                
+                if (res['success']) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Rendez-vous planifié avec succès")));
+                  _loadData();
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+              child: const Text("Planifier"),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showQuickEditRecord(Map record, AppLocalizations loc) {
     String initialDossier = _s(record['medical_file_number']);
     if (initialDossier.isEmpty) initialDossier = _s(currentPatient['medical_file_number']);
@@ -294,7 +367,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
         children: [
           Padding(padding: const EdgeInsets.all(16.0), child: Text(loc.t('quickActions'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 18))),
           ListTile(leading: const Icon(Icons.receipt_long, color: AppColors.primary), title: Text(loc.t('newInvoice')), onTap: () { Navigator.pop(context); setState(() => _activeTab = PatientTab.actes); }),
-          ListTile(leading: const Icon(Icons.calendar_today, color: AppColors.green), title: const Text('Planifier un rendez-vous'), onTap: () { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bientôt disponible'))); }),
+          ListTile(leading: const Icon(Icons.calendar_today, color: AppColors.green), title: const Text('Planifier un rendez-vous'), onTap: () { Navigator.pop(context); _showScheduleAppointmentDialog(loc); }),
           const SizedBox(height: 20),
         ],
       ),
@@ -341,7 +414,13 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   );
 
   Widget _mainContent(AppLocalizations loc) => Column(children: [
-    Row(children: [_actionBtn('+ ${loc.t('newConsultation')}', AppColors.primary, () => Navigator.pushNamed(context, '/add_record', arguments: currentPatient)), const SizedBox(width: 10), _actionBtn('⚡ ${loc.t('quickActions')}', AppColors.primaryLight, () => _showQuickActions(loc), isSecondary: true)]),
+    Row(children: [
+      _actionBtn('+ ${loc.t('newConsultation')}', AppColors.primary, () => Navigator.pushNamed(context, '/add_record', arguments: currentPatient)), 
+      const SizedBox(width: 10), 
+      _actionBtn('📅 Planifier RDV', AppColors.green, () => _showScheduleAppointmentDialog(loc)),
+      const SizedBox(width: 10), 
+      _actionBtn('⚡ ${loc.t('quickActions')}', AppColors.primaryLight, () => _showQuickActions(loc), isSecondary: true)
+    ]),
     const SizedBox(height: 16),
     _tabBar(loc),
     const SizedBox(height: 16),

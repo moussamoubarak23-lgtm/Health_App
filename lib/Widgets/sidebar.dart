@@ -42,6 +42,7 @@ class _SidebarState extends State<Sidebar> {
 
     final navItems = [
       _NavItem(Icons.grid_view_rounded,      l10n.t('navDashboard'), '/dashboard', AppColors.primary,  AppColors.primaryLight),
+      _NavItem(Icons.calendar_month_rounded, "Calendrier",           '/calendar',  AppColors.primaryMid, AppColors.primaryLight),
       _NavItem(Icons.people_alt_rounded,     l10n.t('navPatients'),  '/patients',  AppColors.purple,   AppColors.purpleLight),
       _NavItem(Icons.add_circle_rounded,     l10n.t('navAddRecord'), '/add_record',AppColors.green,    AppColors.greenLight),
       _NavItem(Icons.folder_special_rounded, l10n.t('navRecords'),   '/records',   AppColors.yellow,   AppColors.yellowLight),

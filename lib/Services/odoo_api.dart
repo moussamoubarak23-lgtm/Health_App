@@ -71,18 +71,14 @@ class OdooApi {
     }
   }
 
-  // ─── LOGIN (Login, Email ou Téléphone) ───────────────────────────────────────
+  // ─── LOGIN ──────────────────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> login(String identifier, String password) async {
-    // 1. Tentative direct (Login exact)
     var data = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': identifier, 'password': password});
 
-    // 2. Recherche multicritère si échec (via Admin)
     if (data == null || data['result'] == null) {
       final adminAuth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': _adminLogin, 'password': _adminPassword});
       if (adminAuth != null && adminAuth['result'] != null) {
         final adminCookie = adminAuth['set-cookie'];
-        
-        // On cherche l'utilisateur par Login, Email, Téléphone ou Mobile
         final searchResult = await _callRpc('/web/dataset/call_kw', {
           'model': 'res.users', 'method': 'search_read',
           'args': [['|', '|', '|', ['login', '=', identifier], ['email', '=', identifier], ['phone', 'ilike', identifier], ['mobile', 'ilike', identifier]]],
@@ -91,7 +87,6 @@ class OdooApi {
 
         if (searchResult != null && searchResult['result'] != null && (searchResult['result'] as List).isNotEmpty) {
           final actualLogin = searchResult['result'][0]['login'];
-          // Tentative finale avec le vrai login trouvé dans Odoo
           data = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': actualLogin, 'password': password});
         }
       }
@@ -104,7 +99,6 @@ class OdooApi {
       await prefs.setInt('uid', result['uid'] ?? 0);
       await prefs.setInt('partner_id', result['partner_id'] ?? 0);
       await prefs.setString('doctor_name', result['name'] ?? identifier);
-      // Odoo utilise 'username' dans la réponse authenticate
       await prefs.setString('doctor_login', result['username'] ?? identifier);
       return {'success': true, 'name': result['name']};
     }
@@ -269,6 +263,27 @@ class OdooApi {
     }
   }
 
+  // ─── SALLE D'ATTENTE (FIXÉE) ────────────────────────────────────────────────
+  static Future<List<dynamic>> getWaitingRoom() async {
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getInt('uid') ?? 0;
+    final cookie = await _getSessionCookie();
+    final now = DateTime.now();
+    final todayStr = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+    
+    final data = await _callRpc('/web/dataset/call_kw', {
+      'model': 'medical.consultation', 
+      'method': 'search_read', 
+      'args': [[
+        ['state', 'in', ['draft', 'waiting']], 
+        ['doctor_id', '=', uid],
+        ['date_consultation', '<=', '$todayStr 23:59:59'] 
+      ]], 
+      'kwargs': {'fields': ['id', 'patient_id', 'date_consultation', 'motif', 'state', 'medical_file_number'], 'order': 'date_consultation asc'}
+    }, cookie: cookie);
+    return data?['result'] ?? [];
+  }
+
   // ─── PATIENTS ───────────────────────────────────────────────────────────────
   static Future<List<dynamic>> getPatients() async {
     final prefs = await SharedPreferences.getInstance();
@@ -330,7 +345,6 @@ class OdooApi {
     return data?['result'] == true ? {'success': true} : {'success': false};
   }
 
-  // ─── MÉTHODES DE GESTION ────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> addMedicalRecord({required int patientId, required int doctorId, required String datetime, required String consultationReason, required String diagnostic, required String prescription, required String observations, String status = 'draft', String medicalFileNumber = ''}) async {
     final cookie = await _getSessionCookie();
     final data = await _callRpc('/web/dataset/call_kw', {'model': 'medical.consultation', 'method': 'create', 'args': [{
@@ -355,33 +369,10 @@ class OdooApi {
     return {'patients': results[0].length, 'records': results[1].length};
   }
 
-  static Future<List<dynamic>> getWaitingRoom() async {
-    final prefs = await SharedPreferences.getInstance();
-    final uid = prefs.getInt('uid') ?? 0;
-    final cookie = await _getSessionCookie();
-    final data = await _callRpc('/web/dataset/call_kw', {'model': 'medical.consultation', 'method': 'search_read', 'args': [[['state', 'in', ['draft', 'waiting']], ['doctor_id', '=', uid]]], 'kwargs': {'fields': ['id', 'patient_id', 'date_consultation', 'motif', 'state', 'medical_file_number'], 'order': 'date_consultation asc'}}, cookie: cookie);
-    return data?['result'] ?? [];
-  }
-
   static Future<List<dynamic>> getBpMeasurements({int? patientId}) async {
     final cookie = await _getSessionCookie();
     final data = await _callRpc('/web/dataset/call_kw', {'model': 'bp.measurement', 'method': 'search_read', 'args': [patientId != null ? [['patient_id', '=', patientId]] : []], 'kwargs': {'fields': ['id', 'patient_id', 'date_mesure', 'systolique', 'diastolique', 'pouls', 'appareil'], 'limit': 50}}, cookie: cookie);
     return data?['result'] ?? [];
-  }
-
-  static Future<List<dynamic>> searchRead({required String model, List domain = const [], required List<String> fields, int limit = 100}) async {
-    final cookie = await _getSessionCookie();
-    final data = await _callRpc('/web/dataset/call_kw', {'model': model, 'method': 'search_read', 'args': [domain], 'kwargs': {'fields': fields, 'limit': limit}}, cookie: cookie);
-    return data?['result'] ?? [];
-  }
-
-  static Future<Map<String, dynamic>> addToWaitingRoom({required int patientId, String motif = 'Consultation'}) async {
-    final prefs = await SharedPreferences.getInstance();
-    final uid = prefs.getInt('uid') ?? 0;
-    final cookie = await _getSessionCookie();
-    final now = DateTime.now().toString().substring(0, 19);
-    final data = await _callRpc('/web/dataset/call_kw', {'model': 'medical.consultation', 'method': 'create', 'args': [{'patient_id': patientId, 'doctor_id': uid, 'date_consultation': now, 'motif': motif, 'state': 'waiting'}], 'kwargs': {}}, cookie: cookie);
-    return data != null && data['result'] != null ? {'success': true} : {'success': false};
   }
 
   static Future<Map<String, dynamic>> testConnection() async {
@@ -395,5 +386,57 @@ class OdooApi {
     if (auth == null || auth['result'] == null) return {'success': false, 'error': 'Admin auth failed'};
     final createData = await _callRpc('/web/dataset/call_kw', {'model': 'res.users', 'method': 'create', 'args': [{'name': name, 'login': login, 'password': password, 'phone': phone, 'mobile': phone, 'groups_id': [[4, 1], [4, 2]]}], 'kwargs': {}}, cookie: auth['set-cookie']);
     return createData != null && createData['result'] != null ? {'success': true} : {'success': false};
+  }
+
+  static Future<Map<String, dynamic>> addToWaitingRoom({required int patientId, String motif = 'Consultation'}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getInt('uid') ?? 0;
+    final cookie = await _getSessionCookie();
+    final now = DateTime.now().toString().substring(0, 19);
+    final data = await _callRpc('/web/dataset/call_kw', {'model': 'medical.consultation', 'method': 'create', 'args': [{'patient_id': patientId, 'doctor_id': uid, 'date_consultation': now, 'motif': motif, 'state': 'waiting'}], 'kwargs': {}}, cookie: cookie);
+    return data != null && data['result'] != null ? {'success': true} : {'success': false};
+  }
+
+  static Future<Map<String, dynamic>> createCalendarAppointment({
+    required int patientId,
+    required String name,
+    required String dateStart,
+    required int durationMinutes,
+    String description = '',
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getInt('uid') ?? 0;
+    final partnerId = prefs.getInt('partner_id') ?? 0;
+    final cookie = await _getSessionCookie();
+
+    final dateEnd = DateTime.parse(dateStart).add(Duration(minutes: durationMinutes)).toString().substring(0, 19);
+
+    final data = await _callRpc('/web/dataset/call_kw', {
+      'model': 'calendar.event',
+      'method': 'create',
+      'args': [{
+        'name': 'RDV: $name',
+        'start': dateStart,
+        'stop': dateEnd,
+        'duration': durationMinutes / 60.0,
+        'description': description,
+        'partner_ids': [[6, 0, [partnerId, patientId]]],
+        'user_id': uid,
+      }],
+      'kwargs': {},
+    }, cookie: cookie);
+
+    if (data != null && data['result'] != null) {
+      await addMedicalRecord(
+        patientId: patientId,
+        doctorId: uid,
+        datetime: dateStart,
+        consultationReason: description.isEmpty ? "Consultation" : description,
+        diagnostic: '', prescription: '', observations: '',
+        status: 'waiting',
+      );
+      return {'success': true, 'id': data['result']};
+    }
+    return {'success': false};
   }
 }
