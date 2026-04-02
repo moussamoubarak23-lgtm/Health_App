@@ -84,6 +84,35 @@ class _PatientsScreenState extends State<PatientsScreen> {
     return value.toString();
   }
 
+  void _confirmDelete(Map p) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Supprimer le patient ?", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, color: AppColors.red)),
+        content: Text("Cette action supprimera définitivement le patient ${p['name']}, ainsi que tous ses dossiers médicaux, ses rendez-vous et ses factures dans Odoo. Cette action est irréversible."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              setState(() => loading = true);
+              final res = await OdooApi.deletePatient(p['id']);
+              if (res['success']) {
+                _snack("Patient et toutes ses données supprimés");
+                _load();
+              } else {
+                setState(() => loading = false);
+                _snack("Erreur lors de la suppression", isError: true);
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.red, foregroundColor: Colors.white),
+            child: const Text("Supprimer tout"),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showAddDialog(AppLocalizations l10n, bool isRtl) {
     final dossierCtrl = TextEditingController();
     final cinCtrl = TextEditingController();
@@ -462,6 +491,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
       Expanded(flex: 2, child: Text(_display(p['phone']))),
       Expanded(flex: 2, child: Row(children: [
         IconButton(icon: const Icon(Icons.edit_outlined, size: 20), onPressed: () => _showEditDialog(p, l10n, isRtl)),
+        IconButton(icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.red), onPressed: () => _confirmDelete(p)),
         IconButton(icon: const Icon(Icons.visibility, size: 20, color: AppColors.primary), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PatientDetailScreen(patient: p)))),
       ])),
     ]),

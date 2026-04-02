@@ -148,6 +148,13 @@ class OdooApi {
     return data != null && data['result'] != null ? {'success': true} : {'success': false};
   }
 
+  static Future<Map<String, dynamic>> deleteMedicalAct(int actId) async {
+    final adminAuth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': _adminLogin, 'password': _adminPassword});
+    final adminCookie = adminAuth?['set-cookie'];
+    await _callRpc('/web/dataset/call_kw', {'model': 'product.product', 'method': 'unlink', 'args': [[actId]], 'kwargs': {}}, cookie: adminCookie);
+    return {'success': true};
+  }
+
   // ─── FACTURATION ───────────────────────────────────────────────────────────
   static Future<List<dynamic>> getInvoices({int? patientId}) async {
     final prefs = await SharedPreferences.getInstance();
@@ -256,7 +263,7 @@ class OdooApi {
     }
   }
 
-  // ─── SALLE D'ATTENTE (FIXÉE) ────────────────────────────────────────────────
+  // ─── SALLE D'ATTENTE ────────────────────────────────────────────────────────
   static Future<List<dynamic>> getWaitingRoom() async {
     final prefs = await SharedPreferences.getInstance();
     final uid = prefs.getInt('uid') ?? 0;
@@ -337,6 +344,56 @@ class OdooApi {
     return data?['result'] == true ? {'success': true} : {'success': false};
   }
 
+  static Future<Map<String, dynamic>> deletePatient(int patientId) async {
+    try {
+      final auth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': _adminLogin, 'password': _adminPassword});
+      if (auth == null || auth['result'] == null) return {'success': false, 'error': 'Auth admin failed'};
+      final cookie = auth['set-cookie'];
+
+      // 1. Dossiers médicaux
+      final recs = await _callRpc('/web/dataset/call_kw', {
+        'model': 'medical.consultation', 'method': 'search', 'args': [[['patient_id', '=', patientId]]], 'kwargs': {},
+      }, cookie: cookie);
+      if (recs != null && recs['result'] is List && (recs['result'] as List).isNotEmpty) {
+        await _callRpc('/web/dataset/call_kw', {'model': 'medical.consultation', 'method': 'unlink', 'args': [recs['result']], 'kwargs': {}}, cookie: cookie);
+      }
+
+      // 2. Calendrier
+      final evts = await _callRpc('/web/dataset/call_kw', {
+        'model': 'calendar.event', 'method': 'search', 'args': [[['partner_ids', 'in', [patientId]]]], 'kwargs': {},
+      }, cookie: cookie);
+      if (evts != null && evts['result'] is List && (evts['result'] as List).isNotEmpty) {
+        await _callRpc('/web/dataset/call_kw', {'model': 'calendar.event', 'method': 'unlink', 'args': [evts['result']], 'kwargs': {}}, cookie: cookie);
+      }
+
+      // 3. Factures (Moves)
+      final invs = await _callRpc('/web/dataset/call_kw', {
+        'model': 'account.move', 'method': 'search', 'args': [[['partner_id', '=', patientId]]], 'kwargs': {},
+      }, cookie: cookie);
+      if (invs != null && invs['result'] is List && (invs['result'] as List).isNotEmpty) {
+        for (var id in invs['result']) {
+          await _callRpc('/web/dataset/call_kw', {'model': 'account.move', 'method': 'button_draft', 'args': [[id]], 'kwargs': {}}, cookie: cookie);
+          await _callRpc('/web/dataset/call_kw', {'model': 'account.move', 'method': 'unlink', 'args': [[id]], 'kwargs': {}}, cookie: cookie);
+        }
+      }
+
+      // 4. Le Patient
+      final res = await _callRpc('/web/dataset/call_kw', {'model': 'res.partner', 'method': 'unlink', 'args': [[patientId]], 'kwargs': {}}, cookie: cookie);
+      
+      if (res != null && res['result'] == true) return {'success': true};
+      
+      // Si unlink échoue (contraintes d'intégrité Odoo), on l'archive
+      await _callRpc('/web/dataset/call_kw', {
+        'model': 'res.partner', 'method': 'write', 'args': [[patientId], {'active': false}], 'kwargs': {},
+      }, cookie: cookie);
+      
+      return {'success': true}; 
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // ─── GESTION GÉNÉRALE ───────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> addMedicalRecord({required int patientId, required int doctorId, required String datetime, required String consultationReason, required String diagnostic, required String prescription, required String observations, String status = 'draft', String medicalFileNumber = ''}) async {
     final cookie = await _getSessionCookie();
     final data = await _callRpc('/web/dataset/call_kw', {'model': 'medical.consultation', 'method': 'create', 'args': [{
