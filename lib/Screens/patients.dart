@@ -7,6 +7,8 @@ import 'package:medical_app/app_localizations.dart';
 import 'package:medical_app/language_provider.dart';
 import 'package:medical_app/theme.dart';
 import 'package:medical_app/Screens/patient_detail.dart';
+import 'package:intl/intl.dart' as intl;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PatientsScreen extends StatefulWidget {
   const PatientsScreen({super.key});
@@ -96,7 +98,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => Directionality(
+        builder: (context, setDialogState) => Directionality(
           textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
           child: Dialog(
             backgroundColor: AppColors.surface,
@@ -132,10 +134,10 @@ class _PatientsScreenState extends State<PatientsScreen> {
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text("Sexe (*)", style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
                         Row(children: [
-                          Radio<String>(value: 'H', groupValue: sexe, onChanged: (v) => setState(() => sexe = v!), activeColor: AppColors.primary),
+                          Radio<String>(value: 'H', groupValue: sexe, onChanged: (v) => setDialogState(() => sexe = v!), activeColor: AppColors.primary),
                           const Text("Homme"),
                           const SizedBox(width: 10),
-                          Radio<String>(value: 'F', groupValue: sexe, onChanged: (v) => setState(() => sexe = v!), activeColor: AppColors.primary),
+                          Radio<String>(value: 'F', groupValue: sexe, onChanged: (v) => setDialogState(() => sexe = v!), activeColor: AppColors.primary),
                           const Text("Femme"),
                         ]),
                       ]),
@@ -145,7 +147,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
                   Row(children: [
                     Expanded(child: _field("Téléphone", phoneCtrl, Icons.phone_rounded, inputType: TextInputType.phone)),
                     const SizedBox(width: 16),
-                    Expanded(child: _dropdown("Couverture sociale (*)", couverture, ["Sans", "AMO", "RAMED", "CNOPS", "Privé"], (v) => setState(() => couverture = v!))),
+                    Expanded(child: _dropdown("Couverture sociale (*)", couverture, ["Sans", "AMO", "RAMED", "CNOPS", "Privé"], (v) => setDialogState(() => couverture = v!))),
                   ]),
                   const SizedBox(height: 32),
                   Row(children: [
@@ -164,14 +166,18 @@ class _PatientsScreenState extends State<PatientsScreen> {
                           patientCode: cinCtrl.text.trim(),
                           phone: phoneCtrl.text.trim(),
                           insuranceId: couverture,
-                          height: double.tryParse(heightCtrl.text.trim()) ?? 0.0,
+                          height: 0.0,
                           age: int.tryParse(ageCtrl.text.trim()) ?? 0,
                           comment: "Sexe: $sexe",
                         );
                         if (mounted) {
                           Navigator.pop(context);
-                          _snack(result['success'] ? "Patient créé" : "Erreur création", isError: !result['success']);
-                          if (result['success']) _load();
+                          if (result['success']) {
+                            _load();
+                            _showPostCreateOptions(fullName, result['id'], dossierCtrl.text.trim(), l10n);
+                          } else {
+                            _snack("Erreur lors de la création", isError: true);
+                          }
                         }
                       },
                       style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
@@ -182,6 +188,116 @@ class _PatientsScreenState extends State<PatientsScreen> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  void _showPostCreateOptions(String name, int id, String dossier, AppLocalizations l10n) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text("Patient créé avec succès", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
+        content: Text("Souhaitez-vous enregistrer une consultation dès maintenant ou planifier un rendez-vous pour plus tard ?"),
+        actions: [
+          OutlinedButton(
+            onPressed: () async {
+              final prefs = await SharedPreferences.getInstance();
+              final doctorId = prefs.getInt('uid') ?? 0;
+              final now = DateTime.now().toString().substring(0, 19);
+              
+              await OdooApi.addMedicalRecord(
+                patientId: id,
+                doctorId: doctorId,
+                datetime: now,
+                consultationReason: "Consultation",
+                diagnostic: '', prescription: '', observations: '',
+                status: 'waiting',
+                medicalFileNumber: dossier,
+              );
+              if (mounted) {
+                Navigator.pop(context);
+                _snack("Consultation ajoutée pour aujourd'hui");
+              }
+            },
+            style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+            child: const Text("Ajouter une consultation"),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              _showScheduleFromPatient(id, name, dossier, l10n);
+            },
+            icon: const Icon(Icons.calendar_month),
+            label: const Text("Planifier RDV"),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.green, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showScheduleFromPatient(int id, String name, String dossier, AppLocalizations loc) {
+    DateTime selectedDate = DateTime.now();
+    TimeOfDay selectedTime = const TimeOfDay(hour: 9, minute: 0);
+    final motifCtrl = TextEditingController(text: "Consultation");
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text("Planifier pour $name"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _field("Motif", motifCtrl, Icons.notes),
+              const SizedBox(height: 16),
+              InkWell(
+                onTap: () async {
+                  final date = await showDatePicker(context: context, initialDate: selectedDate, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)));
+                  if (date != null) setDialogState(() => selectedDate = date);
+                },
+                child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.inputFill, borderRadius: BorderRadius.circular(12)), child: Row(children: [const Icon(Icons.event, color: AppColors.primary), const SizedBox(width: 12), Text(intl.DateFormat('dd/MM/yyyy').format(selectedDate))])),
+              ),
+              const SizedBox(height: 12),
+              InkWell(
+                onTap: () async {
+                  final time = await showTimePicker(context: context, initialTime: selectedTime);
+                  if (time != null) setDialogState(() => selectedTime = time);
+                },
+                child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.inputFill, borderRadius: BorderRadius.circular(12)), child: Row(children: [const Icon(Icons.access_time, color: AppColors.primary), const SizedBox(width: 12), Text(selectedTime.format(context))])),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
+            ElevatedButton(
+              onPressed: () async {
+                final scheduledDateTime = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, selectedTime.hour, selectedTime.minute);
+                final prefs = await SharedPreferences.getInstance();
+                final doctorId = prefs.getInt('uid') ?? 0;
+                
+                final res = await OdooApi.addMedicalRecord(
+                  patientId: id,
+                  doctorId: doctorId,
+                  datetime: scheduledDateTime.toString().substring(0, 19),
+                  consultationReason: motifCtrl.text.trim(),
+                  diagnostic: '', prescription: '', observations: '',
+                  status: 'waiting',
+                  medicalFileNumber: dossier,
+                );
+                
+                if (mounted) Navigator.pop(context);
+                if (res['success']) {
+                  _snack("Rendez-vous planifié");
+                }
+              },
+              child: const Text("Confirmer"),
+            )
+          ],
         ),
       ),
     );

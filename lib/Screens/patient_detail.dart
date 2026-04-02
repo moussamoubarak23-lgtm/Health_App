@@ -8,6 +8,7 @@ import 'package:medical_app/language_provider.dart';
 import 'package:medical_app/theme.dart';
 import 'package:intl/intl.dart' as intl;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 enum PatientTab { consultations, vaccination, actes, ordonnances, bilanBio, bilanRx, certificats, compteRendu, comptabilite, factures }
 
@@ -245,6 +246,38 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     );
   }
 
+  void _showQRCodeDialog() {
+    final qrData = "PATIENT_ID:${currentPatient['id']}";
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Column(
+          children: [
+            Text("Carte d'Identification", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+            Text(_s(currentPatient['name']), style: GoogleFonts.dmSans(fontSize: 14, color: AppColors.textMuted)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
+              child: QrImageView(data: qrData, version: QrVersions.auto, size: 200.0),
+            ),
+            const SizedBox(height: 16),
+            Text("Ce code QR permet d'identifier rapidement le patient lors de ses prochaines visites.", textAlign: TextAlign.center, style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textSecond)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Fermer")),
+          ElevatedButton.icon(onPressed: () {}, icon: const Icon(Icons.print_rounded), label: const Text("Imprimer"), style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white)),
+        ],
+      ),
+    );
+  }
+
   void _showScheduleAppointmentDialog(AppLocalizations loc) {
     DateTime selectedDate = DateTime.now().add(const Duration(days: 1));
     TimeOfDay selectedTime = const TimeOfDay(hour: 9, minute: 0);
@@ -303,7 +336,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                 if (mounted) Navigator.pop(context); // Close dialog
                 
                 if (res['success']) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Rendez-vous planifié avec succès")));
+                  _showQRCodeDialog();
                   _loadData();
                 }
               },
@@ -410,7 +443,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   Widget _topBar(Map p, AppLocalizations loc) => Container(
     padding: const EdgeInsets.all(12),
     decoration: const BoxDecoration(color: AppColors.surface, border: Border(bottom: BorderSide(color: AppColors.border))),
-    child: Row(children: [IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)), Text('${loc.t('navPatients')} / ${_s(p['name'])}', style: GoogleFonts.dmSans(fontWeight: FontWeight.w600)), const Spacer(), IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData)]),
+    child: Row(children: [IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)), Text('${loc.t('navPatients')} / ${_s(p['name'])}', style: GoogleFonts.dmSans(fontWeight: FontWeight.w600)), const Spacer(), IconButton(icon: const Icon(Icons.qr_code_2_rounded, color: AppColors.primary), onPressed: _showQRCodeDialog), const SizedBox(width: 8), IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData)]),
   );
 
   Widget _mainContent(AppLocalizations loc) => Column(children: [

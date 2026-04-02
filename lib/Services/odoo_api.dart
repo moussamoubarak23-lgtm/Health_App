@@ -148,13 +148,6 @@ class OdooApi {
     return data != null && data['result'] != null ? {'success': true} : {'success': false};
   }
 
-  static Future<Map<String, dynamic>> deleteMedicalAct(int actId) async {
-    final adminAuth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': _adminLogin, 'password': _adminPassword});
-    final adminCookie = adminAuth?['set-cookie'];
-    await _callRpc('/web/dataset/call_kw', {'model': 'product.product', 'method': 'unlink', 'args': [[actId]], 'kwargs': {}}, cookie: adminCookie);
-    return {'success': true};
-  }
-
   // ─── FACTURATION ───────────────────────────────────────────────────────────
   static Future<List<dynamic>> getInvoices({int? patientId}) async {
     final prefs = await SharedPreferences.getInstance();
@@ -321,7 +314,6 @@ class OdooApi {
     }, cookie: cookie);
     
     if (data != null && data['result'] != null) {
-      await addToWaitingRoom(patientId: data['result']);
       return {'success': true, 'id': data['result']};
     }
     return {'success': false};
