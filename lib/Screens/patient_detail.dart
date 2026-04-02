@@ -163,16 +163,31 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
 
   Widget _detailItem(String label, String value) => Padding(padding: const EdgeInsets.symmetric(vertical: 8.0), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.textMuted)), const SizedBox(height: 4), Text(value.isEmpty ? "—" : value, style: GoogleFonts.dmSans(fontSize: 14, color: AppColors.textPrimary))]));
 
-  Future<void> _createInvoiceFromActs() async {
+  Future<void> _createInvoiceFromActs(Map record) async {
     if (selectedActs.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez sélectionner au moins un acte'))); return; }
     showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
     final lines = selectedActs.map((act) => {'product_id': act['id'], 'name': act['name'], 'price': act['list_price']}).toList();
     final result = await OdooApi.createInvoice(patientId: currentPatient['id'], lines: lines);
+    
+    if (result['success']) {
+      final selectedActNames = selectedActs.map((act) => act['name']).join(', ');
+      await OdooApi.updateMedicalRecord(
+        recordId: record['id'],
+        motif: selectedActNames,
+        diagnostic: _s(record['diagnostic']),
+        prescription: _s(record['prescription']),
+        observations: _s(record['observations']),
+        state: 'invoiced',
+        medicalFileNumber: _s(record['medical_file_number']),
+      );
+      setState(() => selectedActs = []);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).t('invoiceCreated'))));
+      _loadData();
+    }
     if (mounted) Navigator.pop(context);
-    if (result['success']) { setState(() => selectedActs = []); if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).t('invoiceCreated')))); _loadData(); }
   }
 
-  void _showActSelectionDialog(AppLocalizations loc) {
+  void _showActSelectionDialog(Map record, AppLocalizations loc) {
     setState(() => selectedActs = []);
     showDialog(
       context: context,
@@ -217,7 +232,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
-                _createInvoiceFromActs();
+                _createInvoiceFromActs(record);
               },
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
               child: Text(loc.t('createInvoice')),
@@ -354,7 +369,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   }
 
   Widget _actesTabView(AppLocalizations loc) {
-    return Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text("Sélection des actes médicaux", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 16)), if (selectedActs.isNotEmpty) _actionBtn(loc.t('createInvoice'), AppColors.primary, _createInvoiceFromActs)]), const Divider(), Expanded(child: ListView.builder(itemCount: availableActs.length, itemBuilder: (context, index) { final act = availableActs[index]; final isSelected = selectedActs.contains(act); return CheckboxListTile(title: Text(act['name']), subtitle: Text("${act['list_price']} DH"), value: isSelected, onChanged: (val) { setState(() { if (val == true) selectedActs.add(act); else selectedActs.remove(act); }); }, activeColor: AppColors.primary); }))]));
+    return Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text("Sélection des actes médicaux", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 16)), if (selectedActs.isNotEmpty) _actionBtn(loc.t('createInvoice'), AppColors.primary, () => _createInvoiceFromActs({}))]), const Divider(), Expanded(child: ListView.builder(itemCount: availableActs.length, itemBuilder: (context, index) { final act = availableActs[index]; final isSelected = selectedActs.contains(act); return CheckboxListTile(title: Text(act['name']), subtitle: Text("${act['list_price']} DH"), value: isSelected, onChanged: (val) { setState(() { if (val == true) selectedActs.add(act); else selectedActs.remove(act); }); }, activeColor: AppColors.primary); }))]));
   }
 
   Widget _tableHeader(AppLocalizations loc) => Container(padding: const EdgeInsets.all(12), decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.textPrimary, width: 2))), child: Row(children: [Expanded(flex: 2, child: _th("N° DOSSIER CONS.")), Expanded(flex: 2, child: _th(loc.t('colDate').toUpperCase())), Expanded(flex: 4, child: _th(loc.t('reason').toUpperCase())), Expanded(flex: 3, child: _th(loc.t('colStatus').toUpperCase()))]));
@@ -379,7 +394,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
             Tooltip(message: "Détails", child: InkWell(onTap: () => _viewRecordDetails(r, loc), child: const Icon(Icons.visibility_outlined, color: AppColors.primary, size: 22))),
             if (r['state'] == 'confirmed') ...[
               const SizedBox(width: 8),
-              Tooltip(message: "Facturer", child: InkWell(onTap: () => _showActSelectionDialog(loc), child: const Icon(Icons.receipt_long_outlined, color: AppColors.primary, size: 22))),
+              Tooltip(message: "Facturer", child: InkWell(onTap: () => _showActSelectionDialog(r, loc), child: const Icon(Icons.receipt_long_outlined, color: AppColors.primary, size: 22))),
             ],
             if (r['state'] == 'waiting') ...[
               const SizedBox(width: 8),

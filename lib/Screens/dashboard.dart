@@ -59,7 +59,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
       waitingList = results[3] as List;
       draftCount = allRecords.where((r) => (r['state']?.toString() ?? 'draft') == 'draft').length;
       waitingCount = waitingList.length;
-      confirmedCount = allRecords.where((r) => (r['state']?.toString() ?? '') == 'confirmed').length;
+      confirmedCount = allRecords.where((r) => (r['state']?.toString() ?? '') == 'confirmed' || (r['state']?.toString() ?? '') == 'invoiced').length;
       todayCount = allRecords.where((r) => (r['date_consultation']?.toString() ?? '').startsWith(todayKey)).length;
       loading = false;
     });
