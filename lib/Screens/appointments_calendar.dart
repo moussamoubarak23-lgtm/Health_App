@@ -4,7 +4,9 @@ import 'package:intl/intl.dart';
 import 'package:medical_app/Services/odoo_api.dart';
 import 'package:medical_app/Widgets/sidebar.dart';
 import 'package:medical_app/theme.dart';
+import 'package:medical_app/app_localizations.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AppointmentsCalendarScreen extends StatefulWidget {
   const AppointmentsCalendarScreen({super.key});
@@ -18,19 +20,26 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   Map<DateTime, List<dynamic>> _events = {};
+  List<dynamic> _allPatients = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _selectedDay = _focusedDay;
-    _loadAppointments();
+    _loadData();
   }
 
-  Future<void> _loadAppointments() async {
+  Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    // On récupère toutes les consultations pour le calendrier
-    final records = await OdooApi.getMedicalRecords();
+    final results = await Future.wait([
+      OdooApi.getMedicalRecords(),
+      OdooApi.getPatients(),
+    ]);
+    
+    final records = results[0] as List;
+    _allPatients = results[1] as List;
+    
     final Map<DateTime, List<dynamic>> eventSource = {};
 
     for (var record in records) {
@@ -57,8 +66,94 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
     return _events[DateTime(day.year, day.month, day.day)] ?? [];
   }
 
+  void _showScheduleAppointmentDialog(AppLocalizations loc) {
+    DateTime selectedDate = _selectedDay ?? DateTime.now();
+    TimeOfDay selectedTime = const TimeOfDay(hour: 9, minute: 0);
+    final motifCtrl = TextEditingController(text: "Consultation");
+    Map? selectedPatient;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(children: [const Icon(Icons.calendar_month_rounded, color: AppColors.primary), const SizedBox(width: 10), Text("Planifier un Rendez-vous", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 18))]),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<Map>(
+                  decoration: InputDecoration(labelText: "Sélectionner un patient", prefixIcon: const Icon(Icons.person_outline), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                  value: selectedPatient,
+                  items: _allPatients.map((p) => DropdownMenuItem<Map>(value: p, child: Text(p['name'] ?? ''))).toList(),
+                  onChanged: (val) => setDialogState(() => selectedPatient = val),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: motifCtrl,
+                  decoration: InputDecoration(labelText: "Motif du rendez-vous", prefixIcon: const Icon(Icons.notes_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                ),
+                const SizedBox(height: 20),
+                InkWell(
+                  onTap: () async {
+                    final date = await showDatePicker(context: context, initialDate: selectedDate, firstDate: DateTime.now().subtract(const Duration(days: 30)), lastDate: DateTime.now().add(const Duration(days: 365)));
+                    if (date != null) setDialogState(() => selectedDate = date);
+                  },
+                  child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.inputFill, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)), child: Row(children: [const Icon(Icons.event, size: 18, color: AppColors.primary), const SizedBox(width: 12), Text(DateFormat('dd/MM/yyyy').format(selectedDate), style: GoogleFonts.dmSans())])),
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () async {
+                    final time = await showTimePicker(context: context, initialTime: selectedTime);
+                    if (time != null) setDialogState(() => selectedTime = time);
+                  },
+                  child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.inputFill, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)), child: Row(children: [const Icon(Icons.access_time_rounded, size: 18, color: AppColors.primary), const SizedBox(width: 12), Text(selectedTime.format(context), style: GoogleFonts.dmSans())])),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
+            ElevatedButton(
+              onPressed: selectedPatient == null ? null : () async {
+                final scheduledDateTime = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, selectedTime.hour, selectedTime.minute);
+                final prefs = await SharedPreferences.getInstance();
+                final doctorId = prefs.getInt('uid') ?? 0;
+                
+                showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
+                
+                final res = await OdooApi.addMedicalRecord(
+                  patientId: selectedPatient!['id'],
+                  doctorId: doctorId,
+                  datetime: scheduledDateTime.toString().substring(0, 19),
+                  consultationReason: motifCtrl.text.trim(),
+                  diagnostic: '',
+                  prescription: '',
+                  observations: '',
+                  status: 'waiting',
+                  medicalFileNumber: (selectedPatient!['medical_file_number'] ?? selectedPatient!['ref'] ?? '').toString(),
+                );
+                
+                if (mounted) Navigator.pop(context); // Close loader
+                if (mounted) Navigator.pop(context); // Close dialog
+                
+                if (res['success']) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Rendez-vous planifié avec succès")));
+                  _loadData();
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+              child: const Text("Planifier"),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Row(
@@ -72,7 +167,18 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("Calendrier des Rendez-vous", style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text("Calendrier des Rendez-vous", style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                          ElevatedButton.icon(
+                            onPressed: () => _showScheduleAppointmentDialog(loc),
+                            icon: const Icon(Icons.add_task_rounded),
+                            label: const Text("Planifier RDV"),
+                            style: ElevatedButton.styleFrom(backgroundColor: AppColors.green, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 24),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -98,7 +204,7 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
                                   setState(() => _calendarFormat = format);
                                 },
                                 eventLoader: _getEventsForDay,
-                                calendarStyle: CalendarStyle(
+                                calendarStyle: const CalendarStyle(
                                   todayDecoration: BoxDecoration(color: AppColors.primaryLight, shape: BoxShape.circle),
                                   todayTextStyle: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
                                   selectedDecoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
@@ -108,7 +214,7 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
                                   formatButtonVisible: true,
                                   titleCentered: true,
                                   formatButtonDecoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(12)),
-                                  formatButtonTextStyle: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+                                  formatButtonTextStyle: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
                                 ),
                               ),
                             ),
@@ -174,7 +280,7 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
               ],
             ),
           ),
-          Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
+          const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
         ],
       ),
     );
