@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OdooApi {
-  static String _baseUrl = 'http://192.168.11.101:8069';
+  static String _baseUrl = 'http://192.168.1.7:8069';
   static String get baseUrl => _baseUrl;
 
   static const String dbName = String.fromEnvironment(
@@ -19,7 +19,7 @@ class OdooApi {
   // ─── INITIALISATION ─────────────────────────────────────────────────────────
   static Future<void> initConfig() async {
     final prefs = await SharedPreferences.getInstance();
-    _baseUrl = prefs.getString('odoo_server_url') ?? 'http://192.168.11.101:8069';
+    _baseUrl = prefs.getString('odoo_server_url') ?? 'http://192.168.1.7:8069';
   }
 
   static Future<void> setServerUrl(String newUrl) async {
@@ -249,7 +249,7 @@ class OdooApi {
 
     final data = await _callRpc('/web/dataset/call_kw', {
       'model': 'medical.consultation', 'method': 'search_read', 'args': [domain],
-      'kwargs': {'fields': ['id', 'name', 'patient_id', 'doctor_id', 'date_consultation', 'motif', 'state', 'diagnostic', 'prescription', 'observations']},
+      'kwargs': {'fields': ['id', 'name', 'patient_id', 'doctor_id', 'date_consultation', 'motif', 'state', 'diagnostic', 'prescription', 'observations', 'medical_file_number']},
     }, cookie: cookie);
     return data?['result'] ?? [];
   }
@@ -333,13 +333,20 @@ class OdooApi {
   // ─── MÉTHODES DE GESTION ────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> addMedicalRecord({required int patientId, required int doctorId, required String datetime, required String consultationReason, required String diagnostic, required String prescription, required String observations, String status = 'draft', String medicalFileNumber = ''}) async {
     final cookie = await _getSessionCookie();
-    final data = await _callRpc('/web/dataset/call_kw', {'model': 'medical.consultation', 'method': 'create', 'args': [{'patient_id': patientId, 'doctor_id': doctorId, 'date_consultation': datetime, 'motif': consultationReason, 'diagnostic': diagnostic, 'prescription': prescription, 'observations': observations, 'state': status}], 'kwargs': {}}, cookie: cookie);
+    final data = await _callRpc('/web/dataset/call_kw', {'model': 'medical.consultation', 'method': 'create', 'args': [{
+      'patient_id': patientId, 'doctor_id': doctorId, 'date_consultation': datetime, 'motif': consultationReason, 
+      'diagnostic': diagnostic, 'prescription': prescription, 'observations': observations, 'state': status,
+      'medical_file_number': medicalFileNumber
+    }], 'kwargs': {}}, cookie: cookie);
     return data != null && data['result'] != null ? {'success': true, 'id': data['result']} : {'success': false};
   }
 
   static Future<Map<String, dynamic>> updateMedicalRecord({required int recordId, required String motif, required String diagnostic, required String prescription, required String observations, required String state, String medicalFileNumber = ''}) async {
     final cookie = await _getSessionCookie();
-    final data = await _callRpc('/web/dataset/call_kw', {'model': 'medical.consultation', 'method': 'write', 'args': [[recordId], {'motif': motif, 'diagnostic': diagnostic, 'prescription': prescription, 'observations': observations, 'state': state}], 'kwargs': {}}, cookie: cookie);
+    final data = await _callRpc('/web/dataset/call_kw', {'model': 'medical.consultation', 'method': 'write', 'args': [[recordId], {
+      'motif': motif, 'diagnostic': diagnostic, 'prescription': prescription, 'observations': observations, 'state': state,
+      'medical_file_number': medicalFileNumber
+    }], 'kwargs': {}}, cookie: cookie);
     return data?['result'] == true ? {'success': true} : {'success': false};
   }
 
@@ -352,7 +359,7 @@ class OdooApi {
     final prefs = await SharedPreferences.getInstance();
     final uid = prefs.getInt('uid') ?? 0;
     final cookie = await _getSessionCookie();
-    final data = await _callRpc('/web/dataset/call_kw', {'model': 'medical.consultation', 'method': 'search_read', 'args': [[['state', 'in', ['draft', 'waiting']], ['doctor_id', '=', uid]]], 'kwargs': {'fields': ['id', 'patient_id', 'date_consultation', 'motif', 'state'], 'order': 'date_consultation asc'}}, cookie: cookie);
+    final data = await _callRpc('/web/dataset/call_kw', {'model': 'medical.consultation', 'method': 'search_read', 'args': [[['state', 'in', ['draft', 'waiting']], ['doctor_id', '=', uid]]], 'kwargs': {'fields': ['id', 'patient_id', 'date_consultation', 'motif', 'state', 'medical_file_number'], 'order': 'date_consultation asc'}}, cookie: cookie);
     return data?['result'] ?? [];
   }
 

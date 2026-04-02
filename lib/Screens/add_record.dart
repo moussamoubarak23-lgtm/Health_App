@@ -176,7 +176,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                       _fieldLabel(l10n.t('patientRequired2'), isRtl),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<int>(
-                        value: selectedPatientId,
+                        initialValue: selectedPatientId,
                         dropdownColor: AppColors.surface,
                         style: isRtl ? GoogleFonts.cairo(color: AppColors.textPrimary, fontSize: 14) : GoogleFonts.dmSans(color: AppColors.textPrimary, fontSize: 14),
                         decoration: _inputDeco(l10n.t('selectPatient'), isRtl),
@@ -236,7 +236,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                       _fieldLabel(l10n.t('status'), isRtl),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
-                        value: selectedStatus,
+                        initialValue: selectedStatus,
                         dropdownColor: AppColors.surface,
                         style: isRtl ? GoogleFonts.cairo(color: AppColors.textPrimary, fontSize: 14) : GoogleFonts.dmSans(color: AppColors.textPrimary, fontSize: 14),
                         decoration: _inputDeco(l10n.t('consultStatus'), isRtl),

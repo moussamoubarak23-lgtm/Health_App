@@ -148,11 +148,14 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   ]);
 
   void _viewRecordDetails(Map record, AppLocalizations loc) {
+    String dossier = _s(record['medical_file_number']);
+    if (dossier.isEmpty) dossier = _s(currentPatient['medical_file_number']);
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Row(children: [const Icon(Icons.description_outlined, color: AppColors.primary), const SizedBox(width: 10), Text("Détails Consultation", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold))]),
-        content: SizedBox(width: 500, child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_detailItem("N° Dossier", _s(record['medical_file_number'])), _detailItem("Date", _s(record['date_consultation'])), _detailItem("Motif", _s(record['motif'])), const Divider(), _detailItem("Diagnostic", _s(record['diagnostic'])), _detailItem("Prescription", _s(record['prescription'])), _detailItem("Observations", _s(record['observations']))]))),
+        content: SizedBox(width: 500, child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_detailItem("N° Dossier", dossier), _detailItem("Date", _s(record['date_consultation'])), _detailItem("Motif", _s(record['motif'])), const Divider(), _detailItem("Diagnostic", _s(record['diagnostic'])), _detailItem("Prescription", _s(record['prescription'])), _detailItem("Observations", _s(record['observations']))]))),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("Fermer"))],
       ),
     );
@@ -170,7 +173,10 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   }
 
   void _showQuickEditRecord(Map record, AppLocalizations loc) {
-    final fileNumCtrl = TextEditingController(text: _s(record['medical_file_number']));
+    String initialDossier = _s(record['medical_file_number']);
+    if (initialDossier.isEmpty) initialDossier = _s(currentPatient['medical_file_number']);
+
+    final fileNumCtrl = TextEditingController(text: initialDossier);
     final diagCtrl = TextEditingController(text: _s(record['diagnostic']));
     final presCtrl = TextEditingController(text: _s(record['prescription']));
     final obsCtrl = TextEditingController(text: _s(record['observations']));
@@ -179,7 +185,30 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
       builder: (context) => AlertDialog(
         title: Text("Valider la Consultation", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
         content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [TextField(controller: fileNumCtrl, decoration: const InputDecoration(labelText: "N° Dossier Consultation")), TextField(controller: diagCtrl, decoration: InputDecoration(labelText: loc.t('diagnosticLabel'))), TextField(controller: presCtrl, decoration: InputDecoration(labelText: loc.t('prescription')), maxLines: 2), TextField(controller: obsCtrl, decoration: InputDecoration(labelText: loc.t('observations')), maxLines: 2)])),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))), ElevatedButton(onPressed: () async { final res = await OdooApi.updateMedicalRecord(recordId: record['id'], motif: _s(record['motif']), diagnostic: diagCtrl.text, prescription: presCtrl.text, observations: obsCtrl.text, state: 'confirmed', medicalFileNumber: fileNumCtrl.text.trim()); if (mounted) Navigator.pop(context); if (res['success']) _loadData(); }, style: ElevatedButton.styleFrom(backgroundColor: AppColors.green), child: const Text("Valider & Confirmer"))],
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))), ElevatedButton(onPressed: () async {
+          final newDossier = fileNumCtrl.text.trim();
+          final res = await OdooApi.updateMedicalRecord(recordId: record['id'], motif: _s(record['motif']), diagnostic: diagCtrl.text, prescription: presCtrl.text, observations: obsCtrl.text, state: 'confirmed', medicalFileNumber: newDossier);
+          
+          if (newDossier.isNotEmpty && newDossier != _s(currentPatient['medical_file_number'])) {
+            await OdooApi.updatePatient(
+              patientId: currentPatient['id'],
+              name: _s(currentPatient['name']),
+              phone: _s(currentPatient['phone']),
+              email: '',
+              insuranceId: _s(currentPatient['insurance_id']),
+              height: currentPatient['height'] is num ? (currentPatient['height'] as num).toDouble() : 0.0,
+              age: currentPatient['age'] is int ? currentPatient['age'] : 0,
+              patientCode: _s(currentPatient['patient_code']),
+              medicalFileNumber: newDossier,
+            );
+            setState(() {
+              currentPatient['medical_file_number'] = newDossier;
+            });
+          }
+
+          if (mounted) Navigator.pop(context);
+          if (res['success']) _loadData();
+        }, style: ElevatedButton.styleFrom(backgroundColor: AppColors.green), child: const Text("Valider & Confirmer"))],
       ),
     );
   }
@@ -278,7 +307,9 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     itemCount: records.length,
     itemBuilder: (_, i) {
       final r = records[i];
-      final dossier = _s(r['medical_file_number']);
+      String dossier = _s(r['medical_file_number']);
+      if (dossier.isEmpty) dossier = _s(currentPatient['medical_file_number']);
+
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.divider))),

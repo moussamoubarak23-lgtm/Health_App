@@ -144,7 +144,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                   Text(l10n.t('status'), style: _labelStyle(isRtl)),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
-                    value: selState,
+                    initialValue: selState,
                     dropdownColor: AppColors.surface,
                     style: isRtl
                         ? GoogleFonts.cairo(color: AppColors.textPrimary, fontSize: 14)
