@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:medical_app/Services/odoo_api.dart';
 import 'package:medical_app/Widgets/sidebar.dart';
 import 'package:medical_app/app_localizations.dart';
@@ -16,8 +17,8 @@ class _AccountScreenState extends State<AccountScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _loading = true;
   bool _saving = false;
-  bool _showPassword = false;
   bool _showNewPassword = false;
+  String _userRole = 'doctor';
 
   final TextEditingController _nameCtrl = TextEditingController();
   final TextEditingController _emailCtrl = TextEditingController();
@@ -33,6 +34,9 @@ class _AccountScreenState extends State<AccountScreen> {
   }
 
   Future<void> _fetchProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    _userRole = prefs.getString('user_role') ?? 'doctor';
+    
     final res = await OdooApi.getUserProfile();
     if (res['success']) {
       final data = res['data'];
@@ -58,7 +62,7 @@ class _AccountScreenState extends State<AccountScreen> {
       'mobile': _mobileCtrl.text.trim(),
     };
 
-    if (_newPassCtrl.text.isNotEmpty) {
+    if (_userRole == 'doctor' && _newPassCtrl.text.isNotEmpty) {
       vals['password'] = _newPassCtrl.text;
     }
 
@@ -109,7 +113,7 @@ class _AccountScreenState extends State<AccountScreen> {
                                     children: [
                                       _buildMainCard(),
                                       const SizedBox(height: 24),
-                                      _buildSecurityCard(),
+                                      if (_userRole == 'doctor') _buildSecurityCard(),
                                     ],
                                   ),
                                 ),
@@ -135,10 +139,10 @@ class _AccountScreenState extends State<AccountScreen> {
   Widget _buildHeader() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Mon Compte",
+          Text(_userRole == 'secretary' ? "Mon Espace Secrétaire" : "Mon Compte Médecin",
               style: GoogleFonts.plusJakartaSans(fontSize: 32, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
           const SizedBox(height: 8),
-          Text("Gérez vos informations et la sécurité de votre accès",
+          Text(_userRole == 'secretary' ? "Gérez vos informations personnelles" : "Gérez vos informations et la sécurité de votre accès",
               style: GoogleFonts.dmSans(fontSize: 16, color: AppColors.textMuted)),
         ],
       );
@@ -162,7 +166,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 children: [
                   Expanded(child: _buildField("Nom complet", _nameCtrl, Icons.person_rounded)),
                   const SizedBox(width: 20),
-                  Expanded(child: _buildReadOnlyField("Identifiant", _login, Icons.badge_rounded)),
+                  Expanded(child: _buildReadOnlyField("Identifiant / Login", _login, Icons.badge_rounded)),
                 ],
               ),
               const SizedBox(height: 24),
@@ -232,7 +236,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 CircleAvatar(
                   radius: 45,
                   backgroundColor: Colors.white.withOpacity(0.2),
-                  child: Text(_nameCtrl.text.isNotEmpty ? _nameCtrl.text[0].toUpperCase() : 'M',
+                  child: Text(_nameCtrl.text.isNotEmpty ? _nameCtrl.text[0].toUpperCase() : 'U',
                       style: const TextStyle(fontSize: 36, color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(height: 16),
@@ -243,7 +247,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 const Divider(color: Colors.white24),
                 const SizedBox(height: 16),
                 _actionTile(Icons.verified_user_rounded, "Compte vérifié"),
-                _actionTile(Icons.medical_services_rounded, "Accès Médecin"),
+                _actionTile(_userRole == 'secretary' ? Icons.badge_rounded : Icons.medical_services_rounded, _userRole == 'secretary' ? "Accès Secrétaire" : "Accès Médecin"),
               ],
             ),
           ),

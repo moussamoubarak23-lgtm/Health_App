@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:medical_app/Screens/login.dart';
 import 'package:medical_app/Screens/dashboard.dart';
+import 'package:medical_app/Screens/dashboard_secretaire.dart';
 import 'package:medical_app/Screens/patients.dart';
 import 'package:medical_app/Screens/secretaries.dart';
 import 'package:medical_app/Screens/records.dart';
@@ -66,16 +67,17 @@ class MedicalApp extends StatelessWidget {
 
             home: const SplashScreen(),
             routes: {
-              '/login':       (_) => const LoginScreen(),
-              '/dashboard':   (_) => const DashboardScreen(),
-              '/patients':    (_) => const PatientsScreen(),
-              '/secretaries': (_) => const SecretariesScreen(),
-              '/records':     (_) => const RecordsScreen(),
-              '/add_record':  (_) => const AddRecordScreen(),
-              '/invoices':    (_) => const InvoicesScreen(),
-              '/settings':    (_) => const SettingsScreen(),
-              '/calendar':    (_) => const AppointmentsCalendarScreen(),
-              '/account':     (_) => const AccountScreen(),
+              '/login':                (_) => const LoginScreen(),
+              '/dashboard':            (_) => const DashboardScreen(),
+              '/dashboard_secretaire': (_) => const DashboardSecretaireScreen(),
+              '/patients':             (_) => const PatientsScreen(),
+              '/secretaries':          (_) => const SecretariesScreen(),
+              '/records':              (_) => const RecordsScreen(),
+              '/add_record':           (_) => const AddRecordScreen(),
+              '/invoices':             (_) => const InvoicesScreen(),
+              '/settings':             (_) => const SettingsScreen(),
+              '/calendar':             (_) => const AppointmentsCalendarScreen(),
+              '/account':              (_) => const AccountScreen(),
             },
           );
         },

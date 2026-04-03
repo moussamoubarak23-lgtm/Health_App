@@ -27,6 +27,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   bool _showRegister = false;
   String? _error;
   String? _success;
+  String _selectedRole = 'doctor'; // 'doctor' or 'secretary'
 
   late AnimationController _fadeCtrl;
   late Animation<double> _fadeAnim;
@@ -62,12 +63,16 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     setState(() { _loading = true; _error = null; _success = null; });
 
     try {
-      final result = await OdooApi.login(identifier, password);
+      final result = await OdooApi.login(identifier, password, role: _selectedRole);
       if (!mounted) return;
 
       setState(() => _loading = false);
       if (result['success'] == true) {
-        Navigator.pushReplacementNamed(context, '/dashboard');
+        if (result['role'] == 'secretary') {
+          Navigator.pushReplacementNamed(context, '/dashboard_secretaire');
+        } else {
+          Navigator.pushReplacementNamed(context, '/dashboard');
+        }
       } else {
         setState(() => _error = result['error'] ?? loc.t('loginError'));
       }
@@ -75,7 +80,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = "Erreur de connexion : Vérifiez l'adresse IP du serveur.";
+        _error = "Erreur critique : $e";
       });
     }
   }
@@ -248,26 +253,71 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       Text(loc.t('welcomeBack'), style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
       const SizedBox(height: 8),
       Text(loc.t('loginSubtitle'), style: GoogleFonts.dmSans(fontSize: 14, color: AppColors.textMuted)),
-      const SizedBox(height: 40),
-      _inputField(controller: _loginCtrl, label: loc.t('identifier'), hint: loc.t('identifierHint'), icon: Icons.person_outline_rounded),
+      const SizedBox(height: 32),
+      
+      // Role Selection
+      Row(children: [
+        Expanded(child: _roleButton(loc.t('roleDoctor'), 'doctor', Icons.medical_services_rounded)),
+        const SizedBox(width: 12),
+        Expanded(child: _roleButton(loc.t('roleSecretary'), 'secretary', Icons.badge_rounded)),
+      ]),
+      const SizedBox(height: 32),
+
+      _inputField(
+        controller: _loginCtrl, 
+        label: _selectedRole == 'doctor' ? loc.t('identifier') : loc.t('secIdentifierLabel'), 
+        hint: _selectedRole == 'doctor' ? loc.t('identifierHint') : "Ex: secretaire@clinique.com", 
+        icon: _selectedRole == 'doctor' ? Icons.person_outline_rounded : Icons.alternate_email_rounded
+      ),
       const SizedBox(height: 20),
-      _passwordField(controller: _passCtrl, obscure: _obscure, label: loc.t('password'), toggle: () => setState(() => _obscure = !_obscure), onSubmit: _login),
+      _passwordField(
+        controller: _passCtrl, 
+        obscure: _obscure, 
+        label: _selectedRole == 'doctor' ? loc.t('password') : loc.t('secCodeLabel'),
+        toggle: () => setState(() => _obscure = !_obscure), 
+        onSubmit: _login
+      ),
       if (_error != null) ...[const SizedBox(height: 16), _alertBox(_error!, isError: true)],
       if (_success != null) ...[const SizedBox(height: 16), _alertBox(_success!, isError: false)],
       const SizedBox(height: 28),
       _primaryButton(loc.t('loginBtn'), _login, loading: _loading),
-      const SizedBox(height: 24),
-      Row(children: [
-        Expanded(child: Divider(color: AppColors.border)),
-        Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text(loc.t('orSeparator'), style: GoogleFonts.dmSans(color: AppColors.textHint, fontSize: 12))),
-        Expanded(child: Divider(color: AppColors.border)),
-      ]),
-      if (OdooApi.canRegisterDoctorsFromClient) ...[
+      
+      if (_selectedRole == 'doctor') ...[
         const SizedBox(height: 24),
-        _outlineButton(loc.t('createAccount'), () => setState(() { _showRegister = true; _error = null; })),
+        Row(children: [
+          Expanded(child: Divider(color: AppColors.border)),
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text(loc.t('orSeparator'), style: GoogleFonts.dmSans(color: AppColors.textHint, fontSize: 12))),
+          Expanded(child: Divider(color: AppColors.border)),
+        ]),
+        if (OdooApi.canRegisterDoctorsFromClient) ...[
+          const SizedBox(height: 24),
+          _outlineButton(loc.t('createAccount'), () => setState(() { _showRegister = true; _error = null; })),
+        ],
       ],
     ],
   );
+
+  Widget _roleButton(String label, String role, IconData icon) {
+    bool isSel = _selectedRole == role;
+    return GestureDetector(
+      onTap: () => setState(() { _selectedRole = role; _error = null; }),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: isSel ? AppColors.primary : AppColors.inputFill,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: isSel ? AppColors.primary : AppColors.border, width: 2),
+          boxShadow: isSel ? [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))] : [],
+        ),
+        child: Column(children: [
+          Icon(icon, color: isSel ? Colors.white : AppColors.textMuted, size: 24),
+          const SizedBox(height: 8),
+          Text(label, style: GoogleFonts.dmSans(color: isSel ? Colors.white : AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
+        ]),
+      ),
+    );
+  }
 
   Widget _buildRegisterForm(AppLocalizations loc) => Column(
     key: const ValueKey('register'),

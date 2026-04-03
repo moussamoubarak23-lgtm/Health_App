@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:medical_app/Services/odoo_api.dart';
 import 'package:medical_app/Widgets/sidebar.dart';
 import 'package:medical_app/app_localizations.dart';
@@ -20,11 +21,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool loadingActs = true;
   bool isScanning = false;
   MobileScannerController cameraController = MobileScannerController();
+  String userRole = 'doctor';
 
   @override
   void initState() {
     super.initState();
-    _loadActs();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      userRole = prefs.getString('user_role') ?? 'doctor';
+    });
+    if (userRole == 'doctor') {
+      _loadActs();
+    } else {
+      setState(() => loadingActs = false);
+    }
   }
 
   Future<void> _loadActs() async {
@@ -136,36 +150,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // BLOC 1: ACTES MÉDICAUX
-                        Expanded(
-                          flex: 3,
-                          child: _buildSectionCard(
-                            title: "Gestion des Actes",
-                            subtitle: "Configurez vos tarifs et services",
-                            icon: Icons.medical_services_rounded,
-                            action: ElevatedButton.icon(
-                              onPressed: _showAddActDialog,
-                              icon: const Icon(Icons.add, size: 18),
-                              label: const Text("Ajouter"),
-                              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                            ),
-                            child: loadingActs
-                                ? const Center(child: CircularProgressIndicator())
-                                : myActs.isEmpty
-                                    ? Center(child: Text("Aucun acte configuré", style: GoogleFonts.dmSans(color: AppColors.textMuted)))
-                                    : ListView.separated(
-                                        itemCount: myActs.length,
-                                        separatorBuilder: (_, __) => const Divider(height: 1),
-                                        itemBuilder: (context, i) => ListTile(
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                                          title: Text(myActs[i]['name'], style: GoogleFonts.dmSans(fontWeight: FontWeight.w600, fontSize: 14)),
-                                          trailing: Text("${myActs[i]['list_price']} DH", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, color: AppColors.primary)),
+                        // BLOC 1: ACTES MÉDICAUX (Only for Doctor)
+                        if (userRole == 'doctor')
+                          Expanded(
+                            flex: 3,
+                            child: _buildSectionCard(
+                              title: "Gestion des Actes",
+                              subtitle: "Configurez vos tarifs et services",
+                              icon: Icons.medical_services_rounded,
+                              action: ElevatedButton.icon(
+                                onPressed: _showAddActDialog,
+                                icon: const Icon(Icons.add, size: 18),
+                                label: const Text("Ajouter"),
+                                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                              ),
+                              child: loadingActs
+                                  ? const Center(child: CircularProgressIndicator())
+                                  : myActs.isEmpty
+                                      ? Center(child: Text("Aucun acte configuré", style: GoogleFonts.dmSans(color: AppColors.textMuted)))
+                                      : ListView.separated(
+                                          itemCount: myActs.length,
+                                          separatorBuilder: (_, __) => const Divider(height: 1),
+                                          itemBuilder: (context, i) => ListTile(
+                                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                            title: Text(myActs[i]['name'], style: GoogleFonts.dmSans(fontWeight: FontWeight.w600, fontSize: 14)),
+                                            trailing: Text("${myActs[i]['list_price']} DH", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, color: AppColors.primary)),
+                                          ),
                                         ),
-                                      ),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 24),
-                        // BLOC 2: SCANNAGE / IDENTIFICATION
+                        if (userRole == 'doctor') const SizedBox(width: 24),
+                        // BLOC 2: SCANNAGE / IDENTIFICATION (For both, but centered if secretary)
                         Expanded(
                           flex: 2,
                           child: _buildSectionCard(
@@ -215,6 +230,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                           ),
                         ),
+                        if (userRole == 'secretary') const Spacer(flex: 1),
                       ],
                     ),
                   ),

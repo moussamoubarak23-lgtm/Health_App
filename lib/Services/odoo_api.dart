@@ -43,7 +43,11 @@ class OdooApi {
     }
   }
 
-  static String _s(dynamic val) => (val is String) ? val : '';
+  // Sécurise la conversion Odoo (false -> "")
+  static String _s(dynamic val) {
+    if (val == null || val == false) return '';
+    return val.toString();
+  }
 
   // ─── HELPER JSON-RPC ────────────────────────────────────────────────────────
   static Future<Map<String, dynamic>?> _callRpc(String path, Map params, {String? cookie}) async {
@@ -57,14 +61,16 @@ class OdooApi {
         body: jsonEncode({'jsonrpc': '2.0', 'method': 'call', 'params': params, 'id': DateTime.now().millisecondsSinceEpoch}),
       ).timeout(const Duration(seconds: 15));
 
-      if (response.body.isEmpty || !response.body.trim().startsWith('{')) {
-        return {'error': {'message': 'Le serveur a renvoyé une réponse invalide.'}};
-      }
+      if (response.body.isEmpty) return {'error': {'message': 'Réponse vide'}};
 
       final data = jsonDecode(response.body);
-      if (path.contains('session/authenticate') && response.headers.containsKey('set-cookie')) {
-        data['set-cookie'] = response.headers['set-cookie'];
+      
+      // Extraction cookie
+      if (path.contains('session/authenticate')) {
+        final cookieHeader = response.headers['set-cookie'] ?? response.headers['Set-Cookie'];
+        if (cookieHeader != null) data['set-cookie'] = cookieHeader;
       }
+      
       return data;
     } catch (e) {
       return {'error': {'message': 'Erreur réseau : $e'}};
@@ -72,37 +78,87 @@ class OdooApi {
   }
 
   // ─── LOGIN ──────────────────────────────────────────────────────────────────
-  static Future<Map<String, dynamic>> login(String identifier, String password) async {
-    var data = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': identifier, 'password': password});
+  static Future<Map<String, dynamic>> login(String identifier, String password, {String role = 'doctor'}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
 
-    if (data == null || data['result'] == null) {
-      final adminAuth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': _adminLogin, 'password': _adminPassword});
-      if (adminAuth != null && adminAuth['result'] != null) {
-        final adminCookie = adminAuth['set-cookie'];
+      if (role == 'secretary') {
+        final adminAuth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': _adminLogin, 'password': _adminPassword});
+        if (adminAuth == null || adminAuth['result'] == null) {
+          return {'success': false, 'error': 'Serveur Odoo injoignable ou base de données incorrecte'};
+        }
+
+        final adminCookie = _s(adminAuth['set-cookie']);
+        
+        // Recherche secrétaire
         final searchResult = await _callRpc('/web/dataset/call_kw', {
-          'model': 'res.users', 'method': 'search_read',
-          'args': [['|', '|', '|', ['login', '=', identifier], ['email', '=', identifier], ['phone', 'ilike', identifier], ['mobile', 'ilike', identifier]]],
-          'kwargs': {'fields': ['login'], 'limit': 1},
+          'model': 'medical.secretary', 
+          'method': 'search_read',
+          'args': [[
+            ['secretary_code', '=', password],
+            '|', '|',
+            ['email', '=', identifier],
+            ['phone', 'ilike', identifier],
+            ['mobile', 'ilike', identifier]
+          ]],
+          'kwargs': {'fields': ['id', 'full_name', 'doctor_id'], 'limit': 1},
         }, cookie: adminCookie);
 
         if (searchResult != null && searchResult['result'] != null && (searchResult['result'] as List).isNotEmpty) {
-          final actualLogin = searchResult['result'][0]['login'];
-          data = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': actualLogin, 'password': password});
+          final secretary = searchResult['result'][0];
+          await _saveSessionCookie(adminCookie);
+          await prefs.setString('user_role', 'secretary');
+          await prefs.setInt('secretary_id', secretary['id'] ?? 0);
+          
+          String name = _s(secretary['full_name']);
+          await prefs.setString('doctor_name', name.isNotEmpty ? name : identifier);
+          
+          if (secretary['doctor_id'] is List) {
+             await prefs.setInt('uid', secretary['doctor_id'][0]);
+          }
+          return {'success': true, 'name': name, 'role': 'secretary'};
+        }
+        return {'success': false, 'error': 'Identifiants secrétaire incorrects'};
+      }
+
+      // --- LOGIN MÉDECIN ---
+      var auth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': identifier, 'password': password});
+
+      if (auth == null || auth['result'] == null) {
+        // Fallback recherche par email/téléphone
+        final adminAuth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': _adminLogin, 'password': _adminPassword});
+        if (adminAuth != null && adminAuth['result'] != null) {
+          final res = await _callRpc('/web/dataset/call_kw', {
+            'model': 'res.users', 'method': 'search_read',
+            'args': [['|', '|', '|', ['login', '=', identifier], ['email', '=', identifier], ['phone', 'ilike', identifier], ['mobile', 'ilike', identifier]]],
+            'kwargs': {'fields': ['login'], 'limit': 1},
+          }, cookie: _s(adminAuth['set-cookie']));
+
+          if (res != null && res['result'] != null && (res['result'] as List).isNotEmpty) {
+            auth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': res['result'][0]['login'], 'password': password});
+          }
         }
       }
-    }
 
-    if (data != null && data['result'] != null) {
-      final result = data['result'];
-      final prefs = await SharedPreferences.getInstance();
-      await _saveSessionCookie(data['set-cookie'] ?? '');
-      await prefs.setInt('uid', result['uid'] ?? 0);
-      await prefs.setInt('partner_id', result['partner_id'] ?? 0);
-      await prefs.setString('doctor_name', result['name'] ?? identifier);
-      await prefs.setString('doctor_login', result['username'] ?? identifier);
-      return {'success': true, 'name': result['name']};
+      if (auth != null && auth['result'] != null) {
+        final res = auth['result'];
+        await _saveSessionCookie(_s(auth['set-cookie']));
+        await prefs.setInt('uid', res['uid'] ?? 0);
+        await prefs.setInt('partner_id', res['partner_id'] ?? 0);
+        await prefs.setString('doctor_name', _s(res['name']).isNotEmpty ? _s(res['name']) : identifier);
+        await prefs.setString('doctor_login', _s(res['username']).isNotEmpty ? _s(res['username']) : identifier);
+        await prefs.setString('user_role', 'doctor');
+        return {'success': true, 'name': res['name'], 'role': 'doctor'};
+      }
+      return {'success': false, 'error': 'Identifiant ou mot de passe incorrect'};
+    } catch (e) {
+      return {'success': false, 'error': 'Erreur technique: $e'};
     }
-    return {'success': false, 'error': 'Identifiant ou mot de passe incorrect'};
+  }
+
+  static Future<String> getUserRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('user_role') ?? 'doctor';
   }
 
   static Future<void> logout() async {
@@ -117,7 +173,7 @@ class OdooApi {
     final prefs = await SharedPreferences.getInstance();
     final uid = prefs.getInt('uid') ?? 0;
     final adminAuth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': _adminLogin, 'password': _adminPassword});
-    final adminCookie = adminAuth?['set-cookie'];
+    final adminCookie = _s(adminAuth?['set-cookie']);
 
     final data = await _callRpc('/web/dataset/call_kw', {
       'model': 'product.product',
@@ -132,7 +188,7 @@ class OdooApi {
     final prefs = await SharedPreferences.getInstance();
     final uid = prefs.getInt('uid') ?? 0;
     final adminAuth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': _adminLogin, 'password': _adminPassword});
-    final adminCookie = adminAuth?['set-cookie'];
+    final adminCookie = _s(adminAuth?['set-cookie']);
 
     final accountData = await _callRpc('/web/dataset/call_kw', {
       'model': 'account.account', 'method': 'search_read', 'args': [[['account_type', '=', 'income']]], 'kwargs': {'fields': ['id'], 'limit': 1},
@@ -150,7 +206,7 @@ class OdooApi {
 
   static Future<Map<String, dynamic>> deleteMedicalAct(int actId) async {
     final adminAuth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': _adminLogin, 'password': _adminPassword});
-    final adminCookie = adminAuth?['set-cookie'];
+    final adminCookie = _s(adminAuth?['set-cookie']);
     await _callRpc('/web/dataset/call_kw', {'model': 'product.product', 'method': 'unlink', 'args': [[actId]], 'kwargs': {}}, cookie: adminCookie);
     return {'success': true};
   }
@@ -161,7 +217,7 @@ class OdooApi {
     final uid = prefs.getInt('uid') ?? 0;
     final adminAuth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': _adminLogin, 'password': _adminPassword});
     if (adminAuth == null || adminAuth['result'] == null) return [];
-    final adminCookie = adminAuth['set-cookie'];
+    final adminCookie = _s(adminAuth['set-cookie']);
 
     List domain = [['move_type', '=', 'out_invoice'], '|', ['invoice_user_id', '=', uid], ['create_uid', '=', uid]];
     if (patientId != null) domain.add(['partner_id', '=', patientId]);
@@ -177,7 +233,7 @@ class OdooApi {
     final prefs = await SharedPreferences.getInstance();
     final doctorUid = prefs.getInt('uid') ?? 0;
     final adminAuth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': _adminLogin, 'password': _adminPassword});
-    final adminCookie = adminAuth?['set-cookie'];
+    final adminCookie = _s(adminAuth?['set-cookie']);
 
     final journalData = await _callRpc('/web/dataset/call_kw', {'model': 'account.journal', 'method': 'search_read', 'args': [[['type', '=', 'sale']]], 'kwargs': {'fields': ['id'], 'limit': 1}}, cookie: adminCookie);
     int journalId = journalData?['result'][0]['id'];
@@ -202,7 +258,7 @@ class OdooApi {
 
   static Future<Map<String, dynamic>> registerPayment(int invoiceId) async {
     final adminAuth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': _adminLogin, 'password': _adminPassword});
-    final adminCookie = adminAuth?['set-cookie'];
+    final adminCookie = _s(adminAuth?['set-cookie']);
 
     final journalCash = await _callRpc('/web/dataset/call_kw', {
       'model': 'account.journal', 'method': 'search_read', 'args': [[['type', '=', 'cash']]], 'kwargs': {'fields': ['id'], 'limit': 1},
@@ -227,7 +283,7 @@ class OdooApi {
 
   static Future<Map<String, dynamic>> cancelInvoice(int invoiceId) async {
     final adminAuth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': _adminLogin, 'password': _adminPassword});
-    final adminCookie = adminAuth?['set-cookie'];
+    final adminCookie = _s(adminAuth?['set-cookie']);
     await _callRpc('/web/dataset/call_kw', {'model': 'account.move', 'method': 'button_draft', 'args': [[invoiceId]], 'kwargs': {}}, cookie: adminCookie);
     await _callRpc('/web/dataset/call_kw', {'model': 'account.move', 'method': 'button_cancel', 'args': [[invoiceId]], 'kwargs': {}}, cookie: adminCookie);
     return {'success': true};
@@ -348,9 +404,9 @@ class OdooApi {
     try {
       final auth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': _adminLogin, 'password': _adminPassword});
       if (auth == null || auth['result'] == null) return {'success': false, 'error': 'Auth admin failed'};
-      final cookie = auth['set-cookie'];
+      final cookie = _s(auth['set-cookie']);
 
-      // 1. Dossiers médicaux
+      // Dossiers médicaux
       final recs = await _callRpc('/web/dataset/call_kw', {
         'model': 'medical.consultation', 'method': 'search', 'args': [[['patient_id', '=', patientId]]], 'kwargs': {},
       }, cookie: cookie);
@@ -358,7 +414,7 @@ class OdooApi {
         await _callRpc('/web/dataset/call_kw', {'model': 'medical.consultation', 'method': 'unlink', 'args': [recs['result']], 'kwargs': {}}, cookie: cookie);
       }
 
-      // 2. Calendrier
+      // Calendrier
       final evts = await _callRpc('/web/dataset/call_kw', {
         'model': 'calendar.event', 'method': 'search', 'args': [[['partner_ids', 'in', [patientId]]]], 'kwargs': {},
       }, cookie: cookie);
@@ -366,7 +422,7 @@ class OdooApi {
         await _callRpc('/web/dataset/call_kw', {'model': 'calendar.event', 'method': 'unlink', 'args': [evts['result']], 'kwargs': {}}, cookie: cookie);
       }
 
-      // 3. Factures (Moves)
+      // Factures (Moves)
       final invs = await _callRpc('/web/dataset/call_kw', {
         'model': 'account.move', 'method': 'search', 'args': [[['partner_id', '=', patientId]]], 'kwargs': {},
       }, cookie: cookie);
@@ -377,12 +433,10 @@ class OdooApi {
         }
       }
 
-      // 4. Le Patient
       final res = await _callRpc('/web/dataset/call_kw', {'model': 'res.partner', 'method': 'unlink', 'args': [[patientId]], 'kwargs': {}}, cookie: cookie);
       
       if (res != null && res['result'] == true) return {'success': true};
       
-      // Si unlink échoue (contraintes d'intégrité Odoo), on l'archive
       await _callRpc('/web/dataset/call_kw', {
         'model': 'res.partner', 'method': 'write', 'args': [[patientId], {'active': false}], 'kwargs': {},
       }, cookie: cookie);
@@ -488,7 +542,7 @@ class OdooApi {
   static Future<Map<String, dynamic>> registerDoctor({required String name, required String login, required String password, String? phone}) async {
     final auth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': _adminLogin, 'password': _adminPassword});
     if (auth == null || auth['result'] == null) return {'success': false, 'error': 'Admin auth failed'};
-    final createData = await _callRpc('/web/dataset/call_kw', {'model': 'res.users', 'method': 'create', 'args': [{'name': name, 'login': login, 'password': password, 'phone': phone, 'mobile': phone, 'groups_id': [[4, 1], [4, 2]]}], 'kwargs': {}}, cookie: auth['set-cookie']);
+    final createData = await _callRpc('/web/dataset/call_kw', {'model': 'res.users', 'method': 'create', 'args': [{'name': name, 'login': login, 'password': password, 'phone': phone, 'mobile': phone, 'groups_id': [[4, 1], [4, 2]]}], 'kwargs': {}}, cookie: _s(auth['set-cookie']));
     return createData != null && createData['result'] != null ? {'success': true} : {'success': false};
   }
 
@@ -498,7 +552,7 @@ class OdooApi {
     final cookie = await _getSessionCookie();
     final now = DateTime.now().toString().substring(0, 19);
     final data = await _callRpc('/web/dataset/call_kw', {'model': 'medical.consultation', 'method': 'create', 'args': [{'patient_id': patientId, 'doctor_id': uid, 'date_consultation': now, 'motif': motif, 'state': 'waiting'}], 'kwargs': {}}, cookie: cookie);
-    return data != null && data['result'] != null ? {'success': true} : {'success': false};
+    return data != null && data['result'] != null ? {'success': true, 'id': data['result']} : {'success': false};
   }
 
   static Future<Map<String, dynamic>> createCalendarAppointment({
@@ -546,33 +600,85 @@ class OdooApi {
 
   static Future<Map<String, dynamic>> getUserProfile() async {
     final prefs = await SharedPreferences.getInstance();
-    final uid = prefs.getInt('uid') ?? 0;
+    final role = prefs.getString('user_role') ?? 'doctor';
     final cookie = await _getSessionCookie();
-    final data = await _callRpc('/web/dataset/call_kw', {
-      'model': 'res.users', 'method': 'read',
-      'args': [[uid], ['name', 'login', 'email', 'phone', 'mobile']],
-      'kwargs': {},
-    }, cookie: cookie);
-    if (data != null && data['result'] != null && (data['result'] as List).isNotEmpty) {
-      return {'success': true, 'data': data['result'][0]};
+
+    if (role == 'secretary') {
+      final sid = prefs.getInt('secretary_id') ?? 0;
+      final data = await _callRpc('/web/dataset/call_kw', {
+        'model': 'medical.secretary', 'method': 'read',
+        'args': [[sid], ['first_name', 'last_name', 'full_name', 'email', 'phone', 'mobile']],
+        'kwargs': {},
+      }, cookie: cookie);
+      if (data != null && data['result'] != null && (data['result'] as List).isNotEmpty) {
+        final d = data['result'][0];
+        return {'success': true, 'data': {
+          'name': _s(d['full_name']),
+          'email': _s(d['email']),
+          'phone': _s(d['phone']),
+          'mobile': _s(d['mobile']),
+          'login': _s(d['email'])
+        }};
+      }
+    } else {
+      final uid = prefs.getInt('uid') ?? 0;
+      final data = await _callRpc('/web/dataset/call_kw', {
+        'model': 'res.users', 'method': 'read',
+        'args': [[uid], ['name', 'login', 'email', 'phone', 'mobile']],
+        'kwargs': {},
+      }, cookie: cookie);
+      if (data != null && data['result'] != null && (data['result'] as List).isNotEmpty) {
+        final d = data['result'][0];
+        return {'success': true, 'data': {
+          'name': _s(d['name']),
+          'login': _s(d['login']),
+          'email': _s(d['email']),
+          'phone': _s(d['phone']),
+          'mobile': _s(d['mobile']),
+        }};
+      }
     }
     return {'success': false};
   }
 
   static Future<Map<String, dynamic>> updateUserProfile(Map<String, dynamic> vals) async {
     final prefs = await SharedPreferences.getInstance();
-    final uid = prefs.getInt('uid') ?? 0;
+    final role = prefs.getString('user_role') ?? 'doctor';
     final cookie = await _getSessionCookie();
-    final data = await _callRpc('/web/dataset/call_kw', {
-      'model': 'res.users', 'method': 'write',
-      'args': [[uid], vals],
-      'kwargs': {},
-    }, cookie: cookie);
-    if (data?['result'] == true) {
+
+    if (role == 'secretary') {
+      final sid = prefs.getInt('secretary_id') ?? 0;
+      Map<String, dynamic> secVals = {};
       if (vals.containsKey('name')) {
-        await prefs.setString('doctor_name', vals['name']);
+         secVals['first_name'] = vals['name'].split(' ')[0];
+         secVals['last_name'] = vals['name'].contains(' ') ? vals['name'].substring(vals['name'].indexOf(' ') + 1) : '';
       }
-      return {'success': true};
+      if (vals.containsKey('email')) secVals['email'] = vals['email'];
+      if (vals.containsKey('phone')) secVals['phone'] = vals['phone'];
+      if (vals.containsKey('mobile')) secVals['mobile'] = vals['mobile'];
+
+      final data = await _callRpc('/web/dataset/call_kw', {
+        'model': 'medical.secretary', 'method': 'write',
+        'args': [[sid], secVals],
+        'kwargs': {},
+      }, cookie: cookie);
+      if (data?['result'] == true) {
+        if (vals.containsKey('name')) await prefs.setString('doctor_name', vals['name']);
+        return {'success': true};
+      }
+    } else {
+      final uid = prefs.getInt('uid') ?? 0;
+      final data = await _callRpc('/web/dataset/call_kw', {
+        'model': 'res.users', 'method': 'write',
+        'args': [[uid], vals],
+        'kwargs': {},
+      }, cookie: cookie);
+      if (data?['result'] == true) {
+        if (vals.containsKey('name')) {
+          await prefs.setString('doctor_name', _s(vals['name']));
+        }
+        return {'success': true};
+      }
     }
     return {'success': false};
   }

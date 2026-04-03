@@ -102,7 +102,7 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
                     final time = await showTimePicker(context: context, initialTime: selectedTime);
                     if (time != null) setDialogState(() => selectedTime = time);
                   },
-                  child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.inputFill, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)), child: Row(children: [const Icon(Icons.access_time_rounded, size: 18, color: AppColors.primary), const SizedBox(width: 12), Text(selectedTime.format(context), style: GoogleFonts.dmSans())])),
+                  child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.inputFill, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)), child: Row(children: [const Icon(Icons.access_time_rounded, size: 16, color: AppColors.primary), const SizedBox(width: 12), Text(selectedTime.format(context), style: GoogleFonts.dmSans())])),
                 ),
               ],
             ),
@@ -161,7 +161,7 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
               children: [
                 DropdownButtonFormField<Map>(
                   decoration: InputDecoration(labelText: "Sélectionner un patient", prefixIcon: const Icon(Icons.person_outline), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-                  initialValue: selectedPatient,
+                  value: selectedPatient,
                   items: _allPatients.map((p) => DropdownMenuItem<Map>(value: p, child: Text(p['name'] ?? ''))).toList(),
                   onChanged: (val) => setDialogState(() => selectedPatient = val),
                 ),
@@ -184,7 +184,7 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
                     final time = await showTimePicker(context: context, initialTime: selectedTime);
                     if (time != null) setDialogState(() => selectedTime = time);
                   },
-                  child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.inputFill, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)), child: Row(children: [const Icon(Icons.access_time_rounded, size: 18, color: AppColors.primary), const SizedBox(width: 12), Text(selectedTime.format(context), style: GoogleFonts.dmSans())])),
+                  child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.inputFill, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)), child: Row(children: [const Icon(Icons.access_time_rounded, size: 16, color: AppColors.primary), const SizedBox(width: 12), Text(selectedTime.format(context), style: GoogleFonts.dmSans())])),
                 ),
               ],
             ),
@@ -282,10 +282,34 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
                                 },
                                 eventLoader: _getEventsForDay,
                                 calendarStyle: const CalendarStyle(
-                                  todayDecoration: BoxDecoration(color: AppColors.primaryLight, shape: BoxShape.circle),
-                                  todayTextStyle: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
-                                  selectedDecoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-                                  markerDecoration: BoxDecoration(color: AppColors.green, shape: BoxShape.circle),
+                                  outsideDaysVisible: false,
+                                ),
+                                calendarBuilders: CalendarBuilders(
+                                  selectedBuilder: (context, date, _) {
+                                    return Center(
+                                      child: Container(
+                                        alignment: Alignment.center,
+                                        decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                                        width: 28,
+                                        height: 28,
+                                        child: Text('${date.day}', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                      ),
+                                    );
+                                  },
+                                  todayBuilder: (context, date, _) {
+                                    return Center(
+                                      child: Container(
+                                        alignment: Alignment.center,
+                                        decoration: const BoxDecoration(color: AppColors.primaryLight, shape: BoxShape.circle),
+                                        width: 28,
+                                        height: 28,
+                                        child: Text('${date.day}', style: const TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.bold)),
+                                      ),
+                                    );
+                                  },
+                                  markerBuilder: (context, date, events) {
+                                    return const SizedBox.shrink(); // MASQUE LES POINTS VERTS
+                                  },
                                 ),
                                 headerStyle: HeaderStyle(
                                   formatButtonVisible: true,

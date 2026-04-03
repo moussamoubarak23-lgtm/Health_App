@@ -17,13 +17,17 @@ class Sidebar extends StatefulWidget {
 
 class _SidebarState extends State<Sidebar> {
   String doctorName = '';
+  String userRole = 'doctor';
 
   @override
   void initState() { super.initState(); _loadInfo(); }
 
   void _loadInfo() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() => doctorName = prefs.getString('doctor_name') ?? '');
+    setState(() {
+      doctorName = prefs.getString('doctor_name') ?? '';
+      userRole = prefs.getString('user_role') ?? 'doctor';
+    });
   }
 
   void _goToAccount() {
@@ -46,8 +50,8 @@ class _SidebarState extends State<Sidebar> {
             color: active ? color : AppColors.textSecond,
             fontWeight: active ? FontWeight.w700 : FontWeight.w400);
 
-    final navItems = [
-      _NavItem(Icons.grid_view_rounded,      l10n.t('navDashboard'), '/dashboard', AppColors.primary,  AppColors.primaryLight),
+    final List<_NavItem> allNavItems = [
+      _NavItem(Icons.grid_view_rounded,      l10n.t('navDashboard'), userRole == 'secretary' ? '/dashboard_secretaire' : '/dashboard', AppColors.primary,  AppColors.primaryLight),
       _NavItem(Icons.calendar_month_rounded, "Calendrier",           '/calendar',  AppColors.primaryMid, AppColors.primaryLight),
       _NavItem(Icons.people_alt_rounded,     l10n.t('navPatients'),  '/patients',  AppColors.purple,   AppColors.purpleLight),
       _NavItem(Icons.badge_rounded,          l10n.t('navSecretaries'), '/secretaries', AppColors.primary, AppColors.primaryLight),
@@ -56,6 +60,20 @@ class _SidebarState extends State<Sidebar> {
       _NavItem(Icons.receipt_long_rounded,   l10n.t('navInvoices'),  '/invoices',  AppColors.primaryMid, AppColors.primaryLight),
       _NavItem(Icons.settings_rounded,       l10n.t('navSettings'),  '/settings',  AppColors.textMuted, AppColors.background),
     ];
+
+    List<_NavItem> navItems;
+    if (userRole == 'secretary') {
+      // Secretary only: Dashboard, Calendar, Patients, Invoices, Settings
+      navItems = allNavItems.where((item) => 
+        item.route == '/dashboard_secretaire' || 
+        item.route == '/calendar' || 
+        item.route == '/patients' || 
+        item.route == '/invoices' || 
+        item.route == '/settings'
+      ).toList();
+    } else {
+      navItems = allNavItems;
+    }
 
     return Directionality(
       textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
@@ -167,7 +185,7 @@ class _SidebarState extends State<Sidebar> {
                             decoration: const BoxDecoration(
                                 color: AppColors.greenMid, shape: BoxShape.circle)),
                         const SizedBox(width: 4),
-                        Text(l10n.t('online'),
+                        Text(userRole == 'secretary' ? "Secrétaire" : l10n.t('online'),
                             style: isRtl
                                 ? GoogleFonts.cairo(color: AppColors.green,
                                     fontSize: 11, fontWeight: FontWeight.w500)
