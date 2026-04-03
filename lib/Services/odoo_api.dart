@@ -543,4 +543,37 @@ class OdooApi {
     }
     return {'success': false};
   }
+
+  static Future<Map<String, dynamic>> getUserProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getInt('uid') ?? 0;
+    final cookie = await _getSessionCookie();
+    final data = await _callRpc('/web/dataset/call_kw', {
+      'model': 'res.users', 'method': 'read',
+      'args': [[uid], ['name', 'login', 'email', 'phone', 'mobile']],
+      'kwargs': {},
+    }, cookie: cookie);
+    if (data != null && data['result'] != null && (data['result'] as List).isNotEmpty) {
+      return {'success': true, 'data': data['result'][0]};
+    }
+    return {'success': false};
+  }
+
+  static Future<Map<String, dynamic>> updateUserProfile(Map<String, dynamic> vals) async {
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getInt('uid') ?? 0;
+    final cookie = await _getSessionCookie();
+    final data = await _callRpc('/web/dataset/call_kw', {
+      'model': 'res.users', 'method': 'write',
+      'args': [[uid], vals],
+      'kwargs': {},
+    }, cookie: cookie);
+    if (data?['result'] == true) {
+      if (vals.containsKey('name')) {
+        await prefs.setString('doctor_name', vals['name']);
+      }
+      return {'success': true};
+    }
+    return {'success': false};
+  }
 }

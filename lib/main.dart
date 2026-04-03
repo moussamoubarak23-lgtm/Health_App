@@ -12,6 +12,7 @@ import 'package:medical_app/Screens/add_record.dart';
 import 'package:medical_app/Screens/invoices.dart';
 import 'package:medical_app/Screens/settings.dart';
 import 'package:medical_app/Screens/appointments_calendar.dart';
+import 'package:medical_app/Screens/account.dart';
 import 'package:medical_app/Services/odoo_api.dart';
 import 'package:medical_app/language_provider.dart';
 import 'package:medical_app/app_localizations.dart';
@@ -74,6 +75,7 @@ class MedicalApp extends StatelessWidget {
               '/invoices':    (_) => const InvoicesScreen(),
               '/settings':    (_) => const SettingsScreen(),
               '/calendar':    (_) => const AppointmentsCalendarScreen(),
+              '/account':     (_) => const AccountScreen(),
             },
           );
         },

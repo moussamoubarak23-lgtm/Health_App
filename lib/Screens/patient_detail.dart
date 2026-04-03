@@ -28,6 +28,10 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   bool loading = true;
   late Map currentPatient;
 
+  static const List<String> nationalities = [
+    "Marocaine", "Française", "Algérienne", "Tunisienne", "Espagnole", "Italienne", "Sénégalaise", "Malienne", "Ivoirienne", "Américaine", "Canadienne", "Allemande", "Belge", "Suisse", "Libyenne", "Égyptienne", "Saoudienne", "Émiratie", "Qatarienne", "Koweïtienne", "Bahreïnie", "Omanaise", "Jordanienne", "Libanaise", "Syrienne", "Irakienne", "Yéménite", "Soudanaise", "Mauritanienne", "Portugaise", "Néerlandaise"
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -55,7 +59,6 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     }
   }
 
-  // --- MODIFICATION FICHE PATIENT (CIN + N° DOSSIER) ---
   void _showPatientEditDialog(AppLocalizations loc) {
     final nameCtrl = TextEditingController(text: _s(currentPatient['name']));
     final phoneCtrl = TextEditingController(text: _s(currentPatient['phone']));
@@ -64,6 +67,11 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     final dossierCtrl = TextEditingController(text: _s(currentPatient['medical_file_number']));
     String couverture = _s(currentPatient['insurance_id']).isEmpty ? "Sans" : _s(currentPatient['insurance_id']);
     if (!["Sans", "AMO", "RAMED", "CNOPS", "Privé"].contains(couverture)) couverture = "Sans";
+    
+    String nationalite = 'Marocaine';
+    if (currentPatient['comment'] is String && currentPatient['comment'].toString().contains('Nationalité:')) {
+      nationalite = currentPatient['comment'].toString().split('Nationalité:')[1].trim();
+    }
 
     showDialog(
       context: context,
@@ -91,6 +99,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                   Expanded(child: _editField("Âge", ageCtrl, Icons.cake_rounded, inputType: TextInputType.number)),
                 ]),
                 const SizedBox(height: 16),
+                _dropdownSearch("Nationalité (*)", nationalite, (v) => setDialogState(() => nationalite = v!)),
+                const SizedBox(height: 16),
                 _editDropdown("Couverture sociale", couverture, ["Sans", "AMO", "RAMED", "CNOPS", "Privé"], (v) => setDialogState(() => couverture = v!)),
                 const SizedBox(height: 32),
                 Row(mainAxisAlignment: MainAxisAlignment.end, children: [
@@ -109,6 +119,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                         age: int.tryParse(ageCtrl.text.trim()) ?? 0,
                         patientCode: cinCtrl.text.trim(),
                         medicalFileNumber: dossierCtrl.text.trim(),
+                        comment: currentPatient['comment'] is String ? currentPatient['comment'].toString().replaceAll(RegExp(r'Nationalité:.*'), 'Nationalité: $nationalite') : 'Nationalité: $nationalite',
                       );
                       if (res['success']) {
                         setState(() {
@@ -118,6 +129,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                           currentPatient['insurance_id'] = couverture;
                           currentPatient['patient_code'] = cinCtrl.text.trim();
                           currentPatient['medical_file_number'] = dossierCtrl.text.trim();
+                          currentPatient['comment'] = currentPatient['comment'] is String ? currentPatient['comment'].toString().replaceAll(RegExp(r'Nationalité:.*'), 'Nationalité: $nationalite') : 'Nationalité: $nationalite';
                         });
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Modifications enregistrées")));
@@ -149,6 +161,62 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     const SizedBox(height: 6),
     Container(padding: const EdgeInsets.symmetric(horizontal: 12), decoration: BoxDecoration(color: AppColors.inputFill, border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(12)), child: DropdownButtonHideUnderline(child: DropdownButton<String>(value: value, isExpanded: true, items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(), onChanged: onChanged))),
   ]);
+
+  Widget _dropdownSearch(String label, String current, Function(String) onSelected) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
+      const SizedBox(height: 6),
+      InkWell(
+        onTap: () => _showNationalityPicker(onSelected),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(color: AppColors.inputFill, border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(12)),
+          child: Row(children: [
+            const Icon(Icons.public_rounded, size: 18, color: AppColors.primary),
+            const SizedBox(width: 12),
+            Expanded(child: Text(current, style: GoogleFonts.dmSans())),
+            const Icon(Icons.arrow_drop_down, color: AppColors.textMuted),
+          ]),
+        ),
+      ),
+    ],
+  );
+
+  void _showNationalityPicker(Function(String) onSelected) {
+    String query = "";
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final list = query.isEmpty ? nationalities : nationalities.where((n) => n.toLowerCase().contains(query.toLowerCase())).toList();
+          return AlertDialog(
+            title: const Text("Choisir une Nationalité"),
+            content: SizedBox(
+              width: 400,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(decoration: const InputDecoration(hintText: "Rechercher...", prefixIcon: Icon(Icons.search)), onChanged: (v) => setDialogState(() => query = v)),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 300,
+                    child: ListView.builder(
+                      itemCount: list.length,
+                      itemBuilder: (context, i) => ListTile(
+                        title: Text(list[i]),
+                        onTap: () { onSelected(list[i]); Navigator.pop(context); },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   void _viewRecordDetails(Map record, AppLocalizations loc) {
     String dossier = _s(record['medical_file_number']);
@@ -416,6 +484,11 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     final isRtl = lang.isArabic;
     final loc = AppLocalizations.of(context);
     final p = currentPatient;
+    
+    String nationalite = 'Marocaine';
+    if (p['comment'] is String && p['comment'].toString().contains('Nationalité:')) {
+      nationalite = p['comment'].toString().split('Nationalité:')[1].trim();
+    }
 
     return Directionality(
       textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
@@ -432,7 +505,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                   child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Expanded(flex: 3, child: _mainContent(loc)),
                     const SizedBox(width: 16),
-                    GestureDetector(onTap: () => _showPatientEditDialog(loc), child: _rightSidebar(p, loc)),
+                    GestureDetector(onTap: () => _showPatientEditDialog(loc), child: _rightSidebar(p, loc, nationalite)),
                   ]),
                 ),
               ),
@@ -535,13 +608,13 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     }
   }
 
-  Widget _rightSidebar(Map p, AppLocalizations loc) => Container(
+  Widget _rightSidebar(Map p, AppLocalizations loc, String nationalite) => Container(
     width: 280,
     decoration: BoxDecoration(color: Colors.transparent, borderRadius: BorderRadius.circular(12)),
-    child: Column(children: [_patientInfoCard(p, loc), const SizedBox(height: 16), _measuresCard(loc)]),
+    child: Column(children: [_patientInfoCard(p, loc, nationalite), const SizedBox(height: 16), _measuresCard(loc)]),
   );
 
-  Widget _patientInfoCard(Map p, AppLocalizations loc) => Container(
+  Widget _patientInfoCard(Map p, AppLocalizations loc, String nationalite) => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))]),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -549,6 +622,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
       const SizedBox(height: 12),
       _infoChip(Icons.folder_shared_rounded, "Dossier: ${_s(p['medical_file_number'])}"),
       _infoChip(Icons.badge_rounded, "CIN: ${_s(p['patient_code'])}"),
+      _infoChip(Icons.public_rounded, "Nationalité: $nationalite"),
       _infoChip(Icons.cake_rounded, '${p['age'] ?? 0} ans'),
       _infoChip(Icons.phone_rounded, _s(p['phone'])),
     ]),

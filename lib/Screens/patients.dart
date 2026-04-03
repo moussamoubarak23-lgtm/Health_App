@@ -24,6 +24,10 @@ class _PatientsScreenState extends State<PatientsScreen> {
   int _currentPage = 1;
   static const int _perPage = 30;
 
+  static const List<String> nationalities = [
+    "Marocaine", "Française", "Algérienne", "Tunisienne", "Espagnole", "Italienne", "Sénégalaise", "Malienne", "Ivoirienne", "Américaine", "Canadienne", "Allemande", "Belge", "Suisse", "Libyenne", "Égyptienne", "Saoudienne", "Émiratie", "Qatarienne", "Koweïtienne", "Bahreïnie", "Omanaise", "Jordanienne", "Libanaise", "Syrienne", "Irakienne", "Yéménite", "Soudanaise", "Mauritanienne", "Portugaise", "Néerlandaise"
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -80,7 +84,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
   int get _totalPages => (filtered.length / _perPage).ceil().clamp(1, 999);
 
   String _display(dynamic value) {
-    if (value == null || value.toString().isEmpty || value.toString() == "0") return "—";
+    if (value == null || value.toString().isEmpty || value.toString() == "0" || value.toString() == "false") return "—";
     return value.toString();
   }
 
@@ -120,9 +124,9 @@ class _PatientsScreenState extends State<PatientsScreen> {
     final prenomCtrl = TextEditingController();
     final ageCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
-    final heightCtrl = TextEditingController();
     String sexe = 'H';
     String couverture = 'Sans';
+    String nationalite = 'Marocaine';
 
     showDialog(
       context: context,
@@ -176,8 +180,10 @@ class _PatientsScreenState extends State<PatientsScreen> {
                   Row(children: [
                     Expanded(child: _field("Téléphone", phoneCtrl, Icons.phone_rounded, inputType: TextInputType.phone)),
                     const SizedBox(width: 16),
-                    Expanded(child: _dropdown("Couverture sociale (*)", couverture, ["Sans", "AMO", "RAMED", "CNOPS", "Privé"], (v) => setDialogState(() => couverture = v!))),
+                    Expanded(child: _dropdownSearch("Nationalité (*)", nationalite, (v) => setDialogState(() => nationalite = v!))),
                   ]),
+                  const SizedBox(height: 16),
+                  _dropdown("Couverture sociale (*)", couverture, ["Sans", "AMO", "RAMED", "CNOPS", "Privé"], (v) => setDialogState(() => couverture = v!)),
                   const SizedBox(height: 32),
                   Row(children: [
                     Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), side: const BorderSide(color: AppColors.border)), child: const Text("Fermer"))),
@@ -197,7 +203,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
                           insuranceId: couverture,
                           height: 0.0,
                           age: int.tryParse(ageCtrl.text.trim()) ?? 0,
-                          comment: "Sexe: $sexe",
+                          comment: "Sexe: $sexe | Nationalité: $nationalite",
                         );
                         if (mounted) {
                           Navigator.pop(context);
@@ -333,13 +339,18 @@ class _PatientsScreenState extends State<PatientsScreen> {
   }
 
   void _showEditDialog(Map p, AppLocalizations l10n, bool isRtl) {
-    final nameCtrl = TextEditingController(text: p['name'].toString());
-    final cinCtrl = TextEditingController(text: p['patient_code'].toString());
-    final dossierCtrl = TextEditingController(text: p['medical_file_number'].toString());
-    final phoneCtrl = TextEditingController(text: p['phone'].toString());
-    final insuranceCtrl = TextEditingController(text: p['insurance_id'].toString());
+    final nameCtrl = TextEditingController(text: _display(p['name']));
+    final cinCtrl = TextEditingController(text: _display(p['patient_code']));
+    final dossierCtrl = TextEditingController(text: _display(p['medical_file_number']));
+    final phoneCtrl = TextEditingController(text: _display(p['phone']));
+    final insuranceCtrl = TextEditingController(text: _display(p['insurance_id']));
     final heightCtrl = TextEditingController(text: p['height']?.toString() ?? '');
     final ageCtrl = TextEditingController(text: p['age']?.toString() ?? '');
+    
+    String nationalite = 'Marocaine';
+    if (p['comment'] is String && p['comment'].toString().contains('Nationalité:')) {
+      nationalite = p['comment'].toString().split('Nationalité:')[1].trim();
+    }
 
     showDialog(
       context: context,
@@ -350,54 +361,59 @@ class _PatientsScreenState extends State<PatientsScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: Container(
             width: 500, padding: const EdgeInsets.all(28),
-            child: SingleChildScrollView(
-              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Text(l10n.t('editPatient'), style: _titleSm(isRtl)),
-                  IconButton(onPressed: () => Navigator.pop(dialogCtx), icon: const Icon(Icons.close_rounded, color: AppColors.textMuted)),
+            child: StatefulBuilder(
+              builder: (context, setDialogState) => SingleChildScrollView(
+                child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    Text(l10n.t('editPatient'), style: _titleSm(isRtl)),
+                    IconButton(onPressed: () => Navigator.pop(dialogCtx), icon: const Icon(Icons.close_rounded, color: AppColors.textMuted)),
+                  ]),
+                  const SizedBox(height: 20),
+                  Row(children: [
+                    Expanded(child: _field("N° Dossier", dossierCtrl, Icons.folder_shared_rounded)),
+                    const SizedBox(width: 12),
+                    Expanded(child: _field("CIN", cinCtrl, Icons.badge_rounded)),
+                  ]),
+                  const SizedBox(height: 12),
+                  _field(l10n.t('fullName'), nameCtrl, Icons.person_rounded),
+                  const SizedBox(height: 12),
+                  _field(l10n.t('phone'), phoneCtrl, Icons.phone_rounded),
+                  const SizedBox(height: 12),
+                  _dropdownSearch("Nationalité (*)", nationalite, (v) => setDialogState(() => nationalite = v!)),
+                  const SizedBox(height: 12),
+                  _field(l10n.t('insurance'), insuranceCtrl, Icons.health_and_safety_rounded),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(child: _field(l10n.t('height'), heightCtrl, Icons.height_rounded, inputType: TextInputType.number)),
+                    const SizedBox(width: 12),
+                    Expanded(child: _field(l10n.t('age'), ageCtrl, Icons.cake_rounded, inputType: TextInputType.number)),
+                  ]),
+                  const SizedBox(height: 24),
+                  Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                    OutlinedButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l10n.t('cancel'))),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () async {
+                        await OdooApi.updatePatient(
+                          patientId: p['id'],
+                          name: nameCtrl.text.trim(),
+                          phone: phoneCtrl.text.trim(),
+                          email: '',
+                          insuranceId: insuranceCtrl.text.trim(),
+                          height: double.tryParse(heightCtrl.text.trim()) ?? 0.0,
+                          age: int.tryParse(ageCtrl.text.trim()) ?? 0,
+                          patientCode: cinCtrl.text.trim(),
+                          medicalFileNumber: dossierCtrl.text.trim(),
+                          comment: p['comment'] is String ? p['comment'].toString().replaceAll(RegExp(r'Nationalité:.*'), 'Nationalité: $nationalite') : 'Nationalité: $nationalite',
+                        );
+                        if (mounted) { Navigator.pop(dialogCtx); _load(); }
+                      },
+                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+                      child: Text(l10n.t('save')),
+                    ),
+                  ]),
                 ]),
-                const SizedBox(height: 20),
-                Row(children: [
-                  Expanded(child: _field("N° Dossier", dossierCtrl, Icons.folder_shared_rounded)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _field("CIN", cinCtrl, Icons.badge_rounded)),
-                ]),
-                const SizedBox(height: 12),
-                _field(l10n.t('fullName'), nameCtrl, Icons.person_rounded),
-                const SizedBox(height: 12),
-                _field(l10n.t('phone'), phoneCtrl, Icons.phone_rounded),
-                const SizedBox(height: 12),
-                _field(l10n.t('insurance'), insuranceCtrl, Icons.health_and_safety_rounded),
-                const SizedBox(height: 12),
-                Row(children: [
-                  Expanded(child: _field(l10n.t('height'), heightCtrl, Icons.height_rounded, inputType: TextInputType.number)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _field(l10n.t('age'), ageCtrl, Icons.cake_rounded, inputType: TextInputType.number)),
-                ]),
-                const SizedBox(height: 24),
-                Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                  OutlinedButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l10n.t('cancel'))),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: () async {
-                      await OdooApi.updatePatient(
-                        patientId: p['id'],
-                        name: nameCtrl.text.trim(),
-                        phone: phoneCtrl.text.trim(),
-                        email: '',
-                        insuranceId: insuranceCtrl.text.trim(),
-                        height: double.tryParse(heightCtrl.text.trim()) ?? 0.0,
-                        age: int.tryParse(ageCtrl.text.trim()) ?? 0,
-                        patientCode: cinCtrl.text.trim(),
-                        medicalFileNumber: dossierCtrl.text.trim(),
-                      );
-                      if (mounted) { Navigator.pop(dialogCtx); _load(); }
-                    },
-                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
-                    child: Text(l10n.t('save')),
-                  ),
-                ]),
-              ]),
+              ),
             ),
           ),
         ),
@@ -430,6 +446,62 @@ class _PatientsScreenState extends State<PatientsScreen> {
       child: DropdownButtonHideUnderline(child: DropdownButton<String>(value: value, isExpanded: true, items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(), onChanged: onChanged)),
     ),
   ]);
+
+  Widget _dropdownSearch(String label, String current, Function(String) onSelected) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecond)),
+      const SizedBox(height: 8),
+      InkWell(
+        onTap: () => _showNationalityPicker(onSelected),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(color: AppColors.inputFill, border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(12)),
+          child: Row(children: [
+            const Icon(Icons.public_rounded, size: 18, color: AppColors.primary),
+            const SizedBox(width: 12),
+            Expanded(child: Text(current, style: GoogleFonts.dmSans())),
+            const Icon(Icons.arrow_drop_down, color: AppColors.textMuted),
+          ]),
+        ),
+      ),
+    ],
+  );
+
+  void _showNationalityPicker(Function(String) onSelected) {
+    String query = "";
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final list = query.isEmpty ? nationalities : nationalities.where((n) => n.toLowerCase().contains(query.toLowerCase())).toList();
+          return AlertDialog(
+            title: const Text("Choisir une Nationalité"),
+            content: SizedBox(
+              width: 400,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(decoration: const InputDecoration(hintText: "Rechercher...", prefixIcon: Icon(Icons.search)), onChanged: (v) => setDialogState(() => query = v)),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 300,
+                    child: ListView.builder(
+                      itemCount: list.length,
+                      itemBuilder: (context, i) => ListTile(
+                        title: Text(list[i]),
+                        onTap: () { onSelected(list[i]); Navigator.pop(context); },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   Widget _sectionHeader(String title, IconData icon) => Row(children: [Icon(icon, size: 18, color: AppColors.textMuted), const SizedBox(width: 8), Text(title, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.textMuted, letterSpacing: 1.2))]);
 

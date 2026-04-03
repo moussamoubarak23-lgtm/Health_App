@@ -26,6 +26,12 @@ class _SidebarState extends State<Sidebar> {
     setState(() => doctorName = prefs.getString('doctor_name') ?? '');
   }
 
+  void _goToAccount() {
+    if (widget.currentRoute != '/account') {
+      Navigator.pushReplacementNamed(context, '/account');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n  = AppLocalizations.of(context);
@@ -119,53 +125,60 @@ class _SidebarState extends State<Sidebar> {
 
           Padding(
             padding: const EdgeInsets.all(14),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.primaryLight,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
-              ),
-              child: Row(children: [
-                Container(
-                  width: 38, height: 38,
+            child: GestureDetector(
+              onTap: _goToAccount,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                        colors: [AppColors.primary, AppColors.primaryDark]),
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.3),
-                        blurRadius: 6, offset: const Offset(0, 3))],
+                    color: widget.currentRoute == '/account' ? AppColors.primary.withOpacity(0.1) : AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: widget.currentRoute == '/account' ? AppColors.primary : AppColors.primary.withValues(alpha: 0.15)),
                   ),
-                  child: Center(child: Text(
-                    doctorName.isNotEmpty ? doctorName[0].toUpperCase() : 'M',
-                    style: GoogleFonts.plusJakartaSans(
-                        color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16),
-                  )),
-                ),
-                const SizedBox(width: 10),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(doctorName.isNotEmpty ? doctorName : '—',
-                      overflow: TextOverflow.ellipsis,
-                      style: isRtl
-                          ? GoogleFonts.cairo(color: AppColors.textPrimary,
-                              fontSize: 13, fontWeight: FontWeight.w600)
-                          : GoogleFonts.dmSans(color: AppColors.textPrimary,
-                              fontSize: 13, fontWeight: FontWeight.w600)),
-                  Row(children: [
-                    Container(width: 6, height: 6,
-                        decoration: const BoxDecoration(
-                            color: AppColors.greenMid, shape: BoxShape.circle)),
-                    const SizedBox(width: 4),
-                    Text(l10n.t('online'),
-                        style: isRtl
-                            ? GoogleFonts.cairo(color: AppColors.green,
-                                fontSize: 11, fontWeight: FontWeight.w500)
-                            : GoogleFonts.dmSans(color: AppColors.green,
-                                fontSize: 11, fontWeight: FontWeight.w500)),
+                  child: Row(children: [
+                    Container(
+                      width: 38, height: 38,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                            colors: [AppColors.primary, AppColors.primaryDark]),
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.3),
+                            blurRadius: 6, offset: const Offset(0, 3))],
+                      ),
+                      child: Center(child: Text(
+                        doctorName.isNotEmpty ? doctorName[0].toUpperCase() : 'M',
+                        style: GoogleFonts.plusJakartaSans(
+                            color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16),
+                      )),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(doctorName.isNotEmpty ? doctorName : '—',
+                          overflow: TextOverflow.ellipsis,
+                          style: isRtl
+                              ? GoogleFonts.cairo(color: AppColors.textPrimary,
+                                  fontSize: 13, fontWeight: FontWeight.w600)
+                              : GoogleFonts.dmSans(color: AppColors.textPrimary,
+                                  fontSize: 13, fontWeight: FontWeight.w600)),
+                      Row(children: [
+                        Container(width: 6, height: 6,
+                            decoration: const BoxDecoration(
+                                color: AppColors.greenMid, shape: BoxShape.circle)),
+                        const SizedBox(width: 4),
+                        Text(l10n.t('online'),
+                            style: isRtl
+                                ? GoogleFonts.cairo(color: AppColors.green,
+                                    fontSize: 11, fontWeight: FontWeight.w500)
+                                : GoogleFonts.dmSans(color: AppColors.green,
+                                    fontSize: 11, fontWeight: FontWeight.w500)),
+                      ]),
+                    ])),
+                    const Icon(Icons.chevron_right_rounded, size: 16, color: AppColors.textMuted),
                   ]),
-                ])),
-              ]),
+                ),
+              ),
             ),
           ),
 
