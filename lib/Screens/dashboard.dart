@@ -143,6 +143,10 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                     _quickCard(l10n.t('allRecords'), Icons.folder_open_rounded,
                         AppColors.red, AppColors.redLight, '/records',
                         '${stats['records']} ${l10n.t('navRecords')}', isRtl),
+                    const SizedBox(width: 16),
+                    _quickCard(l10n.t('viewCalendar'), Icons.calendar_month_rounded,
+                        AppColors.purple, AppColors.purpleLight, '/calendar',
+                        l10n.t('calendarSubtitle'), isRtl),
                   ]),
                   const SizedBox(height: 32),
 
