@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OdooApi {
-  static String _baseUrl = 'http://192.168.1.7:8069';
+  static String _baseUrl = 'http://192.168.1.48:8069';
   static String get baseUrl => _baseUrl;
 
   static const String dbName = String.fromEnvironment(
@@ -19,7 +19,7 @@ class OdooApi {
   // ─── INITIALISATION ─────────────────────────────────────────────────────────
   static Future<void> initConfig() async {
     final prefs = await SharedPreferences.getInstance();
-    _baseUrl = prefs.getString('odoo_server_url') ?? 'http://192.168.1.7:8069';
+    _baseUrl = prefs.getString('odoo_server_url') ?? 'http://192.168.1.48:8069';
   }
 
   static Future<void> setServerUrl(String newUrl) async {

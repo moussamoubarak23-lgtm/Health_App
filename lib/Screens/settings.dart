@@ -1,8 +1,11 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:medical_app/Services/odoo_api.dart';
+import 'package:medical_app/Services/pdf_service.dart';
 import 'package:medical_app/Widgets/sidebar.dart';
 import 'package:medical_app/app_localizations.dart';
 import 'package:medical_app/language_provider.dart';
@@ -19,9 +22,8 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   List myActs = [];
   bool loadingActs = true;
-  bool isScanning = false;
-  MobileScannerController cameraController = MobileScannerController();
   String userRole = 'doctor';
+  String doctorName = '';
 
   @override
   void initState() {
@@ -33,6 +35,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       userRole = prefs.getString('user_role') ?? 'doctor';
+      doctorName = prefs.getString('doctor_name') ?? 'Médecin';
     });
     if (userRole == 'doctor') {
       _loadActs();
@@ -58,7 +61,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final idStr = code.split(":")[1];
         final id = int.tryParse(idStr);
         if (id != null) {
-          setState(() => isScanning = false);
+          Navigator.pop(context); // Close dialog
           _identifyAndRedirect(id);
           break;
         }
@@ -70,6 +73,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator()));
     try {
       final patients = await OdooApi.getPatients();
+      if (!mounted) return;
       Navigator.pop(context); // Close loader
       final patient = patients.firstWhere((p) => p['id'] == id, orElse: () => null);
       if (patient != null) {
@@ -80,7 +84,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _snack("Patient non trouvé", isError: true);
       }
     } catch (e) {
-      Navigator.pop(context);
+      if (mounted) Navigator.pop(context);
       _snack("Erreur d'identification", isError: true);
     }
   }
@@ -96,11 +100,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Nouvel Acte Médical"),
+        title: Text("Nouvel Acte Médical", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "Nom de l'acte (ex: Consultation)")),
+            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "Nom de l'acte", hintText: "ex: Consultation")),
+            const SizedBox(height: 16),
             TextField(controller: priceCtrl, decoration: const InputDecoration(labelText: "Prix (DH)"), keyboardType: TextInputType.number),
           ],
         ),
@@ -127,6 +132,163 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  void _showActsListDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("Mes Actes Médicaux", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+              IconButton(onPressed: _showAddActDialog, icon: const Icon(Icons.add_circle, color: AppColors.primary)),
+            ],
+          ),
+          content: SizedBox(
+            width: 400,
+            height: 500,
+            child: loadingActs
+                ? const Center(child: CircularProgressIndicator())
+                : myActs.isEmpty
+                    ? Center(child: Text("Aucun acte configuré", style: GoogleFonts.dmSans(color: AppColors.textMuted)))
+                    : ListView.separated(
+                        itemCount: myActs.length,
+                        separatorBuilder: (_, __) => const Divider(),
+                        itemBuilder: (context, i) => ListTile(
+                          title: Text(myActs[i]['name'], style: GoogleFonts.dmSans(fontWeight: FontWeight.w600)),
+                          trailing: Text("${myActs[i]['list_price']} DH", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, color: AppColors.primary)),
+                        ),
+                      ),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("Fermer"))],
+        ),
+      ),
+    );
+  }
+
+  void _showScanDialog() {
+    // Le plugin mobile_scanner ne supporte pas nativement Windows et Linux.
+    if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text("Scanner non supporté"),
+          content: const Text("Le scan de QR code via webcam n'est pas encore disponible sur cette version desktop de l'application.\n\nCette fonctionnalité est optimisée pour Android, iOS, macOS et le Web."),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Compris"))
+          ],
+        ),
+      );
+      return;
+    }
+
+    final MobileScannerController scannerController = MobileScannerController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Scanner QR Code", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+        content: SizedBox(
+          width: 400,
+          height: 400,
+          child: Column(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: MobileScanner(
+                    controller: scannerController,
+                    onDetect: _onDetect,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text("Placez le QR Code devant la webcam", style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textMuted)),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              scannerController.dispose();
+              Navigator.pop(context);
+            },
+            child: const Text("Annuler"),
+          )
+        ],
+      ),
+    ).then((_) {
+      try {
+        scannerController.dispose();
+      } catch (_) {}
+    });
+  }
+
+  void _showCertificateDialog() {
+    final patientNameCtrl = TextEditingController();
+    final contentCtrl = TextEditingController(text: "L'état de santé de l'intéressé(e) nécessite un repos de ... jours à compter du ...");
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.description, color: AppColors.primary),
+            const SizedBox(width: 10),
+            Text("Certificat Médical Personnalisé", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: patientNameCtrl,
+                decoration: const InputDecoration(
+                  labelText: "Nom du Patient",
+                  hintText: "Ex: Mohamed Alami",
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: contentCtrl,
+                maxLines: 6,
+                decoration: const InputDecoration(
+                  labelText: "Contenu du certificat",
+                  alignLabelWithHint: true,
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+          ElevatedButton.icon(
+            onPressed: () async {
+              if (patientNameCtrl.text.isEmpty) {
+                _snack("Veuillez saisir le nom du patient", isError: true);
+                return;
+              }
+              await PdfService.generateAndPrintCertificate(
+                doctorName: doctorName,
+                patientName: patientNameCtrl.text,
+                content: contentCtrl.text,
+                date: DateTime.now(),
+              );
+              Navigator.pop(context);
+            },
+            icon: const Icon(Icons.print),
+            label: const Text("Imprimer / PDF"),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
@@ -140,99 +302,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Sidebar(currentRoute: '/settings'),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.all(32),
+              padding: const EdgeInsets.all(40),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(loc.t('navSettings'), style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                  const SizedBox(height: 32),
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // BLOC 1: ACTES MÉDICAUX (Only for Doctor)
-                        if (userRole == 'doctor')
-                          Expanded(
-                            flex: 3,
-                            child: _buildSectionCard(
-                              title: "Gestion des Actes",
-                              subtitle: "Configurez vos tarifs et services",
-                              icon: Icons.medical_services_rounded,
-                              action: ElevatedButton.icon(
-                                onPressed: _showAddActDialog,
-                                icon: const Icon(Icons.add, size: 18),
-                                label: const Text("Ajouter"),
-                                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                              ),
-                              child: loadingActs
-                                  ? const Center(child: CircularProgressIndicator())
-                                  : myActs.isEmpty
-                                      ? Center(child: Text("Aucun acte configuré", style: GoogleFonts.dmSans(color: AppColors.textMuted)))
-                                      : ListView.separated(
-                                          itemCount: myActs.length,
-                                          separatorBuilder: (_, __) => const Divider(height: 1),
-                                          itemBuilder: (context, i) => ListTile(
-                                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                                            title: Text(myActs[i]['name'], style: GoogleFonts.dmSans(fontWeight: FontWeight.w600, fontSize: 14)),
-                                            trailing: Text("${myActs[i]['list_price']} DH", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, color: AppColors.primary)),
-                                          ),
-                                        ),
-                            ),
-                          ),
-                        if (userRole == 'doctor') const SizedBox(width: 24),
-                        // BLOC 2: SCANNAGE / IDENTIFICATION (For both, but centered if secretary)
-                        Expanded(
-                          flex: 2,
-                          child: _buildSectionCard(
-                            title: "Identification Patient",
-                            subtitle: "Scannez le QR Code de la fiche",
-                            icon: Icons.qr_code_scanner_rounded,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                if (!isScanning) ...[
-                                  Container(
-                                    width: 120, height: 120,
-                                    decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(20)),
-                                    child: const Icon(Icons.qr_code_2_rounded, size: 64, color: AppColors.primary),
-                                  ),
-                                  const SizedBox(height: 24),
-                                  Text("Identification Rapide", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 18)),
-                                  const SizedBox(height: 8),
-                                  Text("Scannez le code QR généré lors de la planification pour ouvrir instantanément la fiche du patient.", textAlign: TextAlign.center, style: GoogleFonts.dmSans(color: AppColors.textSecond, fontSize: 13)),
-                                  const SizedBox(height: 32),
-                                  ElevatedButton.icon(
-                                    onPressed: () => setState(() => isScanning = true),
-                                    icon: const Icon(Icons.camera_alt_rounded),
-                                    label: const Text("Démarrer le Scan"),
-                                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                                  ),
-                                ] else ...[
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: SizedBox(
-                                      height: 300,
-                                      child: MobileScanner(
-                                        controller: cameraController,
-                                        onDetect: _onDetect,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  TextButton.icon(
-                                    onPressed: () => setState(() => isScanning = false),
-                                    icon: const Icon(Icons.stop_rounded),
-                                    label: const Text("Arrêter le scan"),
-                                    style: TextButton.styleFrom(foregroundColor: AppColors.red),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
+                  Text(loc.t('navSettings'), style: GoogleFonts.plusJakartaSans(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  const SizedBox(height: 8),
+                  Text("Personnalisez votre expérience et gérez vos outils.", style: GoogleFonts.dmSans(fontSize: 16, color: AppColors.textSecond)),
+                  const SizedBox(height: 48),
+                  Wrap(
+                    spacing: 24,
+                    runSpacing: 24,
+                    children: [
+                      if (userRole == 'doctor')
+                        _buildMenuTile(
+                          title: "Actes Médicaux",
+                          subtitle: "Gérer vos services et tarifs",
+                          icon: Icons.medical_services_rounded,
+                          color: Colors.blue,
+                          onTap: _showActsListDialog,
                         ),
-                        if (userRole == 'secretary') const Spacer(flex: 1),
-                      ],
-                    ),
+                      if (userRole == 'doctor')
+                        _buildMenuTile(
+                          title: "Certificats",
+                          subtitle: "Générer un document médical",
+                          icon: Icons.assignment_rounded,
+                          color: Colors.orange,
+                          onTap: _showCertificateDialog,
+                        ),
+                      _buildMenuTile(
+                        title: "Scanner QR",
+                        subtitle: "Identifier un patient (Caméra)",
+                        icon: Icons.qr_code_scanner_rounded,
+                        color: Colors.teal,
+                        onTap: _showScanDialog,
+                      ),
+                      _buildMenuTile(
+                        title: "Langue",
+                        subtitle: "Changer la langue de l'app",
+                        icon: Icons.language_rounded,
+                        color: Colors.purple,
+                        onTap: () {
+                          _snack("Fonctionnalité accessible via la sidebar");
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -243,34 +357,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildSectionCard({required String title, required String subtitle, required IconData icon, Widget? action, required Widget child}) {
-    return Container(
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))]),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: AppColors.primary, size: 24)),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.textPrimary)),
-                      Text(subtitle, style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textMuted)),
-                    ],
-                  ),
-                ),
-                if (action != null) action,
-              ],
+  Widget _buildMenuTile({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        width: 280,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-          ),
-          const Divider(height: 1),
-          Expanded(child: Padding(padding: const EdgeInsets.all(20), child: child)),
-        ],
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              title,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: GoogleFonts.dmSans(
+                fontSize: 13,
+                color: AppColors.textMuted,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
