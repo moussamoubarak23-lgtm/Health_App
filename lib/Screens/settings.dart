@@ -11,6 +11,7 @@ import 'package:medical_app/language_provider.dart';
 import 'package:medical_app/theme.dart';
 import 'package:qr_code_dart_scan/qr_code_dart_scan.dart';
 import 'package:medical_app/Screens/patient_detail.dart';
+import 'package:file_picker/file_picker.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -23,6 +24,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool loadingActs = true;
   String userRole = 'doctor';
   String doctorName = '';
+  
+  // Infos Cabinet
+  String cabinetAddress = '';
+  String cabinetPhone = '';
+  String cabinetEmail = '';
+  String cabinetFax = '';
+  String? cabinetLogoPath;
+  String specialtyFr = '';
+  String specialtyAr = '';
+  String experienceFr = '';
+  String experienceAr = '';
 
   @override
   void initState() {
@@ -35,6 +47,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       userRole = prefs.getString('user_role') ?? 'doctor';
       doctorName = prefs.getString('doctor_name') ?? 'Médecin';
+      cabinetAddress = prefs.getString('cabinet_address') ?? '';
+      cabinetPhone = prefs.getString('cabinet_phone') ?? '';
+      cabinetEmail = prefs.getString('cabinet_email') ?? '';
+      cabinetFax = prefs.getString('cabinet_fax') ?? '';
+      cabinetLogoPath = prefs.getString('cabinet_logo_path');
+      specialtyFr = prefs.getString('cabinet_specialty_fr') ?? 'Médecin Généraliste';
+      specialtyAr = prefs.getString('cabinet_specialty_ar') ?? 'طبيب عام';
+      experienceFr = prefs.getString('cabinet_experience_fr') ?? '';
+      experienceAr = prefs.getString('cabinet_experience_ar') ?? '';
     });
     if (userRole == 'doctor') {
       _loadActs();
@@ -290,6 +311,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 patientName: patientNameCtrl.text,
                 content: contentCtrl.text,
                 date: DateTime.now(),
+                cabinetAddress: cabinetAddress,
+                cabinetPhone: cabinetPhone,
+                logoPath: cabinetLogoPath,
               );
               Navigator.pop(context);
             },
@@ -298,6 +322,203 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showPrescriptionDialog() {
+    final patientNameCtrl = TextEditingController();
+    final contentCtrl = TextEditingController(text: "1. \n2. \n3. ");
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.receipt_long, color: AppColors.green),
+            const SizedBox(width: 10),
+            Text("Nouvelle Ordonnance", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: patientNameCtrl,
+                decoration: const InputDecoration(
+                  labelText: "Nom du Patient",
+                  hintText: "Ex: Mohamed Alami",
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: contentCtrl,
+                maxLines: 10,
+                decoration: const InputDecoration(
+                  labelText: "Médicaments et posologie",
+                  alignLabelWithHint: true,
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+          ElevatedButton.icon(
+            onPressed: () async {
+              if (patientNameCtrl.text.isEmpty) {
+                _snack("Veuillez saisir le nom du patient", isError: true);
+                return;
+              }
+              await PdfService.generateAndPrintPrescription(
+                doctorName: doctorName,
+                patientName: patientNameCtrl.text,
+                content: contentCtrl.text,
+                date: DateTime.now(),
+                cabinetAddress: cabinetAddress,
+                cabinetPhone: cabinetPhone,
+                cabinetEmail: cabinetEmail,
+                cabinetFax: cabinetFax,
+                logoPath: cabinetLogoPath,
+                specialtyFr: specialtyFr,
+                specialtyAr: specialtyAr,
+                experienceFr: experienceFr,
+                experienceAr: experienceAr,
+              );
+              Navigator.pop(context);
+            },
+            icon: const Icon(Icons.print),
+            label: const Text("Imprimer / PDF"),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.green, foregroundColor: Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCabinetInfoDialog() {
+    final addrCtrl = TextEditingController(text: cabinetAddress);
+    final phoneCtrl = TextEditingController(text: cabinetPhone);
+    final emailCtrl = TextEditingController(text: cabinetEmail);
+    final faxCtrl = TextEditingController(text: cabinetFax);
+    final specFrCtrl = TextEditingController(text: specialtyFr);
+    final specArCtrl = TextEditingController(text: specialtyAr);
+    final expFrCtrl = TextEditingController(text: experienceFr);
+    final expArCtrl = TextEditingController(text: experienceAr);
+    String? tempLogoPath = cabinetLogoPath;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text("Configuration de l'ordonnance papier", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+          content: SizedBox(
+            width: 700,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Logo Column
+                      Expanded(
+                        flex: 1,
+                        child: Column(
+                          children: [
+                            Text("Logo", style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            GestureDetector(
+                              onTap: () async {
+                                FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image);
+                                if (result != null) setDialogState(() => tempLogoPath = result.files.single.path);
+                              },
+                              child: Container(
+                                height: 100, width: 100,
+                                decoration: BoxDecoration(color: Colors.grey[100], shape: BoxShape.circle, border: Border.all(color: Colors.grey[300]!)),
+                                child: tempLogoPath != null
+                                    ? ClipOval(child: Image.file(File(tempLogoPath!), fit: BoxFit.cover))
+                                    : const Icon(Icons.add_a_photo, color: Colors.grey),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      // Fields Column
+                      Expanded(
+                        flex: 3,
+                        child: Column(
+                          children: [
+                            Row(children: [
+                              Expanded(child: TextField(controller: specFrCtrl, decoration: const InputDecoration(labelText: "Spécialité (FR)"))),
+                              const SizedBox(width: 10),
+                              Expanded(child: TextField(controller: specArCtrl, decoration: const InputDecoration(labelText: "Spécialité (AR)"), textDirection: TextDirection.rtl)),
+                            ]),
+                            const SizedBox(height: 10),
+                            Row(children: [
+                              Expanded(child: TextField(controller: expFrCtrl, decoration: const InputDecoration(labelText: "Titres / Expérience (FR)"), maxLines: 2)),
+                              const SizedBox(width: 10),
+                              Expanded(child: TextField(controller: expArCtrl, decoration: const InputDecoration(labelText: "Titres / Expérience (AR)"), textDirection: TextDirection.rtl, maxLines: 2)),
+                            ]),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 32),
+                  Row(children: [
+                    Expanded(child: TextField(controller: addrCtrl, decoration: const InputDecoration(labelText: "Adresse du Cabinet", prefixIcon: Icon(Icons.location_on)))),
+                  ]),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Expanded(child: TextField(controller: phoneCtrl, decoration: const InputDecoration(labelText: "Téléphone", prefixIcon: Icon(Icons.phone)))),
+                    const SizedBox(width: 10),
+                    Expanded(child: TextField(controller: faxCtrl, decoration: const InputDecoration(labelText: "Fax", prefixIcon: Icon(Icons.print)))),
+                  ]),
+                  const SizedBox(height: 10),
+                  TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: "Email", prefixIcon: Icon(Icons.email))),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+            ElevatedButton(
+              onPressed: () async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('cabinet_address', addrCtrl.text.trim());
+                await prefs.setString('cabinet_phone', phoneCtrl.text.trim());
+                await prefs.setString('cabinet_email', emailCtrl.text.trim());
+                await prefs.setString('cabinet_fax', faxCtrl.text.trim());
+                await prefs.setString('cabinet_specialty_fr', specFrCtrl.text.trim());
+                await prefs.setString('cabinet_specialty_ar', specArCtrl.text.trim());
+                await prefs.setString('cabinet_experience_fr', expFrCtrl.text.trim());
+                await prefs.setString('cabinet_experience_ar', expArCtrl.text.trim());
+                if (tempLogoPath != null) await prefs.setString('cabinet_logo_path', tempLogoPath!);
+                
+                setState(() {
+                  cabinetAddress = addrCtrl.text.trim();
+                  cabinetPhone = phoneCtrl.text.trim();
+                  cabinetEmail = emailCtrl.text.trim();
+                  cabinetFax = faxCtrl.text.trim();
+                  specialtyFr = specFrCtrl.text.trim();
+                  specialtyAr = specArCtrl.text.trim();
+                  experienceFr = expFrCtrl.text.trim();
+                  experienceAr = expArCtrl.text.trim();
+                  cabinetLogoPath = tempLogoPath;
+                });
+                Navigator.pop(context);
+                _snack("Configuration enregistrée");
+              },
+              child: const Text("Enregistrer"),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -334,6 +555,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           icon: Icons.medical_services_rounded,
                           color: Colors.blue,
                           onTap: _showActsListDialog,
+                        ),
+                      if (userRole == 'doctor')
+                        _buildMenuTile(
+                          title: "Infos Cabinet",
+                          subtitle: "Configuration ordonnance papier",
+                          icon: Icons.business_rounded,
+                          color: Colors.indigo,
+                          onTap: _showCabinetInfoDialog,
+                        ),
+                      if (userRole == 'doctor')
+                        _buildMenuTile(
+                          title: "Ordonnances",
+                          subtitle: "Générer une ordonnance",
+                          icon: Icons.receipt_long_rounded,
+                          color: Colors.green,
+                          onTap: _showPrescriptionDialog,
                         ),
                       if (userRole == 'doctor')
                         _buildMenuTile(
