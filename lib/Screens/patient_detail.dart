@@ -1,7 +1,13 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:medical_app/Services/odoo_api.dart';
+import 'package:medical_app/Services/pdf_service.dart';
 import 'package:medical_app/app_localizations.dart';
 import 'package:medical_app/Widgets/sidebar.dart';
 import 'package:medical_app/language_provider.dart';
@@ -9,6 +15,11 @@ import 'package:medical_app/theme.dart';
 import 'package:intl/intl.dart' as intl;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 
 enum PatientTab { consultations, vaccination, actes, ordonnances, bilanBio, bilanRx, certificats, compteRendu, comptabilite, factures }
 
@@ -27,6 +38,9 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   List selectedActs = [];
   bool loading = true;
   late Map currentPatient;
+
+  // 1. GlobalKey pour capturer le widget QR
+  final GlobalKey qrKey = GlobalKey();
 
   static const List<String> nationalities = [
     "Marocaine", "Française", "Algérienne", "Tunisienne", "Espagnole", "Italienne", "Sénégalaise", "Malienne", "Ivoirienne", "Américaine", "Canadienne", "Allemande", "Belge", "Suisse", "Libyenne", "Égyptienne", "Saoudienne", "Émiratie", "Qatarienne", "Koweïtienne", "Bahreïnie", "Omanaise", "Jordanienne", "Libanaise", "Syrienne", "Irakienne", "Yéménite", "Soudanaise", "Mauritanienne", "Portugaise", "Néerlandaise"
@@ -67,7 +81,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     final dossierCtrl = TextEditingController(text: _s(currentPatient['medical_file_number']));
     String couverture = _s(currentPatient['insurance_id']).isEmpty ? "Sans" : _s(currentPatient['insurance_id']);
     if (!["Sans", "AMO", "RAMED", "CNOPS", "Privé"].contains(couverture)) couverture = "Sans";
-    
+
     String nationalite = 'Marocaine';
     if (currentPatient['comment'] is String && currentPatient['comment'].toString().contains('Nationalité:')) {
       nationalite = currentPatient['comment'].toString().split('Nationalité:')[1].trim();
@@ -195,7 +209,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
             content: SizedBox(
               width: 400,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                mainAxisSize: Map<String, dynamic>.from({}).isEmpty ? MainAxisSize.min : MainAxisSize.min,
                 children: [
                   TextField(decoration: const InputDecoration(hintText: "Rechercher...", prefixIcon: Icon(Icons.search)), onChanged: (v) => setDialogState(() => query = v)),
                   const SizedBox(height: 10),
@@ -239,7 +253,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
     final lines = selectedActs.map((act) => {'product_id': act['id'], 'name': act['name'], 'price': act['list_price']}).toList();
     final result = await OdooApi.createInvoice(patientId: currentPatient['id'], lines: lines);
-    
+
     if (result['success']) {
       final selectedActNames = selectedActs.map((act) => act['name']).join(', ');
       await OdooApi.updateMedicalRecord(
@@ -268,7 +282,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
           content: SizedBox(
             width: 450,
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize: Map<String, dynamic>.from({}).isEmpty ? MainAxisSize.min : MainAxisSize.min,
               children: [
                 Text("Sélectionnez les actes effectués :", style: GoogleFonts.dmSans(fontSize: 14)),
                 const SizedBox(height: 12),
@@ -317,40 +331,243 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     );
   }
 
+  String _generateFullQrData() {
+    String text = "--- DOSSIER PATIENT ---\n";
+    text += "Patient: ${_s(currentPatient['name'])}\n";
+    text += "ID: ${currentPatient['id']}\n";
+    text += "CIN: ${_s(currentPatient['patient_code'])}\n";
+    text += "Dossier: ${_s(currentPatient['medical_file_number'])}";
+    return text;
+  }
+
   void _showQRCodeDialog() {
-    final qrData = "PATIENT_ID:${currentPatient['id']}";
+    final qrData = _generateFullQrData();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Options du Dossier", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+        content: const Text("Que souhaitez-vous faire pour ce patient ?"),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _displayQrCodeOnly(qrData);
+            },
+            child: const Text("Afficher QR"),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              Navigator.pop(context);
+              await PdfService.generateAndPrintPatientReport(
+                patient: currentPatient,
+                records: records,
+                measurements: bpMeasurements,
+              );
+            },
+            icon: const Icon(Icons.picture_as_pdf_rounded),
+            label: const Text("Rapport PDF"),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<String> _generateQrPdf() async {
+    final pdf = pw.Document();
+    
+    RenderRepaintBoundary boundary =
+        qrKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+    ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+    ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    Uint8List pngBytes = byteData!.buffer.asUint8List();
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a5,
+        build: (pw.Context context) => pw.Center(
+          child: pw.Column(
+            mainAxisAlignment: pw.MainAxisAlignment.center,
+            children: [
+              pw.Text(
+                'Dossier Patient',
+                style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
+              ),
+              pw.SizedBox(height: 8),
+              pw.Text(
+                _s(currentPatient['name']),
+                style: const pw.TextStyle(fontSize: 14),
+              ),
+              pw.SizedBox(height: 24),
+              pw.Image(pw.MemoryImage(pngBytes), width: 200, height: 200),
+              pw.SizedBox(height: 16),
+              pw.Text(
+                'CIN: ${_s(currentPatient['patient_code'])}',
+                style: const pw.TextStyle(fontSize: 12),
+              ),
+              pw.Text(
+                'Dossier: ${_s(currentPatient['medical_file_number'])}',
+                style: const pw.TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final docsDir = await getApplicationDocumentsDirectory();
+    final fileName = 'qr_patient_${_s(currentPatient['name']).replaceAll(' ', '_')}.pdf';
+    final file = File('${docsDir.path}/$fileName');
+    await file.writeAsBytes(await pdf.save());
+    return file.path;
+  }
+
+  Future<void> _shareQrAsPdf() async {
+    try {
+      final path = await _generateQrPdf();
+      await launchUrl(Uri.file(path), mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Erreur: $e")),
+      );
+    }
+  }
+
+  Future<void> _saveQrAsPdf() async {
+    try {
+      final path = await _generateQrPdf();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("PDF enregistré : $path"),
+          action: SnackBarAction(
+            label: "Ouvrir",
+            onPressed: () => launchUrl(Uri.file(path)),
+          ),
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Erreur: $e")),
+      );
+    }
+  }
+
+  void _displayQrCodeOnly(String qrData) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Column(
           children: [
-            Text("Carte d'Identification", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+            Text("Dossier QR", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 18)),
             Text(_s(currentPatient['name']), style: GoogleFonts.dmSans(fontSize: 14, color: AppColors.textMuted)),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
-              child: QrImageView(data: qrData, version: QrVersions.auto, size: 200.0),
-            ),
-            const SizedBox(height: 16),
-            Text("Ce code QR permet d'identifier rapidement le patient lors de ses prochaines visites.", textAlign: TextAlign.center, style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textSecond)),
-          ],
+        content: SizedBox(
+          width: 350,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 10),
+              RepaintBoundary(
+                key: qrKey,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border)
+                  ),
+                  child: QrImageView(
+                    data: qrData,
+                    version: QrVersions.auto,
+                    size: 250.0,
+                    errorCorrectionLevel: QrErrorCorrectLevel.M,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _shareQrAsPdf,
+                    icon: const Icon(Icons.share, size: 18),
+                    label: const Text("WhatsApp"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF25D366),
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: _saveQrAsPdf,
+                    icon: const Icon(Icons.picture_as_pdf, size: 18),
+                    label: const Text("Enregistrer PDF"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("Fermer")),
-          ElevatedButton.icon(onPressed: () {}, icon: const Icon(Icons.print_rounded), label: const Text("Imprimer"), style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white)),
         ],
       ),
     );
   }
 
+  void _sendViaWhatsApp(String text, {bool isPdf = false, bool isQr = false}) async {
+    String phone = _s(currentPatient['phone']).replaceAll(RegExp(r'[^0-9]'), '');
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Le numéro de téléphone du patient est invalide ou absent.")));
+      return;
+    }
+
+    if (phone.startsWith('0')) {
+      phone = "212${phone.substring(1)}";
+    } else if (!phone.startsWith('212') && phone.length == 9) {
+      phone = "212$phone";
+    }
+
+    showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
+
+    try {
+      if (isPdf) {
+        final file = await PdfService.generatePatientReportFile(
+          patient: currentPatient,
+          records: records,
+          measurements: bpMeasurements,
+        );
+        if (mounted) Navigator.pop(context);
+        await Share.shareXFiles([XFile(file.path)], text: "Rapport médical complet - ${_s(currentPatient['name'])}");
+      } else if (isQr) {
+        final file = await PdfService.generateQrPdfFile(
+          patientName: _s(currentPatient['name']),
+          qrData: text,
+        );
+        if (mounted) Navigator.pop(context);
+        await Share.shareXFiles([XFile(file.path)], text: "Carte Patient QR - ${_s(currentPatient['name'])}");
+      } else {
+        if (mounted) Navigator.pop(context);
+        final url = "https://wa.me/$phone?text=${Uri.encodeComponent(text)}";
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      if (mounted) {
+        if (Navigator.canPop(context)) Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Action impossible. Veuillez utiliser le partage manuel.")));
+      }
+    }
+  }
+
   void _showScheduleAppointmentDialog(AppLocalizations loc) {
-    DateTime selectedDate = DateTime.now().add(const Duration(days: 1));
+    DateTime selectedDate = intl.DateFormat('dd/MM/yyyy').parse(intl.DateFormat('dd/MM/yyyy').format(DateTime.now().add(const Duration(days: 1))));
     TimeOfDay selectedTime = const TimeOfDay(hour: 9, minute: 0);
     final motifCtrl = TextEditingController(text: "Consultation");
 
@@ -389,7 +606,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                 final scheduledDateTime = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, selectedTime.hour, selectedTime.minute);
                 final prefs = await SharedPreferences.getInstance();
                 final doctorId = prefs.getInt('uid') ?? 0;
-                
+
                 showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
                 final res = await OdooApi.addMedicalRecord(
                   patientId: currentPatient['id'],
@@ -402,10 +619,10 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                   status: 'waiting',
                   medicalFileNumber: _s(currentPatient['medical_file_number']),
                 );
-                
+
                 if (mounted) Navigator.pop(context); // Close loader
                 if (mounted) Navigator.pop(context); // Close dialog
-                
+
                 if (res['success']) {
                   _showQRCodeDialog();
                   _loadData();
@@ -427,16 +644,16 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     final fileNumCtrl = TextEditingController(text: initialDossier);
     final diagCtrl = TextEditingController(text: _s(record['diagnostic']));
     final presCtrl = TextEditingController(text: _s(record['prescription']));
-    final obsCtrl = TextEditingController(text: _s(record['observations']));
+    final infoObsCtrl = TextEditingController(text: _s(record['observations']));
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text("Valider la Consultation", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
-        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [TextField(controller: fileNumCtrl, decoration: const InputDecoration(labelText: "N° Dossier Consultation")), TextField(controller: diagCtrl, decoration: InputDecoration(labelText: loc.t('diagnosticLabel'))), TextField(controller: presCtrl, decoration: InputDecoration(labelText: loc.t('prescription')), maxLines: 2), TextField(controller: obsCtrl, decoration: InputDecoration(labelText: loc.t('observations')), maxLines: 2)])),
+        content: SingleChildScrollView(child: Column(mainAxisSize: Map<String, dynamic>.from({}).isEmpty ? MainAxisSize.min : MainAxisSize.min, children: [TextField(controller: fileNumCtrl, decoration: const InputDecoration(labelText: "N° Dossier Consultation")), TextField(controller: diagCtrl, decoration: InputDecoration(labelText: loc.t('diagnosticLabel'))), TextField(controller: presCtrl, decoration: InputDecoration(labelText: loc.t('prescription')), maxLines: 2), TextField(controller: infoObsCtrl, decoration: InputDecoration(labelText: loc.t('observations')), maxLines: 2)])),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))), ElevatedButton(onPressed: () async {
           final newDossier = fileNumCtrl.text.trim();
-          final res = await OdooApi.updateMedicalRecord(recordId: record['id'], motif: _s(record['motif']), diagnostic: diagCtrl.text, prescription: presCtrl.text, observations: obsCtrl.text, state: 'confirmed', medicalFileNumber: newDossier);
-          
+          final res = await OdooApi.updateMedicalRecord(recordId: record['id'], motif: _s(record['motif']), diagnostic: diagCtrl.text, prescription: presCtrl.text, observations: infoObsCtrl.text, state: 'confirmed', medicalFileNumber: newDossier);
+
           if (newDossier.isNotEmpty && newDossier != _s(currentPatient['medical_file_number'])) {
             await OdooApi.updatePatient(
               patientId: currentPatient['id'],
@@ -484,7 +701,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     final isRtl = lang.isArabic;
     final loc = AppLocalizations.of(context);
     final p = currentPatient;
-    
+
     String nationalite = 'Marocaine';
     if (p['comment'] is String && p['comment'].toString().contains('Nationalité:')) {
       nationalite = p['comment'].toString().split('Nationalité:')[1].trim();
@@ -505,7 +722,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                   child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Expanded(flex: 3, child: _mainContent(loc)),
                     const SizedBox(width: 16),
-                    GestureDetector(onTap: () => _showPatientEditDialog(loc), child: _rightSidebar(p, loc, nationalite)),
+                    Expanded(flex: 1, child: GestureDetector(onTap: () => _showPatientEditDialog(loc), child: _rightSidebar(p, loc, nationalite))),
                   ]),
                 ),
               ),
@@ -519,16 +736,23 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   Widget _topBar(Map p, AppLocalizations loc) => Container(
     padding: const EdgeInsets.all(12),
     decoration: const BoxDecoration(color: AppColors.surface, border: Border(bottom: BorderSide(color: AppColors.border))),
-    child: Row(children: [IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)), Text('${loc.t('navPatients')} / ${_s(p['name'])}', style: GoogleFonts.dmSans(fontWeight: FontWeight.w600)), const Spacer(), IconButton(icon: const Icon(Icons.qr_code_2_rounded, color: AppColors.primary), onPressed: _showQRCodeDialog), const SizedBox(width: 8), IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData)]),
+    child: Row(children: [
+      IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
+      Text("${loc.t('navPatients')} / ${_s(p['name'])}", style: GoogleFonts.dmSans(fontWeight: FontWeight.w600)),
+      const Spacer(),
+      IconButton(icon: const Icon(Icons.qr_code_2_rounded, color: AppColors.primary), onPressed: _showQRCodeDialog),
+      const SizedBox(width: 8),
+      IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData)
+    ]),
   );
 
   Widget _mainContent(AppLocalizations loc) => Column(children: [
     Row(children: [
-      _actionBtn('+ ${loc.t('newConsultation')}', AppColors.primary, () => Navigator.pushNamed(context, '/add_record', arguments: currentPatient)), 
-      const SizedBox(width: 10), 
+      _actionBtn("+ ${loc.t('newConsultation')}", AppColors.primary, () => Navigator.pushNamed(context, '/add_record', arguments: currentPatient)),
+      const SizedBox(width: 10),
       _actionBtn('📅 Planifier RDV', AppColors.green, () => _showScheduleAppointmentDialog(loc)),
-      const SizedBox(width: 10), 
-      _actionBtn('⚡ ${loc.t('quickActions')}', AppColors.primaryLight, () => _showQuickActions(loc), isSecondary: true)
+      const SizedBox(width: 10),
+      _actionBtn("⚡ ${loc.t('quickActions')}", AppColors.primaryLight, () => _showQuickActions(loc), isSecondary: true)
     ]),
     const SizedBox(height: 16),
     _tabBar(loc),
@@ -609,9 +833,10 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   }
 
   Widget _rightSidebar(Map p, AppLocalizations loc, String nationalite) => Container(
-    width: 280,
-    decoration: BoxDecoration(color: Colors.transparent, borderRadius: BorderRadius.circular(12)),
-    child: Column(children: [_patientInfoCard(p, loc, nationalite), const SizedBox(height: 16), _measuresCard(loc)]),
+    padding: const EdgeInsets.symmetric(vertical: 1),
+    child: SingleChildScrollView(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [_patientInfoCard(p, loc, nationalite), const SizedBox(height: 16), _measuresCard(loc)]),
+    ),
   );
 
   Widget _patientInfoCard(Map p, AppLocalizations loc, String nationalite) => Container(
@@ -639,6 +864,6 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   Widget _infoChip(IconData icon, String text) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(children: [Icon(icon, color: AppColors.primary, size: 14), const SizedBox(width: 8), Expanded(child: Text(text.contains(": ") && text.split(": ")[1].isEmpty ? "${text.split(": ")[0]}: —" : text, style: GoogleFonts.dmSans(color: AppColors.textSecond, fontSize: 12, fontWeight: FontWeight.w500)))]));
   Widget _measuresCard(AppLocalizations loc) => Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [const Icon(Icons.monitor_heart_rounded, size: 18, color: AppColors.primary), const SizedBox(width: 8), Expanded(child: Text(loc.t('recentMeasures'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary)))]), const Divider(), if (bpMeasurements.isEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 8.0), child: Text(loc.t('noMeasure'), style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textMuted))) else ...bpMeasurements.take(2).map((m) => _bpMeasureItem(m, loc))]));
   Widget _statusBadge(String? state, AppLocalizations loc) { Color color; Color bgColor; switch (state) { case 'draft': color = AppColors.textMuted; bgColor = AppColors.textMuted.withOpacity(0.1); break; case 'waiting': color = AppColors.yellow; bgColor = AppColors.yellowLight; break; case 'confirmed': color = AppColors.green; bgColor = AppColors.greenLight; break; case 'invoiced': color = AppColors.primary; bgColor = AppColors.primaryLight; break; default: color = AppColors.textMuted; bgColor = AppColors.textMuted.withOpacity(0.1); } return Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(20), border: Border.all(color: color.withOpacity(0.25))), child: Text(_getTranslatedState(state, loc), style: GoogleFonts.dmSans(color: color, fontSize: 10, fontWeight: FontWeight.w700))); }
-  Widget _bpMeasureItem(Map m, AppLocalizations loc) { final sys = (m['systolique'] as num).toDouble(); final dia = (m['diastolique'] as num).toDouble(); final date = _s(m['date_mesure']).substring(0, 10); return Padding(padding: const EdgeInsets.only(bottom: 8.0), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(date, style: GoogleFonts.dmSans(color: AppColors.textMuted, fontSize: 11)), const SizedBox(height: 4), Wrap(spacing: 10, children: [_bpValue('SYS', sys.toStringAsFixed(0), 'mmHg', sys <= 120 ? AppColors.green : AppColors.red), _bpValue('DIA', dia.toStringAsFixed(0), 'mmHg', dia <= 80 ? AppColors.green : AppColors.red)])])); }
+  Widget _bpMeasureItem(Map m, AppLocalizations loc) { final sys = (m['systolique'] as num).toDouble(); final dia = (m['diastolique'] as num).toDouble(); final date = _s(m['date_mesure']).substring(0, _s(m['date_mesure']).length >= 10 ? 10 : 0); return Padding(padding: const EdgeInsets.only(bottom: 8.0), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(date, style: GoogleFonts.dmSans(color: AppColors.textMuted, fontSize: 11)), const SizedBox(height: 4), Wrap(spacing: 10, children: [_bpValue('SYS', sys.toStringAsFixed(0), 'mmHg', sys <= 120 ? AppColors.green : AppColors.red), _bpValue('DIA', dia.toStringAsFixed(0), 'mmHg', dia <= 80 ? AppColors.green : AppColors.red)])])); }
   Widget _bpValue(String label, String val, String unit, Color color) => Row(mainAxisSize: MainAxisSize.min, children: [Text('$label: ', style: GoogleFonts.dmSans(color: AppColors.textSecond, fontSize: 11)), Text(val, style: GoogleFonts.dmSans(color: color, fontSize: 11, fontWeight: FontWeight.w700))]);
 }

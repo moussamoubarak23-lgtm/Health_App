@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -10,7 +9,7 @@ import 'package:medical_app/Widgets/sidebar.dart';
 import 'package:medical_app/app_localizations.dart';
 import 'package:medical_app/language_provider.dart';
 import 'package:medical_app/theme.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:qr_code_dart_scan/qr_code_dart_scan.dart';
 import 'package:medical_app/Screens/patient_detail.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -53,18 +52,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
-  void _onDetect(BarcodeCapture capture) async {
-    final List<Barcode> barcodes = capture.barcodes;
-    for (final barcode in barcodes) {
-      final String? code = barcode.rawValue;
-      if (code != null && code.startsWith("PATIENT_ID:")) {
-        final idStr = code.split(":")[1];
+  void _handleQRCode(String code) {
+    // Check if it's our medical report format
+    if (code.contains("--- RAPPORT MEDICAL ---") && code.contains("ID:")) {
+      try {
+        final lines = code.split('\n');
+        final idLine = lines.firstWhere((l) => l.trim().startsWith("ID:"));
+        final idStr = idLine.split(":")[1].trim();
         final id = int.tryParse(idStr);
         if (id != null) {
-          Navigator.pop(context); // Close dialog
           _identifyAndRedirect(id);
-          break;
+          return;
         }
+      } catch (e) {
+        // Fallback
+      }
+    }
+
+    // Standard PATIENT_ID check
+    if (code.startsWith("PATIENT_ID:")) {
+      final idStr = code.split(":")[1];
+      final id = int.tryParse(idStr);
+      if (id != null) {
+        _identifyAndRedirect(id);
       }
     }
   }
@@ -141,7 +151,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text("Mes Actes Médicaux", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
-              IconButton(onPressed: _showAddActDialog, icon: const Icon(Icons.add_circle, color: AppColors.primary)),
+              IconButton(onPressed: () {
+                _showAddActDialog();
+                Navigator.pop(context);
+              }, icon: const Icon(Icons.add_circle, color: AppColors.primary)),
             ],
           ),
           content: SizedBox(
@@ -167,61 +180,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showScanDialog() {
-    // Le plugin mobile_scanner ne supporte pas nativement Windows et Linux.
-    if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text("Scanner non supporté"),
-          content: const Text("Le scan de QR code via webcam n'est pas encore disponible sur cette version desktop de l'application.\n\nCette fonctionnalité est optimisée pour Android, iOS, macOS et le Web."),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Compris"))
-          ],
-        ),
-      );
-      return;
-    }
-
-    final MobileScannerController scannerController = MobileScannerController();
+    final idCtrl = TextEditingController();
     
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("Scanner QR Code", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+        title: Text("Identification Patient", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
         content: SizedBox(
-          width: 400,
-          height: 400,
+          width: 450,
+          height: 550,
           child: Column(
             children: [
               Expanded(
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: MobileScanner(
-                    controller: scannerController,
-                    onDetect: _onDetect,
+                  child: QRCodeDartScanView(
+                    onCapture: (Result result) {
+                      Navigator.pop(context);
+                      _handleQRCode(result.text);
+                    },
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-              Text("Placez le QR Code devant la webcam", style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textMuted)),
+              const SizedBox(height: 20),
+              Text("Si la caméra ne s'affiche pas, saisissez l'ID :", style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              TextField(
+                controller: idCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: "Saisir ID Patient", hintText: "Ex: 42", prefixIcon: Icon(Icons.numbers)),
+                onSubmitted: (v) {
+                  final id = int.tryParse(v);
+                  if (id != null) {
+                    Navigator.pop(context);
+                    _identifyAndRedirect(id);
+                  }
+                },
+              ),
             ],
           ),
         ),
         actions: [
-          TextButton(
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+          ElevatedButton(
             onPressed: () {
-              scannerController.dispose();
-              Navigator.pop(context);
+              final id = int.tryParse(idCtrl.text);
+              if (id != null) {
+                Navigator.pop(context);
+                _identifyAndRedirect(id);
+              }
             },
-            child: const Text("Annuler"),
-          )
+            child: const Text("Valider ID"),
+          ),
         ],
       ),
-    ).then((_) {
-      try {
-        scannerController.dispose();
-      } catch (_) {}
-    });
+    );
   }
 
   void _showCertificateDialog() {
@@ -331,9 +344,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           onTap: _showCertificateDialog,
                         ),
                       _buildMenuTile(
-                        title: "Scanner QR",
-                        subtitle: "Identifier un patient (Caméra)",
-                        icon: Icons.qr_code_scanner_rounded,
+                        title: "Identification",
+                        subtitle: "Scanner ou chercher un patient",
+                        icon: Icons.person_search_rounded,
                         color: Colors.teal,
                         onTap: _showScanDialog,
                       ),
