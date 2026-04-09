@@ -238,6 +238,20 @@ class AppLocalizations {
     'preHta':             {'fr': 'Pré-HTA',              'ar': 'ما قبل ارتفاع ضغط الدم'},
     'hypertension':       {'fr': 'Hypertension',         'ar': 'ارتفاع ضغط الدم'},
 
+    // ── BODY MEASURES (BALANCE) ──────────────────────────────────────────────
+    'bodyMeasuresTitle':  {'fr': 'Mesures Corporelles',  'ar': 'مقاييس الجسم'},
+    'weight':             {'fr': 'Poids',                'ar': 'الوزن'},
+    'bmi':                {'fr': 'IMC',                  'ar': 'مؤشر كتلة الجسم'},
+    'bodyFat':            {'fr': 'Gras (%)',             'ar': 'الدهون (%)'},
+    'muscleMass':         {'fr': 'Muscle (kg)',          'ar': 'العضلات (كجم)'},
+    'bodyWater':          {'fr': 'Eau (%)',              'ar': 'الماء (%)'},
+    'boneMass':           {'fr': 'Os (kg)',              'ar': 'العظام (كجم)'},
+    'visceralFat':        {'fr': 'Gras Visc.',           'ar': 'دهون الأحشاء'},
+    'metabolicAge':       {'fr': 'Âge Métab.',           'ar': 'العمر الأيضي'},
+
+    // ── SEHATI ───────────────────────────────────────────────────────────────
+    'measuresSehati':     {'fr': 'Mesures SEHATI',       'ar': 'مقاييس صحتي'},
+
     // ── RECORDS ──────────────────────────────────────────────────────────────
     'recordsTitle':       {'fr': 'Tous les dossiers',    'ar': 'جميع الملفات'},
     'recordsCount':       {'fr': 'dossier(s)',           'ar': 'ملف'},

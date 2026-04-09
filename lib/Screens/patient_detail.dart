@@ -34,12 +34,24 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   PatientTab _activeTab = PatientTab.consultations;
   List records = [];
   List bpMeasurements = [];
+  List bodyMeasurements = [];
   List availableActs = [];
   List selectedActs = [];
   bool loading = true;
   late Map currentPatient;
 
-  // 1. GlobalKey pour capturer le widget QR
+  // Infos Cabinet pour Ordonnances/Certificats
+  String doctorName = '';
+  String cabinetAddress = '';
+  String cabinetPhone = '';
+  String cabinetEmail = '';
+  String cabinetFax = '';
+  String? cabinetLogoPath;
+  String specialtyFr = '';
+  String specialtyAr = '';
+  String experienceFr = '';
+  String experienceAr = '';
+
   final GlobalKey qrKey = GlobalKey();
 
   static const List<String> nationalities = [
@@ -51,9 +63,28 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     super.initState();
     currentPatient = Map.from(widget.patient);
     _loadData();
+    _loadCabinetSettings();
   }
 
   String _s(dynamic val) => (val is String && val != "false") ? val : '';
+
+  Future<void> _loadCabinetSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        doctorName = prefs.getString('doctor_name') ?? 'Médecin';
+        cabinetAddress = prefs.getString('cabinet_address') ?? '';
+        cabinetPhone = prefs.getString('cabinet_phone') ?? '';
+        cabinetEmail = prefs.getString('cabinet_email') ?? '';
+        cabinetFax = prefs.getString('cabinet_fax') ?? '';
+        cabinetLogoPath = prefs.getString('cabinet_logo_path');
+        specialtyFr = prefs.getString('cabinet_specialty_fr') ?? 'Médecin Généraliste';
+        specialtyAr = prefs.getString('cabinet_specialty_ar') ?? 'طبيب عام';
+        experienceFr = prefs.getString('cabinet_experience_fr') ?? '';
+        experienceAr = prefs.getString('cabinet_experience_ar') ?? '';
+      });
+    }
+  }
 
   Future<void> _loadData() async {
     if (!mounted) return;
@@ -62,15 +93,149 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
       OdooApi.getMedicalRecords(patientId: currentPatient['id']),
       OdooApi.getBpMeasurements(patientId: currentPatient['id']),
       OdooApi.getMedicalActs(),
+      OdooApi.getBodyMeasurements(patientId: currentPatient['id']),
     ]);
     if (mounted) {
       setState(() {
         records = res[0];
         bpMeasurements = res[1];
         availableActs = res[2];
+        bodyMeasurements = res[3];
         loading = false;
       });
     }
+  }
+
+  void _showCertificateDialog() {
+    final patientNameCtrl = TextEditingController(text: _s(currentPatient['name']));
+    final contentCtrl = TextEditingController(text: "L'état de santé de l'intéressé(e) nécessite un repos de ... jours à compter du ...");
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.description, color: AppColors.primary),
+            const SizedBox(width: 10),
+            Text("Certificat Médical", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: patientNameCtrl,
+                decoration: const InputDecoration(
+                  labelText: "Nom du Patient",
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: contentCtrl,
+                maxLines: 6,
+                decoration: const InputDecoration(
+                  labelText: "Contenu du certificat",
+                  alignLabelWithHint: true,
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+          ElevatedButton.icon(
+            onPressed: () async {
+              await PdfService.generateAndPrintCertificate(
+                doctorName: doctorName,
+                patientName: patientNameCtrl.text,
+                content: contentCtrl.text,
+                date: DateTime.now(),
+                cabinetAddress: cabinetAddress,
+                cabinetPhone: cabinetPhone,
+                logoPath: cabinetLogoPath,
+              );
+              Navigator.pop(context);
+            },
+            icon: const Icon(Icons.print),
+            label: const Text("Imprimer / PDF"),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPrescriptionDialog() {
+    final patientNameCtrl = TextEditingController(text: _s(currentPatient['name']));
+    final contentCtrl = TextEditingController(text: "1. \n2. \n3. ");
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.receipt_long, color: AppColors.green),
+            const SizedBox(width: 10),
+            Text("Nouvelle Ordonnance", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: patientNameCtrl,
+                decoration: const InputDecoration(
+                  labelText: "Nom du Patient",
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: contentCtrl,
+                maxLines: 10,
+                decoration: const InputDecoration(
+                  labelText: "Médicaments et posologie",
+                  alignLabelWithHint: true,
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+          ElevatedButton.icon(
+            onPressed: () async {
+              await PdfService.generateAndPrintPrescription(
+                doctorName: doctorName,
+                patientName: patientNameCtrl.text,
+                content: contentCtrl.text,
+                date: DateTime.now(),
+                cabinetAddress: cabinetAddress,
+                cabinetPhone: cabinetPhone,
+                cabinetEmail: cabinetEmail,
+                cabinetFax: cabinetFax,
+                logoPath: cabinetLogoPath,
+                specialtyFr: specialtyFr,
+                specialtyAr: specialtyAr,
+                experienceFr: experienceFr,
+                experienceAr: experienceAr,
+              );
+              Navigator.pop(context);
+            },
+            icon: const Icon(Icons.print),
+            label: const Text("Imprimer / PDF"),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.green, foregroundColor: Colors.white),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showPatientEditDialog(AppLocalizations loc) {
@@ -209,7 +374,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
             content: SizedBox(
               width: 400,
               child: Column(
-                mainAxisSize: Map<String, dynamic>.from({}).isEmpty ? MainAxisSize.min : MainAxisSize.min,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   TextField(decoration: const InputDecoration(hintText: "Rechercher...", prefixIcon: Icon(Icons.search)), onChanged: (v) => setDialogState(() => query = v)),
                   const SizedBox(height: 10),
@@ -282,7 +447,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
           content: SizedBox(
             width: 450,
             child: Column(
-              mainAxisSize: Map<String, dynamic>.from({}).isEmpty ? MainAxisSize.min : MainAxisSize.min,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text("Sélectionnez les actes effectués :", style: GoogleFonts.dmSans(fontSize: 14)),
                 const SizedBox(height: 12),
@@ -362,6 +527,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                 patient: currentPatient,
                 records: records,
                 measurements: bpMeasurements,
+                bodyMeasurements: bodyMeasurements,
               );
             },
             icon: const Icon(Icons.picture_as_pdf_rounded),
@@ -466,6 +632,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
         ),
         content: SizedBox(
           width: 350,
+          height: _min(MediaQuery.of(context).size.height * 0.7, 500),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -522,6 +689,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     );
   }
 
+  double _min(double a, double b) => a < b ? a : b;
+
   void _sendViaWhatsApp(String text, {bool isPdf = false, bool isQr = false}) async {
     String phone = _s(currentPatient['phone']).replaceAll(RegExp(r'[^0-9]'), '');
     if (phone.isEmpty) {
@@ -543,6 +712,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
           patient: currentPatient,
           records: records,
           measurements: bpMeasurements,
+          bodyMeasurements: bodyMeasurements,
         );
         if (mounted) Navigator.pop(context);
         await Share.shareXFiles([XFile(file.path)], text: "Rapport médical complet - ${_s(currentPatient['name'])}");
@@ -649,7 +819,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text("Valider la Consultation", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
-        content: SingleChildScrollView(child: Column(mainAxisSize: Map<String, dynamic>.from({}).isEmpty ? MainAxisSize.min : MainAxisSize.min, children: [TextField(controller: fileNumCtrl, decoration: const InputDecoration(labelText: "N° Dossier Consultation")), TextField(controller: diagCtrl, decoration: InputDecoration(labelText: loc.t('diagnosticLabel'))), TextField(controller: presCtrl, decoration: InputDecoration(labelText: loc.t('prescription')), maxLines: 2), TextField(controller: infoObsCtrl, decoration: InputDecoration(labelText: loc.t('observations')), maxLines: 2)])),
+        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [TextField(controller: fileNumCtrl, decoration: const InputDecoration(labelText: "N° Dossier Consultation")), TextField(controller: diagCtrl, decoration: InputDecoration(labelText: loc.t('diagnosticLabel'))), TextField(controller: presCtrl, decoration: InputDecoration(labelText: loc.t('prescription')), maxLines: 2), TextField(controller: infoObsCtrl, decoration: InputDecoration(labelText: loc.t('observations')), maxLines: 2)])),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))), ElevatedButton(onPressed: () async {
           final newDossier = fileNumCtrl.text.trim();
           final res = await OdooApi.updateMedicalRecord(recordId: record['id'], motif: _s(record['motif']), diagnostic: diagCtrl.text, prescription: presCtrl.text, observations: infoObsCtrl.text, state: 'confirmed', medicalFileNumber: newDossier);
@@ -689,6 +859,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
           Padding(padding: const EdgeInsets.all(16.0), child: Text(loc.t('quickActions'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 18))),
           ListTile(leading: const Icon(Icons.receipt_long, color: AppColors.primary), title: Text(loc.t('newInvoice')), onTap: () { Navigator.pop(context); setState(() => _activeTab = PatientTab.actes); }),
           ListTile(leading: const Icon(Icons.calendar_today, color: AppColors.green), title: const Text('Planifier un rendez-vous'), onTap: () { Navigator.pop(context); _showScheduleAppointmentDialog(loc); }),
+          ListTile(leading: const Icon(Icons.receipt_long_rounded, color: Colors.green), title: const Text('Générer une Ordonnance'), onTap: () { Navigator.pop(context); _showPrescriptionDialog(); }),
+          ListTile(leading: const Icon(Icons.assignment_rounded, color: AppColors.yellow), title: const Text('Générer un Certificat'), onTap: () { Navigator.pop(context); _showCertificateDialog(); }),
           const SizedBox(height: 20),
         ],
       ),
@@ -777,7 +949,39 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   Widget _tabView(AppLocalizations loc) {
     if (_activeTab == PatientTab.consultations) { return Container(decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)), child: Column(children: [_tableHeader(loc), Expanded(child: loading ? const Center(child: CircularProgressIndicator()) : _consultationList(loc))])); }
     else if (_activeTab == PatientTab.actes) { return _actesTabView(loc); }
+    else if (_activeTab == PatientTab.ordonnances) { return _ordonnancesTabView(loc); }
+    else if (_activeTab == PatientTab.certificats) { return _certificatsTabView(loc); }
     return Center(child: Text(loc.t('loading')));
+  }
+
+  Widget _ordonnancesTabView(AppLocalizations loc) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.receipt_long_rounded, size: 64, color: AppColors.textMuted),
+          const SizedBox(height: 16),
+          Text("Générer une nouvelle ordonnance pour ce patient", style: GoogleFonts.dmSans(color: AppColors.textSecond)),
+          const SizedBox(height: 24),
+          _actionBtn("Créer l'ordonnance", AppColors.green, _showPrescriptionDialog),
+        ],
+      ),
+    );
+  }
+
+  Widget _certificatsTabView(AppLocalizations loc) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.assignment_rounded, size: 64, color: AppColors.textMuted),
+          const SizedBox(height: 16),
+          Text("Générer un certificat médical pour ce patient", style: GoogleFonts.dmSans(color: AppColors.textSecond)),
+          const SizedBox(height: 24),
+          _actionBtn("Créer le certificat", AppColors.yellow, _showCertificateDialog),
+        ],
+      ),
+    );
   }
 
   Widget _actesTabView(AppLocalizations loc) {
@@ -835,7 +1039,11 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   Widget _rightSidebar(Map p, AppLocalizations loc, String nationalite) => Container(
     padding: const EdgeInsets.symmetric(vertical: 1),
     child: SingleChildScrollView(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [_patientInfoCard(p, loc, nationalite), const SizedBox(height: 16), _measuresCard(loc)]),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        _patientInfoCard(p, loc, nationalite),
+        const SizedBox(height: 16),
+        _sehatiMeasuresCard(loc),
+      ]),
     ),
   );
 
@@ -862,8 +1070,92 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     }
   }
   Widget _infoChip(IconData icon, String text) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(children: [Icon(icon, color: AppColors.primary, size: 14), const SizedBox(width: 8), Expanded(child: Text(text.contains(": ") && text.split(": ")[1].isEmpty ? "${text.split(": ")[0]}: —" : text, style: GoogleFonts.dmSans(color: AppColors.textSecond, fontSize: 12, fontWeight: FontWeight.w500)))]));
-  Widget _measuresCard(AppLocalizations loc) => Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [const Icon(Icons.monitor_heart_rounded, size: 18, color: AppColors.primary), const SizedBox(width: 8), Expanded(child: Text(loc.t('recentMeasures'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary)))]), const Divider(), if (bpMeasurements.isEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 8.0), child: Text(loc.t('noMeasure'), style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textMuted))) else ...bpMeasurements.take(2).map((m) => _bpMeasureItem(m, loc))]));
+  
+  Widget _sehatiMeasuresCard(AppLocalizations loc) => InkWell(
+    onTap: () => _showSehatiMeasuresDialog(loc),
+    child: Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.primary.withOpacity(0.2)), boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [const Icon(Icons.health_and_safety_rounded, size: 20, color: AppColors.primary), const SizedBox(width: 8), Expanded(child: Text(loc.t('measuresSehati'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primary)))]),
+        const Divider(),
+        Text("Cliquer pour voir les mesures du tensiomètre et de la balance.", style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textSecond)),
+      ]),
+    ),
+  );
+
+  void _showSehatiMeasuresDialog(AppLocalizations loc) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(children: [const Icon(Icons.health_and_safety_rounded, color: AppColors.primary), const SizedBox(width: 10), Text(loc.t('measuresSehati'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold))]),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _measuresCardContent(loc),
+                const SizedBox(height: 16),
+                _bodyMeasuresCardContent(loc),
+              ],
+            ),
+          ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('close')))],
+      ),
+    );
+  }
+
+  Widget _measuresCardContent(AppLocalizations loc) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Row(children: [const Icon(Icons.monitor_heart_rounded, size: 18, color: AppColors.primary), const SizedBox(width: 8), Expanded(child: Text(loc.t('recentMeasures'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary)))]),
+    const Divider(),
+    if (bpMeasurements.isEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 8.0), child: Text(loc.t('noMeasure'), style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textMuted)))
+    else ...bpMeasurements.take(3).map((m) => _bpMeasureItem(m, loc))
+  ]);
+
+  Widget _bodyMeasuresCardContent(AppLocalizations loc) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Row(children: [const Icon(Icons.scale_rounded, size: 18, color: AppColors.green), const SizedBox(width: 8), Expanded(child: Text(loc.t('bodyMeasuresTitle'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary)))]),
+    const Divider(),
+    if (bodyMeasurements.isEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 8.0), child: Text(loc.t('noMeasure'), style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textMuted)))
+    else ...bodyMeasurements.take(3).map((m) => _bodyMeasureItem(m, loc))
+  ]);
+
+  Widget _bodyMeasureItem(Map m, AppLocalizations loc) {
+    final date = _s(m['date']).substring(0, _s(m['date']).length >= 10 ? 10 : 0);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(date, style: GoogleFonts.dmSans(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 16,
+          runSpacing: 8,
+          children: [
+            _bodyValueSmall(loc.t('weight'), "${m['weight']} kg"),
+            _bodyValueSmall(loc.t('bmi'), "${m['bmi']}"),
+            _bodyValueSmall(loc.t('bodyFat'), "${m['body_fat']}%"),
+            _bodyValueSmall(loc.t('muscleMass'), "${m['muscle_mass']} kg"),
+            _bodyValueSmall(loc.t('bodyWater'), "${m['water']}%"),
+            _bodyValueSmall(loc.t('visceralFat'), "${m['visceral_fat']}"),
+            _bodyValueSmall(loc.t('metabolicAge'), "${m['metabolic_age']} ans"),
+          ],
+        ),
+        const Divider(height: 24),
+      ]),
+    );
+  }
+
+  Widget _bodyValueSmall(String label, String value) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: GoogleFonts.dmSans(color: AppColors.textSecond, fontSize: 10)),
+      Text(value, style: GoogleFonts.dmSans(color: AppColors.textPrimary, fontSize: 11, fontWeight: FontWeight.bold)),
+    ],
+  );
+
   Widget _statusBadge(String? state, AppLocalizations loc) { Color color; Color bgColor; switch (state) { case 'draft': color = AppColors.textMuted; bgColor = AppColors.textMuted.withOpacity(0.1); break; case 'waiting': color = AppColors.yellow; bgColor = AppColors.yellowLight; break; case 'confirmed': color = AppColors.green; bgColor = AppColors.greenLight; break; case 'invoiced': color = AppColors.primary; bgColor = AppColors.primaryLight; break; default: color = AppColors.textMuted; bgColor = AppColors.textMuted.withOpacity(0.1); } return Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(20), border: Border.all(color: color.withOpacity(0.25))), child: Text(_getTranslatedState(state, loc), style: GoogleFonts.dmSans(color: color, fontSize: 10, fontWeight: FontWeight.w700))); }
-  Widget _bpMeasureItem(Map m, AppLocalizations loc) { final sys = (m['systolique'] as num).toDouble(); final dia = (m['diastolique'] as num).toDouble(); final date = _s(m['date_mesure']).substring(0, _s(m['date_mesure']).length >= 10 ? 10 : 0); return Padding(padding: const EdgeInsets.only(bottom: 8.0), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(date, style: GoogleFonts.dmSans(color: AppColors.textMuted, fontSize: 11)), const SizedBox(height: 4), Wrap(spacing: 10, children: [_bpValue('SYS', sys.toStringAsFixed(0), 'mmHg', sys <= 120 ? AppColors.green : AppColors.red), _bpValue('DIA', dia.toStringAsFixed(0), 'mmHg', dia <= 80 ? AppColors.green : AppColors.red)])])); }
+  Widget _bpMeasureItem(Map m, AppLocalizations loc) { final sys = (m['systolique'] as num).toDouble(); final dia = (m['diastolique'] as num).toDouble(); final date = _s(m['date_mesure']).substring(0, _s(m['date_mesure']).length >= 10 ? 10 : 0); return Padding(padding: const EdgeInsets.only(bottom: 8.0), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(date, style: GoogleFonts.dmSans(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Wrap(spacing: 10, children: [_bpValue('SYS', sys.toStringAsFixed(0), 'mmHg', sys <= 120 ? AppColors.green : AppColors.red), _bpValue('DIA', dia.toStringAsFixed(0), 'mmHg', dia <= 80 ? AppColors.green : AppColors.red)])])); }
   Widget _bpValue(String label, String val, String unit, Color color) => Row(mainAxisSize: MainAxisSize.min, children: [Text('$label: ', style: GoogleFonts.dmSans(color: AppColors.textSecond, fontSize: 11)), Text(val, style: GoogleFonts.dmSans(color: color, fontSize: 11, fontWeight: FontWeight.w700))]);
 }

@@ -168,12 +168,11 @@ class PdfService {
 
     pdf.addPage(
       pw.Page(
-        pageFormat: PdfPageFormat.a4, // ✅ A4 comme le modèle
+        pageFormat: PdfPageFormat.a4,
         theme: pw.ThemeData.withFont(base: font, bold: fontBold),
         build: (pw.Context context) {
           return pw.Column(
             children: [
-              // --- EN-TÊTE ---
               pw.Padding(
                 padding: const pw.EdgeInsets.symmetric(
                     horizontal: 20, vertical: 15),
@@ -181,7 +180,6 @@ class PdfService {
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    // PARTIE GAUCHE (Français)
                     pw.Expanded(
                       flex: 5,
                       child: pw.Column(
@@ -247,8 +245,6 @@ class PdfService {
                         ],
                       ),
                     ),
-
-                    // PARTIE DROITE (Arabe)
                     pw.Expanded(
                       flex: 5,
                       child: pw.Column(
@@ -296,8 +292,6 @@ class PdfService {
                   ],
                 ),
               ),
-
-              // DATE ET LIEU
               pw.SizedBox(height: 10),
               pw.Padding(
                 padding:
@@ -316,8 +310,6 @@ class PdfService {
                 child: pw.Divider(
                     thickness: 1.5, color: PdfColors.black),
               ),
-
-              // --- ZONE PRINCIPALE ---
               pw.Padding(
                 padding: const pw.EdgeInsets.symmetric(
                     horizontal: 10, vertical: 15),
@@ -339,10 +331,7 @@ class PdfService {
                   ],
                 ),
               ),
-
               pw.Spacer(),
-
-              // --- BAS DE PAGE (CACHET ET SIGNATURE) ---
               pw.Padding(
                 padding: const pw.EdgeInsets.symmetric(
                     horizontal: 30),
@@ -386,8 +375,6 @@ class PdfService {
                   ],
                 ),
               ),
-
-              // FOOTER
               pw.Padding(
                 padding: const pw.EdgeInsets.symmetric(
                     horizontal: 20),
@@ -419,7 +406,6 @@ class PdfService {
         onLayout: (PdfPageFormat format) async => pdf.save());
   }
 
-  // ✅ UNE SEULE méthode - lignes qui remplissent toute la largeur
   static List<pw.Widget> _buildPrescriptionLines(String content) {
     final List<pw.Widget> widgets = [];
     final lines =
@@ -565,6 +551,7 @@ class PdfService {
     required Map patient,
     required List records,
     required List measurements,
+    List bodyMeasurements = const [],
   }) async {
     final pdf = pw.Document();
     final font = await _getFont();
@@ -644,6 +631,29 @@ class PdfService {
             ])
                 .toList(),
           ),
+          if (bodyMeasurements.isNotEmpty) ...[
+            pw.SizedBox(height: 30),
+            pw.Text("MESURES CORPORELLES (BALANCE)",
+                style: pw.TextStyle(
+                    fontSize: 14, fontWeight: pw.FontWeight.bold)),
+            pw.Divider(),
+            pw.Table.fromTextArray(
+              headers: ["Date", "Poids", "IMC", "Gras %", "Muscle", "Eau", "Os", "Visceral", "Age M."],
+              data: bodyMeasurements
+                  .map((m) => [
+                m['date'].toString().substring(0, 10),
+                "${m['weight']} kg",
+                "${m['bmi']}",
+                "${m['body_fat']}%",
+                "${m['muscle_mass']} kg",
+                "${m['water']}%",
+                "${m['bone_mass']} kg",
+                "${m['visceral_fat']}",
+                "${m['metabolic_age']}",
+              ])
+                  .toList(),
+            ),
+          ],
         ],
       ),
     );
@@ -659,11 +669,13 @@ class PdfService {
     required Map patient,
     required List records,
     required List measurements,
+    List bodyMeasurements = const [],
   }) async {
     final file = await generatePatientReportFile(
         patient: patient,
         records: records,
-        measurements: measurements);
+        measurements: measurements,
+        bodyMeasurements: bodyMeasurements);
     await Printing.layoutPdf(
         onLayout: (PdfPageFormat format) async =>
             file.readAsBytesSync());

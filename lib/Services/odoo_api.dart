@@ -529,7 +529,22 @@ class OdooApi {
 
   static Future<List<dynamic>> getBpMeasurements({int? patientId}) async {
     final cookie = await _getSessionCookie();
-    final data = await _callRpc('/web/dataset/call_kw', {'model': 'bp.measurement', 'method': 'search_read', 'args': [patientId != null ? [['patient_id', '=', patientId]] : []], 'kwargs': {'fields': ['id', 'patient_id', 'date_mesure', 'systolique', 'diastolique', 'pouls', 'appareil'], 'limit': 50}}, cookie: cookie);
+    final data = await _callRpc('/web/dataset/call_kw', {'model': 'bp.measurement', 'method': 'search_read', 'args': [patientId != null ? [['patient_id', '=', patientId]] : []], 'kwargs': {'fields': ['id', 'patient_id', 'date_mesure', 'systolique', 'diastolique', 'pouls', 'appareil'], 'limit': 50, 'order': 'date_mesure desc'}}, cookie: cookie);
+    return data?['result'] ?? [];
+  }
+
+  static Future<List<dynamic>> getBodyMeasurements({int? patientId}) async {
+    final cookie = await _getSessionCookie();
+    final data = await _callRpc('/web/dataset/call_kw', {
+      'model': 'body.measurement',
+      'method': 'search_read',
+      'args': [patientId != null ? [['patient_id', '=', patientId]] : []],
+      'kwargs': {
+        'fields': ['id', 'patient_id', 'date', 'weight', 'bmi', 'body_fat', 'muscle_mass', 'water', 'bone_mass', 'visceral_fat', 'metabolic_age'],
+        'limit': 50,
+        'order': 'date desc'
+      }
+    }, cookie: cookie);
     return data?['result'] ?? [];
   }
 
