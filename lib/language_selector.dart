@@ -6,7 +6,7 @@ import 'package:medical_app/theme.dart';
 
 // ─── WIDGET SÉLECTEUR DE LANGUE (réutilisable partout) ───────────────────────
 class LanguageSelector extends StatelessWidget {
-  final bool compact; // true = icône seule, false = complet
+  final bool compact;
   const LanguageSelector({super.key, this.compact = false});
 
   @override
@@ -15,7 +15,6 @@ class LanguageSelector extends StatelessWidget {
     final isAr = lang.isArabic;
 
     if (compact) {
-      // Version compacte : bouton toggle simple
       return GestureDetector(
         onTap: () => lang.toggleLanguage(),
         child: Container(
@@ -52,10 +51,10 @@ class LanguageSelector extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
       ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        _langBtn(context, lang, 'fr', '🇫🇷', 'Français', !isAr),
+      child: Row(mainAxisSize: MainAxisSize.max, children: [
+        Expanded(child: _langBtn(context, lang, 'fr', '🇫🇷', 'Français', !isAr)),
         const SizedBox(width: 4),
-        _langBtn(context, lang, 'ar', '🇲🇦', 'العربية', isAr),
+        Expanded(child: _langBtn(context, lang, 'ar', '🇲🇦', 'العربية', isAr)),
       ]),
     );
   }
@@ -66,32 +65,35 @@ class LanguageSelector extends StatelessWidget {
       onTap: () => lang.setLanguage(code),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
         decoration: BoxDecoration(
           color: active ? AppColors.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           boxShadow: active
               ? [BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.25),
-                  blurRadius: 6, offset: const Offset(0, 2))]
+              color: AppColors.primary.withValues(alpha: 0.25),
+              blurRadius: 6, offset: const Offset(0, 2))]
               : null,
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           Text(flag, style: const TextStyle(fontSize: 14)),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: GoogleFonts.dmSans(
-              color: active ? Colors.white : AppColors.textSecond,
-              fontSize: 13,
-              fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.dmSans(
+                color: active ? Colors.white : AppColors.textSecond,
+                fontSize: 11,
+                fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+              ),
             ),
           ),
         ]),
       ),
     );
   }
-}
+} // ← accolade fermante de la classe LanguageSelector
 
 // ─── DIALOG SÉLECTEUR (pour Sidebar) ─────────────────────────────────────────
 void showLanguageDialog(BuildContext context) {

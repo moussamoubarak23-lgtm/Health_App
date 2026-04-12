@@ -1,0 +1,168 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/browser_client.dart'; 
+import 'package:shared_preferences/shared_preferences.dart';
+
+class OdooApi {
+  // Utilisation de 127.0.0.1 pour le web via le proxy Django, et l'IP directe pour le mobile
+  static String _baseUrl = kIsWeb ? 'http://127.0.0.1:8000' : 'http://192.168.1.48:8069';
+  static String get baseUrl => _baseUrl;
+
+  static const String dbName = String.fromEnvironment(
+    'ODOO_DB_NAME',
+    defaultValue: 'Dossier_medical',
+  );
+
+  // Vérifiez que ces identifiants admin sont corrects dans votre Odoo
+  static const String _adminLogin = 'admin';
+  static const String _adminPassword = 'admin';
+
+  static bool get canRegisterDoctorsFromClient => true;
+
+  // Client HTTP adapté : avec credentials pour le Web (CORS/Cookies)
+  static final http.Client _client = kIsWeb 
+      ? (BrowserClient()..withCredentials = true) 
+      : http.Client();
+
+  static Future<void> initConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    _baseUrl = prefs.getString('odoo_server_url') ?? _baseUrl;
+  }
+
+  static Future<void> setServerUrl(String newUrl) async {
+    String cleanedUrl = newUrl.trim();
+    if (!cleanedUrl.startsWith('http')) cleanedUrl = 'http://$cleanedUrl';
+    if (cleanedUrl.endsWith('/')) cleanedUrl = cleanedUrl.substring(0, cleanedUrl.length - 1);
+    _baseUrl = cleanedUrl;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('odoo_server_url', cleanedUrl);
+  }
+
+  static Future<String> _getSessionCookie() async {
+    if (kIsWeb) return ''; 
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('session_id') ?? '';
+  }
+
+  static Future<void> _saveSessionCookie(String cookie) async {
+    if (kIsWeb || cookie.isEmpty) return; 
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('session_id', cookie);
+  }
+
+  static String _s(dynamic val) {
+    if (val == null || val == false) return '';
+    return val.toString();
+  }
+
+  static Future<Map<String, dynamic>?> _callRpc(String path, Map params, {String? cookie}) async {
+    try {
+      final headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+      
+      // Sur mobile, on injecte le cookie manuellement
+      if (!kIsWeb && cookie != null && cookie.isNotEmpty) {
+        headers['Cookie'] = cookie;
+      }
+
+      final response = await _client.post(
+        Uri.parse('$baseUrl$path'),
+        headers: headers,
+        body: jsonEncode({
+          'jsonrpc': '2.0', 
+          'method': 'call', 
+          'params': params, 
+          'id': DateTime.now().millisecondsSinceEpoch
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.body.isEmpty) return {'error': {'message': 'Réponse vide du serveur (Code: ${response.statusCode})'}};
+
+      final data = jsonDecode(response.body);
+      
+      // On capture le Set-Cookie s'il est présent (essentiel pour le mode hors-web)
+      final cookieHeader = response.headers['set-cookie'] ?? response.headers['Set-Cookie'];
+      if (cookieHeader != null) {
+        data['set-cookie'] = cookieHeader;
+      }
+      
+      return data;
+    } catch (e) {
+      return {'error': {'message': 'Erreur réseau : $e'}};
+    }
+  }
+
+  static Future<Map<String, dynamic>> login(String identifier, String password, {String role = 'doctor'}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // --- LOGIQUE SECRÉTAIRE ---
+      if (role == 'secretary') {
+        final adminAuth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': _adminLogin, 'password': _adminPassword});
+        
+        if (adminAuth == null || adminAuth['result'] == null) {
+          String msg = adminAuth?['error']?['message'] ?? 'Identifiants Admin incorrects ou base de données introuvable';
+          return {'success': false, 'error': 'Erreur Admin: $msg'};
+        }
+
+        final adminCookie = _s(adminAuth['set-cookie']);
+        
+        final searchResult = await _callRpc('/web/dataset/call_kw', {
+          'model': 'medical.secretary', 
+          'method': 'search_read',
+          'args': [[
+            ['secretary_code', '=', password],
+            '|', '|',
+            ['email', '=', identifier],
+            ['phone', 'ilike', identifier],
+            ['mobile', 'ilike', identifier]
+          ]],
+          'kwargs': {'fields': ['id', 'full_name', 'doctor_id'], 'limit': 1},
+        }, cookie: adminCookie);
+
+        if (searchResult != null && searchResult['result'] != null && (searchResult['result'] as List).isNotEmpty) {
+          final secretary = searchResult['result'][0];
+          if (!kIsWeb) await _saveSessionCookie(adminCookie);
+          
+          await prefs.setString('user_role', 'secretary');
+          await prefs.setInt('secretary_id', secretary['id'] ?? 0);
+          await prefs.setString('doctor_name', _s(secretary['full_name']).isNotEmpty ? _s(secretary['full_name']) : identifier);
+          
+          if (secretary['doctor_id'] is List) {
+            await prefs.setInt('uid', secretary['doctor_id'][0]);
+          }
+          return {'success': true, 'name': secretary['full_name'], 'role': 'secretary'};
+        }
+        return {'success': false, 'error': 'Code ou identifiant secrétaire incorrect'};
+      }
+
+      // --- LOGIQUE MÉDECIN ---
+      var auth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': identifier, 'password': password});
+
+      if (auth != null && auth['result'] != null) {
+        final res = auth['result'];
+        if (!kIsWeb) await _saveSessionCookie(_s(auth['set-cookie']));
+        
+        await prefs.setInt('uid', res['uid'] ?? 0);
+        await prefs.setInt('partner_id', res['partner_id'] ?? 0);
+        await prefs.setString('doctor_name', _s(res['name']).isNotEmpty ? _s(res['name']) : identifier);
+        await prefs.setString('doctor_login', _s(res['username']).isNotEmpty ? _s(res['username']) : identifier);
+        await prefs.setString('user_role', 'doctor');
+        return {'success': true, 'name': res['name'], 'role': 'doctor'};
+      }
+      
+      String errorMsg = 'Identifiant ou mot de passe incorrect';
+      if (auth?['error'] != null) {
+        errorMsg = auth!['error']['data']?['message'] ?? auth['error']['message'] ?? errorMsg;
+      }
+      return {'success': false, 'error': errorMsg};
+
+    } catch (e) {
+      return {'success': false, 'error': 'Erreur technique: $e'};
+    }
+  }
+  // ... reste des méthodes ...
+}

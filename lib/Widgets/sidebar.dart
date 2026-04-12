@@ -44,11 +44,11 @@ class _SidebarState extends State<Sidebar> {
 
     TextStyle navStyle(bool active, Color color) => isRtl
         ? GoogleFonts.cairo(fontSize: 13,
-            color: active ? color : AppColors.textSecond,
-            fontWeight: active ? FontWeight.w700 : FontWeight.w400)
+        color: active ? color : AppColors.textSecond,
+        fontWeight: active ? FontWeight.w700 : FontWeight.w400)
         : GoogleFonts.dmSans(fontSize: 13,
-            color: active ? color : AppColors.textSecond,
-            fontWeight: active ? FontWeight.w700 : FontWeight.w400);
+        color: active ? color : AppColors.textSecond,
+        fontWeight: active ? FontWeight.w700 : FontWeight.w400);
 
     final List<_NavItem> allNavItems = [
       _NavItem(Icons.grid_view_rounded,      l10n.t('navDashboard'), userRole == 'secretary' ? '/dashboard_secretaire' : '/dashboard', AppColors.primary,  AppColors.primaryLight),
@@ -63,13 +63,12 @@ class _SidebarState extends State<Sidebar> {
 
     List<_NavItem> navItems;
     if (userRole == 'secretary') {
-      // Secretary only: Dashboard, Calendar, Patients, Invoices, Settings
-      navItems = allNavItems.where((item) => 
-        item.route == '/dashboard_secretaire' || 
-        item.route == '/calendar' || 
-        item.route == '/patients' || 
-        item.route == '/invoices' || 
-        item.route == '/settings'
+      navItems = allNavItems.where((item) =>
+      item.route == '/dashboard_secretaire' ||
+          item.route == '/calendar' ||
+          item.route == '/patients' ||
+          item.route == '/invoices' ||
+          item.route == '/settings'
       ).toList();
     } else {
       navItems = allNavItems;
@@ -91,6 +90,7 @@ class _SidebarState extends State<Sidebar> {
           )],
         ),
         child: Column(children: [
+          // ── HEADER LOGO ─────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
             child: Row(children: [
@@ -117,30 +117,35 @@ class _SidebarState extends State<Sidebar> {
                 ),
               ),
               const SizedBox(width: 12),
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(l10n.t('appName'),
-                    style: isRtl
-                        ? GoogleFonts.cairo(color: AppColors.textPrimary,
-                            fontWeight: FontWeight.w800, fontSize: 14)
-                        : GoogleFonts.plusJakartaSans(color: AppColors.textPrimary,
-                            fontWeight: FontWeight.w800, fontSize: 14)),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
-                    borderRadius: BorderRadius.circular(4),
+              // ✅ FIX : Expanded pour éviter le overflow
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(l10n.t('appName'),
+                      overflow: TextOverflow.ellipsis, // ✅ coupe si trop long
+                      style: isRtl
+                          ? GoogleFonts.cairo(color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w800, fontSize: 14)
+                          : GoogleFonts.plusJakartaSans(color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w800, fontSize: 14)),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLight,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text('SDS',
+                        style: GoogleFonts.dmSans(
+                            color: AppColors.primary, fontSize: 10,
+                            fontWeight: FontWeight.w700, letterSpacing: 1.5)),
                   ),
-                  child: Text('SDS',
-                      style: GoogleFonts.dmSans(
-                          color: AppColors.primary, fontSize: 10,
-                          fontWeight: FontWeight.w700, letterSpacing: 1.5)),
-                ),
-              ]),
+                ]),
+              ),
             ]),
           ),
 
           Divider(color: AppColors.divider, height: 1),
 
+          // ── PROFIL ──────────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.all(14),
             child: GestureDetector(
@@ -177,9 +182,9 @@ class _SidebarState extends State<Sidebar> {
                           overflow: TextOverflow.ellipsis,
                           style: isRtl
                               ? GoogleFonts.cairo(color: AppColors.textPrimary,
-                                  fontSize: 13, fontWeight: FontWeight.w600)
+                              fontSize: 13, fontWeight: FontWeight.w600)
                               : GoogleFonts.dmSans(color: AppColors.textPrimary,
-                                  fontSize: 13, fontWeight: FontWeight.w600)),
+                              fontSize: 13, fontWeight: FontWeight.w600)),
                       Row(children: [
                         Container(width: 6, height: 6,
                             decoration: const BoxDecoration(
@@ -188,9 +193,9 @@ class _SidebarState extends State<Sidebar> {
                         Text(userRole == 'secretary' ? "Secrétaire" : l10n.t('online'),
                             style: isRtl
                                 ? GoogleFonts.cairo(color: AppColors.green,
-                                    fontSize: 11, fontWeight: FontWeight.w500)
+                                fontSize: 11, fontWeight: FontWeight.w500)
                                 : GoogleFonts.dmSans(color: AppColors.green,
-                                    fontSize: 11, fontWeight: FontWeight.w500)),
+                                fontSize: 11, fontWeight: FontWeight.w500)),
                       ]),
                     ])),
                     const Icon(Icons.chevron_right_rounded, size: 16, color: AppColors.textMuted),
@@ -200,6 +205,7 @@ class _SidebarState extends State<Sidebar> {
             ),
           ),
 
+          // ── SÉLECTEUR LANGUE ────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Container(
@@ -216,10 +222,10 @@ class _SidebarState extends State<Sidebar> {
                   Text(l10n.t('language'),
                       style: isRtl
                           ? GoogleFonts.cairo(color: AppColors.textMuted,
-                              fontSize: 11, fontWeight: FontWeight.w700)
+                          fontSize: 11, fontWeight: FontWeight.w700)
                           : GoogleFonts.dmSans(color: AppColors.textMuted,
-                              fontSize: 10, fontWeight: FontWeight.w700,
-                              letterSpacing: 0.8)),
+                          fontSize: 10, fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8)),
                 ]),
                 const SizedBox(height: 8),
                 const LanguageSelector(compact: false),
@@ -229,6 +235,7 @@ class _SidebarState extends State<Sidebar> {
 
           const SizedBox(height: 8),
 
+          // ── LABEL NAVIGATION ────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 8),
             child: Align(
@@ -240,6 +247,7 @@ class _SidebarState extends State<Sidebar> {
             ),
           ),
 
+          // ── LISTE NAVIGATION ────────────────────────────────────────────
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -247,6 +255,7 @@ class _SidebarState extends State<Sidebar> {
             ),
           ),
 
+          // ── LOGOUT ──────────────────────────────────────────────────────
           Padding(padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Divider(color: AppColors.divider)),
           Padding(
@@ -357,9 +366,9 @@ class _SidebarState extends State<Sidebar> {
         Text(l10n.t('logout'),
             style: isRtl
                 ? GoogleFonts.cairo(color: AppColors.red,
-                    fontSize: 13, fontWeight: FontWeight.w600)
+                fontSize: 13, fontWeight: FontWeight.w600)
                 : GoogleFonts.dmSans(color: AppColors.red,
-                    fontSize: 13, fontWeight: FontWeight.w600)),
+                fontSize: 13, fontWeight: FontWeight.w600)),
       ]),
     ),
   );

@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:flutter/foundation.dart' show kIsWeb;
 class OdooApi {
-  static String _baseUrl = 'http://192.168.1.48:8069';
-  static String get baseUrl => _baseUrl;
+  static String _odooUrl = 'http://192.168.11.102:8069';
+  static String _proxyUrl = 'http://localhost:8000';
+  static String get baseUrl => kIsWeb ? _proxyUrl : _odooUrl;
 
   static const String dbName = String.fromEnvironment(
     'ODOO_DB_NAME',
@@ -19,16 +20,22 @@ class OdooApi {
   // ─── INITIALISATION ─────────────────────────────────────────────────────────
   static Future<void> initConfig() async {
     final prefs = await SharedPreferences.getInstance();
-    _baseUrl = prefs.getString('odoo_server_url') ?? 'http://192.168.1.48:8069';
+    _odooUrl = prefs.getString('odoo_server_url') ?? 'http://192.168.11.102:8069';
+    _proxyUrl = prefs.getString('proxy_url') ?? 'http://localhost:8000';
   }
 
-  static Future<void> setServerUrl(String newUrl) async {
-    String cleanedUrl = newUrl.trim();
-    if (!cleanedUrl.startsWith('http')) cleanedUrl = 'http://$cleanedUrl';
-    if (cleanedUrl.endsWith('/')) cleanedUrl = cleanedUrl.substring(0, cleanedUrl.length - 1);
-    _baseUrl = cleanedUrl;
+  static Future<void> setServerUrl(String newUrl, {bool isProxy = false}) async {
+    String cleaned = newUrl.trim();
+    if (!cleaned.startsWith('http')) cleaned = 'http://$cleaned';
+    if (cleaned.endsWith('/')) cleaned = cleaned.substring(0, cleaned.length - 1);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('odoo_server_url', cleanedUrl);
+    if (isProxy || kIsWeb) {
+      _proxyUrl = cleaned;
+      await prefs.setString('proxy_url', cleaned);
+    } else {
+      _odooUrl = cleaned;
+      await prefs.setString('odoo_server_url', cleaned);
+    }
   }
 
   static Future<String> _getSessionCookie() async {
@@ -53,8 +60,10 @@ class OdooApi {
   static Future<Map<String, dynamic>?> _callRpc(String path, Map params, {String? cookie}) async {
     try {
       final headers = {'Content-Type': 'application/json'};
-      if (cookie != null) headers['Cookie'] = cookie;
-
+      // En mode web, le navigateur gère les cookies tout seul
+      if (!kIsWeb && cookie != null && cookie.isNotEmpty) {
+        headers['Cookie'] = cookie;
+      }
       final response = await http.post(
         Uri.parse('$baseUrl$path'),
         headers: headers,
@@ -64,13 +73,12 @@ class OdooApi {
       if (response.body.isEmpty) return {'error': {'message': 'Réponse vide'}};
 
       final data = jsonDecode(response.body);
-      
-      // Extraction cookie
-      if (path.contains('session/authenticate')) {
+
+      // Extraction cookie uniquement en mode natif (mobile/desktop)
+      if (!kIsWeb && path.contains('session/authenticate')) {
         final cookieHeader = response.headers['set-cookie'] ?? response.headers['Set-Cookie'];
         if (cookieHeader != null) data['set-cookie'] = cookieHeader;
       }
-      
       return data;
     } catch (e) {
       return {'error': {'message': 'Erreur réseau : $e'}};
@@ -85,7 +93,7 @@ class OdooApi {
       if (role == 'secretary') {
         final adminAuth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': _adminLogin, 'password': _adminPassword});
         if (adminAuth == null || adminAuth['result'] == null) {
-          return {'success': false, 'error': 'Serveur Odoo injoignable ou base de données incorrecte'};
+          return {'success': false, 'error': 'Serveur injoignable ou base de données incorrecte'};
         }
 
         final adminCookie = _s(adminAuth['set-cookie']);
