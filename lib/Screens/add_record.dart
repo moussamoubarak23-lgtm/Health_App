@@ -7,6 +7,7 @@ import 'package:medical_app/Widgets/sidebar.dart';
 import 'package:medical_app/app_localizations.dart';
 import 'package:medical_app/language_provider.dart';
 import 'package:medical_app/theme.dart';
+import 'package:medical_app/Widgets/app_breadcrumb.dart';
 
 class AddRecordScreen extends StatefulWidget {
   const AddRecordScreen({super.key});
@@ -157,6 +158,14 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(l10n.t('newConsultation'), style: _titleLg(isRtl)),
                 Text(l10n.t('newConsultSubtitle'), style: _mutedStyle(isRtl)),
+                const SizedBox(height: 12),
+                AppBreadcrumb(
+                  items: [
+                    BreadcrumbItem(label: l10n.t('home'), route: '/dashboard'),
+                    BreadcrumbItem(label: l10n.t('recordsLabel'), route: '/records'),
+                    BreadcrumbItem(label: l10n.t('newConsultLabel')),
+                  ],
+                ),
                 const SizedBox(height: 20),
                 Row(children: [
                   Expanded(child: _summaryTile(l10n.t('selectedPatient'), selectedPatientName, Icons.person_rounded, AppColors.primary, AppColors.primaryLight, isRtl)),

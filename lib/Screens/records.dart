@@ -6,6 +6,7 @@ import 'package:medical_app/Widgets/sidebar.dart';
 import 'package:medical_app/app_localizations.dart';
 import 'package:medical_app/language_provider.dart';
 import 'package:medical_app/theme.dart';
+import 'package:medical_app/Widgets/app_breadcrumb.dart';
 
 class RecordsScreen extends StatefulWidget {
   const RecordsScreen({super.key});
@@ -292,6 +293,13 @@ class _RecordsScreenState extends State<RecordsScreen> {
                     ),
                   ]),
                 ]),
+                const SizedBox(height: 12),
+                AppBreadcrumb(
+                  items: [
+                    BreadcrumbItem(label: l10n.t('home'), route: '/dashboard'),
+                    BreadcrumbItem(label: patient != null ? '${l10n.t('recordsLabel')} · ${patient!['name']}' : l10n.t('recordsLabel')),
+                  ],
+                ),
                 const SizedBox(height: 20),
 
                 Container(

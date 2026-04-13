@@ -9,6 +9,7 @@ import 'package:medical_app/Widgets/sidebar.dart';
 import 'package:medical_app/app_localizations.dart';
 import 'package:medical_app/language_provider.dart';
 import 'package:medical_app/theme.dart';
+import 'package:medical_app/Widgets/app_breadcrumb.dart';
 import 'package:qr_code_dart_scan/qr_code_dart_scan.dart';
 import 'package:medical_app/Screens/patient_detail.dart';
 import 'package:file_picker/file_picker.dart';
@@ -543,6 +544,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Text(loc.t('navSettings'), style: GoogleFonts.plusJakartaSans(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                   const SizedBox(height: 8),
                   Text("Personnalisez votre expérience et gérez vos outils.", style: GoogleFonts.dmSans(fontSize: 16, color: AppColors.textSecond)),
+                  const SizedBox(height: 12),
+                  AppBreadcrumb(
+                    items: [
+                      BreadcrumbItem(label: loc.t('home'), route: '/dashboard'),
+                      BreadcrumbItem(label: loc.t('settingsLabel')),
+                    ],
+                  ),
                   const SizedBox(height: 48),
                   Wrap(
                     spacing: 24,

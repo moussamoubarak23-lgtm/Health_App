@@ -7,7 +7,7 @@ import 'package:medical_app/app_localizations.dart';
 import 'package:medical_app/language_provider.dart';
 import 'package:medical_app/theme.dart';
 import 'package:medical_app/Screens/secretary_detail.dart';
-import 'package:intl/intl.dart' as intl;
+import 'package:medical_app/Widgets/app_breadcrumb.dart';
 
 class SecretariesScreen extends StatefulWidget {
   const SecretariesScreen({super.key});
@@ -65,13 +65,14 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
   }
 
   void _confirmDelete(Map s) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("Supprimer la secrétaire ?", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, color: AppColors.red)),
-        content: Text("Voulez-vous vraiment supprimer ${s['full_name']} ?"),
+        title: Text(l10n.t('deleteSecretaryTitle'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, color: AppColors.red)),
+        content: Text("${l10n.t('deleteSecretaryConfirm')} ${s['full_name']} ?"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.t('cancel'))),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
@@ -237,7 +238,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                           result = await OdooApi.updateSecretary(secretary['id'], vals);
                         }
 
-                        if (mounted) {
+      if (mounted) {
                           Navigator.pop(context);
                           if (result['success']) {
                             _snack(secretary == null ? l10n.t('secretaryCreated') : l10n.t('secretaryUpdated'));
@@ -329,6 +330,13 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                     label: Text(l10n.t('newSecretary')), 
                     style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))),
                 ]),
+                const SizedBox(height: 12),
+                AppBreadcrumb(
+                  items: [
+                    BreadcrumbItem(label: l10n.t('home'), route: '/dashboard'),
+                    BreadcrumbItem(label: l10n.t('secretariesLabel')),
+                  ],
+                ),
                 const SizedBox(height: 20),
                 _buildSearchBar(l10n),
                 const SizedBox(height: 16),
@@ -341,7 +349,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
     );
   }
 
-  Widget _buildSearchBar(AppLocalizations l10n) => Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4), decoration: BoxDecoration(color: AppColors.surface, border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(10)), child: TextField(controller: _search, onChanged: _filter, decoration: InputDecoration(hintText: "Rechercher une secrétaire...", border: InputBorder.none, icon: const Icon(Icons.search))));
+  Widget _buildSearchBar(AppLocalizations l10n) => Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4), decoration: BoxDecoration(color: AppColors.surface, border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(10)), child: TextField(controller: _search, onChanged: _filter, decoration: InputDecoration(hintText: l10n.t('searchSecretary'), border: InputBorder.none, icon: const Icon(Icons.search))));
 
   Widget _buildTable(bool isRtl, AppLocalizations l10n) => Container(
     decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
@@ -354,7 +362,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
         Expanded(flex: 1, child: _thLabel(l10n.t('colStatus').toUpperCase(), isRtl)),
         Expanded(flex: 2, child: _thLabel("ACTIONS", isRtl)),
       ])),
-      Expanded(child: filtered.isEmpty ? Center(child: Text("Aucune secrétaire trouvée")) : ListView.builder(itemCount: filtered.length, itemBuilder: (_, i) => _row(filtered[i], i, l10n, isRtl))),
+      Expanded(child: filtered.isEmpty ? Center(child: Text(l10n.t('noSecretaryFound'))) : ListView.builder(itemCount: filtered.length, itemBuilder: (_, i) => _row(filtered[i], i, l10n, isRtl))),
     ]),
   );
 

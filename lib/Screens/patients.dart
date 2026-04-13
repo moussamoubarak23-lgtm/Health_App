@@ -7,6 +7,7 @@ import 'package:medical_app/app_localizations.dart';
 import 'package:medical_app/language_provider.dart';
 import 'package:medical_app/theme.dart';
 import 'package:medical_app/Screens/patient_detail.dart';
+import 'package:medical_app/Widgets/app_breadcrumb.dart';
 import 'package:intl/intl.dart' as intl;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -89,13 +90,14 @@ class _PatientsScreenState extends State<PatientsScreen> {
   }
 
   void _confirmDelete(Map p) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("Supprimer le patient ?", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, color: AppColors.red)),
-        content: Text("Cette action supprimera définitivement le patient ${p['name']}, ainsi que tous ses dossiers médicaux, ses rendez-vous et ses factures dans Odoo. Cette action est irréversible."),
+        title: Text(l10n.t('deletePatientTitle'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, color: AppColors.red)),
+        content: Text("${l10n.t('deletePatientWarn')} ${p['name']}, ainsi que tous ses dossiers médicaux, ses rendez-vous et ses factures dans Odoo. Cette action est irréversible."),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.t('cancel'))),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
@@ -110,7 +112,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.red, foregroundColor: Colors.white),
-            child: const Text("Supprimer tout"),
+            child: Text(l10n.t('deleteAll')),
           ),
         ],
       ),
@@ -142,7 +144,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
               child: SingleChildScrollView(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Text("Nouveau Patient", style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                    Text(l10n.t('newPatientTitle2'), style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.primary)),
                     IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded, color: AppColors.textMuted)),
                   ]),
                   const SizedBox(height: 24),
@@ -165,13 +167,13 @@ class _PatientsScreenState extends State<PatientsScreen> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text("Sexe (*)", style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
+                        Text("${l10n.t('gender')} (*)", style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
                         Row(children: [
                           Radio<String>(value: 'H', groupValue: sexe, onChanged: (v) => setDialogState(() => sexe = v!), activeColor: AppColors.primary),
-                          const Text("Homme"),
+                          Text(l10n.t('maleLabel')),
                           const SizedBox(width: 10),
                           Radio<String>(value: 'F', groupValue: sexe, onChanged: (v) => setDialogState(() => sexe = v!), activeColor: AppColors.primary),
-                          const Text("Femme"),
+                          Text(l10n.t('femaleLabel')),
                         ]),
                       ]),
                     ),
@@ -186,7 +188,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
                   _dropdown("Couverture sociale (*)", couverture, ["Sans", "AMO", "RAMED", "CNOPS", "Privé"], (v) => setDialogState(() => couverture = v!)),
                   const SizedBox(height: 32),
                   Row(children: [
-                    Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), side: const BorderSide(color: AppColors.border)), child: const Text("Fermer"))),
+                    Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), side: const BorderSide(color: AppColors.border)), child: Text(l10n.t('close')))),
                     const SizedBox(width: 16),
                     Expanded(flex: 2, child: ElevatedButton(
                       onPressed: () async {
@@ -216,7 +218,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
                         }
                       },
                       style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
-                      child: const Text("Enregistrer", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      child: Text(l10n.t('save'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     )),
                   ]),
                 ]),
@@ -234,8 +236,8 @@ class _PatientsScreenState extends State<PatientsScreen> {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text("Patient créé avec succès", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
-        content: Text("Souhaitez-vous enregistrer une consultation dès maintenant ou planifier un rendez-vous pour plus tard ?"),
+        title: Text(l10n.t('patientCreatedTitle'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
+        content: Text(l10n.t('patientCreatedQuestion')),
         actions: [
           OutlinedButton(
             onPressed: () async {
@@ -284,7 +286,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text("Planifier pour $name"),
+          title: Text("${loc.t('scheduleFor')} $name"),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -482,7 +484,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextField(decoration: const InputDecoration(hintText: "Rechercher...", prefixIcon: Icon(Icons.search)), onChanged: (v) => setDialogState(() => query = v)),
+                  TextField(decoration: InputDecoration(hintText: AppLocalizations.of(context).t('searchHint'), prefixIcon: const Icon(Icons.search)), onChanged: (v) => setDialogState(() => query = v)),
                   const SizedBox(height: 10),
                   SizedBox(
                     height: 300,
@@ -527,6 +529,13 @@ class _PatientsScreenState extends State<PatientsScreen> {
                   Text(l10n.t('navPatients'), style: _titleLg(isRtl)),
                   ElevatedButton.icon(onPressed: () => _showAddDialog(l10n, isRtl), icon: const Icon(Icons.add_rounded), label: Text(l10n.t('newPatientAction')), style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))),
                 ]),
+                const SizedBox(height: 12),
+                AppBreadcrumb(
+                  items: [
+                    BreadcrumbItem(label: l10n.t('home'), route: '/dashboard'),
+                    BreadcrumbItem(label: l10n.t('patientsList')),
+                  ],
+                ),
                 const SizedBox(height: 20),
                 _buildSearchBar(l10n),
                 const SizedBox(height: 16),

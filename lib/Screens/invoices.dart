@@ -6,6 +6,7 @@ import 'package:medical_app/Widgets/sidebar.dart';
 import 'package:medical_app/app_localizations.dart';
 import 'package:medical_app/language_provider.dart';
 import 'package:medical_app/theme.dart';
+import 'package:medical_app/Widgets/app_breadcrumb.dart';
 
 class InvoicesScreen extends StatefulWidget {
   const InvoicesScreen({super.key});
@@ -76,17 +77,17 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     if (mounted) Navigator.pop(context); // Fermer le chargement
 
     if (payRes['success']) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Paiement enregistré et consultation validée")));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).t('paymentRegistered'))));
       _loadInvoices();
     } else {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur lors du paiement: ${payRes['error']}")));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("${AppLocalizations.of(context).t('paymentErrorPrefix')} ${payRes['error']}")));
     }
   }
 
   Future<void> _handleCancel(Map inv) async {
     final res = await OdooApi.cancelInvoice(inv['id']);
     if (res['success']) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Facture annulée")));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).t('invoiceCancelled'))));
       _loadInvoices();
     } else {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur: ${res['error']}")));
@@ -112,10 +113,17 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(l10n.t('invoicesTitle'), style: _titleLg(isRtl)),
-                    Text('${invoices.length} facture(s)', style: _mutedStyle(isRtl)),
+                    Text('${invoices.length} ${l10n.t('invoiceCountSuffix')}', style: _mutedStyle(isRtl)),
                   ]),
                   _refreshButton(),
                 ]),
+                const SizedBox(height: 12),
+                AppBreadcrumb(
+                  items: [
+                    BreadcrumbItem(label: l10n.t('home'), route: '/dashboard'),
+                    BreadcrumbItem(label: l10n.t('invoicesLabel')),
+                  ],
+                ),
                 const SizedBox(height: 24),
                 _statsCards(l10n, isRtl),
                 const SizedBox(height: 24),
@@ -245,7 +253,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
               tooltip: "Annuler la facture",
               onPressed: () => _handleCancel(inv),
             ),
-          ] else if (state == 'cancel') const Text("Annulée", style: TextStyle(color: AppColors.textMuted, fontSize: 12))
+          ] else if (state == 'cancel') Text(l10n.t('invoiceCancelled'), style: const TextStyle(color: AppColors.textMuted, fontSize: 12))
           else const Icon(Icons.verified_rounded, color: AppColors.green, size: 22)
         ])),
       ]),

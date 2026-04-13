@@ -8,6 +8,7 @@ import 'package:medical_app/app_localizations.dart';
 import 'package:medical_app/language_provider.dart';
 import 'package:medical_app/theme.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:medical_app/Widgets/app_breadcrumb.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -130,6 +131,13 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                       _dateBadge(l10n),
                     ]),
                   ]),
+                  const SizedBox(height: 12),
+                  AppBreadcrumb(
+                    items: [
+                      BreadcrumbItem(label: l10n.t('home')),
+                      BreadcrumbItem(label: l10n.t('dashboardLabel')),
+                    ],
+                  ),
                   const SizedBox(height: 32),
 
                   // STAT CARDS

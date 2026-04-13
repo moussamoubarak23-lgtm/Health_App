@@ -378,22 +378,71 @@ class OdooApi {
     final prefs = await SharedPreferences.getInstance();
     final uid = prefs.getInt('uid') ?? 0;
     final cookie = await _getSessionCookie();
-    final data = await _callRpc('/web/dataset/call_kw', {
+    final primaryData = await _callRpc('/web/dataset/call_kw', {
       'model': 'res.partner', 'method': 'search_read',
-      'args': [[['is_patient', '=', true], ['create_uid', '=', uid]]],
-      'kwargs': {'fields': ['id', 'name', 'ref', 'phone', 'email', 'insurance_id', 'height', 'age', 'comment'], 'limit': 100}
+      'args': [[
+        ['is_patient', '=', true],
+        '|',
+        ['create_uid', '=', uid],
+        ['user_id', '=', uid]
+      ]],
+      'kwargs': {
+        'fields': ['id', 'name', 'ref', 'phone', 'email', 'insurance_id', 'height', 'age', 'comment', 'user_id'],
+        'limit': 100
+      }
     }, cookie: cookie);
 
-    if (data != null && data['result'] != null) {
-      for (var p in data['result']) {
+    final consultationsData = await _callRpc('/web/dataset/call_kw', {
+      'model': 'medical.consultation',
+      'method': 'search_read',
+      'args': [[['doctor_id', '=', uid]]],
+      'kwargs': {'fields': ['patient_id'], 'limit': 300},
+    }, cookie: cookie);
+
+    final Set<int> consultationPatientIds = {};
+    if (consultationsData != null && consultationsData['result'] is List) {
+      for (final row in consultationsData['result']) {
+        final patientRef = row['patient_id'];
+        if (patientRef is List && patientRef.isNotEmpty && patientRef[0] is int) {
+          consultationPatientIds.add(patientRef[0]);
+        }
+      }
+    }
+
+    List<dynamic> consultationPatients = [];
+    if (consultationPatientIds.isNotEmpty) {
+      final extraData = await _callRpc('/web/dataset/call_kw', {
+        'model': 'res.partner',
+        'method': 'search_read',
+        'args': [[
+          ['is_patient', '=', true],
+          ['id', 'in', consultationPatientIds.toList()]
+        ]],
+        'kwargs': {
+          'fields': ['id', 'name', 'ref', 'phone', 'email', 'insurance_id', 'height', 'age', 'comment', 'user_id'],
+          'limit': 300
+        }
+      }, cookie: cookie);
+      consultationPatients = (extraData?['result'] as List?) ?? [];
+    }
+
+    final Map<int, dynamic> byId = {};
+    for (final p in (primaryData?['result'] as List?) ?? []) {
+      if (p['id'] is int) byId[p['id']] = p;
+    }
+    for (final p in consultationPatients) {
+      if (p['id'] is int) byId[p['id']] = p;
+    }
+
+    final mergedPatients = byId.values.toList();
+    for (var p in mergedPatients) {
         p['medical_file_number'] = _s(p['ref']);
         p['patient_code'] = '';
         if (p['comment'] is String && p['comment'].contains('CIN:')) {
           p['patient_code'] = p['comment'].split('CIN:')[1].split('\n')[0].trim();
         }
       }
-    }
-    return data?['result'] ?? [];
+    return mergedPatients;
   }
 
   static Future<Map<String, dynamic>> createPatient({
@@ -401,15 +450,29 @@ class OdooApi {
     String medicalFileNumber = '', String patientCode = '',
     double height = 0.0, int age = 0, String? comment,
   }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final doctorUid = prefs.getInt('uid') ?? 0;
     final finalComment = patientCode.isNotEmpty ? "CIN: $patientCode\n${comment ?? ''}" : (comment ?? '');
     final cookie = await _getSessionCookie();
     final data = await _callRpc('/web/dataset/call_kw', {
       'model': 'res.partner', 'method': 'create',
-      'args': [{'name': name, 'phone': phone, 'email': email, 'insurance_id': insuranceId, 'ref': medicalFileNumber, 'height': height, 'age': age, 'is_patient': true, 'comment': finalComment}],
+      'args': [{
+        'name': name,
+        'phone': phone,
+        'email': email,
+        'insurance_id': insuranceId,
+        'ref': medicalFileNumber,
+        'height': height,
+        'age': age,
+        'is_patient': true,
+        'comment': finalComment,
+        'user_id': doctorUid,
+      }],
       'kwargs': {},
     }, cookie: cookie);
 
     if (data != null && data['result'] != null) {
+      await _logSecretaryActivity("Création patient", details: name);
       return {'success': true, 'id': data['result']};
     }
     return {'success': false};
@@ -430,7 +493,12 @@ class OdooApi {
       }],
       'kwargs': {},
     }, cookie: cookie);
-    return data?['result'] == true ? {'success': true} : {'success': false};
+    final success = data?['result'] == true;
+    if (success) {
+      await _logSecretaryActivity("Modification patient", details: name);
+      return {'success': true};
+    }
+    return {'success': false};
   }
 
   static Future<Map<String, dynamic>> deletePatient(int patientId) async {
@@ -468,12 +536,16 @@ class OdooApi {
 
       final res = await _callRpc('/web/dataset/call_kw', {'model': 'res.partner', 'method': 'unlink', 'args': [[patientId]], 'kwargs': {}}, cookie: cookie);
 
-      if (res != null && res['result'] == true) return {'success': true};
+      if (res != null && res['result'] == true) {
+        await _logSecretaryActivity("Suppression patient", details: "ID $patientId");
+        return {'success': true};
+      }
 
       await _callRpc('/web/dataset/call_kw', {
         'model': 'res.partner', 'method': 'write', 'args': [[patientId], {'active': false}], 'kwargs': {},
       }, cookie: cookie);
 
+      await _logSecretaryActivity("Archivage patient", details: "ID $patientId");
       return {'success': true};
     } catch (e) {
       return {'success': false, 'error': e.toString()};
@@ -529,7 +601,10 @@ class OdooApi {
     final data = await _callRpc('/web/dataset/call_kw', {
       'model': 'mail.message',
       'method': 'search_read',
-      'args': [[['author_id.medical_secretary_id', '=', secretaryId]]],
+      'args': [[
+        ['model', '=', 'medical.secretary'],
+        ['res_id', '=', secretaryId]
+      ]],
       'kwargs': {'fields': ['id', 'body', 'date', 'model', 'res_id'], 'limit': 50, 'order': 'date desc'}
     }, cookie: cookie);
     return data?['result'] ?? [];
@@ -601,7 +676,36 @@ class OdooApi {
     final cookie = await _getSessionCookie();
     final now = DateTime.now().toString().substring(0, 19);
     final data = await _callRpc('/web/dataset/call_kw', {'model': 'medical.consultation', 'method': 'create', 'args': [{'patient_id': patientId, 'doctor_id': uid, 'date_consultation': now, 'motif': motif, 'state': 'waiting'}], 'kwargs': {}}, cookie: cookie);
-    return data != null && data['result'] != null ? {'success': true, 'id': data['result']} : {'success': false};
+    if (data != null && data['result'] != null) {
+      await _logSecretaryActivity("Ajout en salle d'attente", details: "Patient ID $patientId");
+      return {'success': true, 'id': data['result']};
+    }
+    return {'success': false};
+  }
+
+  static Future<void> _logSecretaryActivity(String action, {String details = ''}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final role = prefs.getString('user_role') ?? 'doctor';
+    if (role != 'secretary') return;
+
+    final secretaryId = prefs.getInt('secretary_id') ?? 0;
+    if (secretaryId <= 0) return;
+
+    final cookie = await _getSessionCookie();
+    final body = details.trim().isEmpty ? action : "$action : $details";
+
+    await _callRpc('/web/dataset/call_kw', {
+      'model': 'mail.message',
+      'method': 'create',
+      'args': [{
+        'model': 'medical.secretary',
+        'res_id': secretaryId,
+        'message_type': 'comment',
+        'subtype_id': 1,
+        'body': body,
+      }],
+      'kwargs': {},
+    }, cookie: cookie);
   }
 
   static Future<Map<String, dynamic>> createCalendarAppointment({

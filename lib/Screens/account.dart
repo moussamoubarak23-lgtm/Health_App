@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:medical_app/Services/odoo_api.dart';
 import 'package:medical_app/Widgets/sidebar.dart';
+import 'package:medical_app/Widgets/app_breadcrumb.dart';
 import 'package:medical_app/app_localizations.dart';
 import 'package:medical_app/theme.dart';
 
@@ -73,11 +74,11 @@ class _AccountScreenState extends State<AccountScreen> {
       if (res['success']) {
         _newPassCtrl.clear();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Profil mis à jour avec succès"), backgroundColor: AppColors.green),
+          SnackBar(content: Text(AppLocalizations.of(context).t('profileUpdatedSuccess')), backgroundColor: AppColors.green),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Erreur lors de la mise à jour"), backgroundColor: AppColors.red),
+          SnackBar(content: Text(AppLocalizations.of(context).t('profileUpdatedError')), backgroundColor: AppColors.red),
         );
       }
     }
@@ -85,6 +86,7 @@ class _AccountScreenState extends State<AccountScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Row(
@@ -99,6 +101,13 @@ class _AccountScreenState extends State<AccountScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildHeader(),
+                        const SizedBox(height: 12),
+                        AppBreadcrumb(
+                          items: [
+                            BreadcrumbItem(label: l10n.t('home'), route: '/dashboard'),
+                            BreadcrumbItem(label: _userRole == 'secretary' ? l10n.t('secretaryAccountLabel') : l10n.t('doctorAccountLabel')),
+                          ],
+                        ),
                         const SizedBox(height: 40),
                         Center(
                           child: Container(
@@ -197,16 +206,16 @@ class _AccountScreenState extends State<AccountScreen> {
           children: [
             _buildSectionTitle("SÉCURITÉ DU COMPTE", Icons.lock_outline_rounded),
             const SizedBox(height: 24),
-            Text("Changer le mot de passe", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 15)),
+            Text(AppLocalizations.of(context).t('changePassword'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 15)),
             const SizedBox(height: 8),
-            Text("Laissez vide si vous ne souhaitez pas modifier votre mot de passe actuel.",
+            Text(AppLocalizations.of(context).t('leaveEmpty'),
                 style: GoogleFonts.dmSans(fontSize: 13, color: AppColors.textMuted)),
             const SizedBox(height: 20),
             TextField(
               controller: _newPassCtrl,
               obscureText: !_showNewPassword,
               decoration: InputDecoration(
-                hintText: "Nouveau mot de passe",
+                hintText: AppLocalizations.of(context).t('newPassword'),
                 prefixIcon: const Icon(Icons.vpn_key_rounded, size: 20, color: AppColors.primary),
                 suffixIcon: IconButton(
                   icon: Icon(_showNewPassword ? Icons.visibility_off : Icons.visibility, color: AppColors.textMuted),
@@ -263,7 +272,7 @@ class _AccountScreenState extends State<AccountScreen> {
             ),
             child: _saving
                 ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text("Enregistrer les modifications", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                : Text(AppLocalizations.of(context).t('saveChanges'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ),
         ],
       );

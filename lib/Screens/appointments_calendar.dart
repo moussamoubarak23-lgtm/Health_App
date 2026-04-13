@@ -5,6 +5,7 @@ import 'package:medical_app/Services/odoo_api.dart';
 import 'package:medical_app/Widgets/sidebar.dart';
 import 'package:medical_app/theme.dart';
 import 'package:medical_app/app_localizations.dart';
+import 'package:medical_app/Widgets/app_breadcrumb.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -77,16 +78,16 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(children: [const Icon(Icons.edit_calendar_rounded, color: AppColors.primary), const SizedBox(width: 10), Text("Modifier le Rendez-vous", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 18))]),
+          title: Row(children: [const Icon(Icons.edit_calendar_rounded, color: AppColors.primary), const SizedBox(width: 10), Text(loc.t('editAppointment'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 18))]),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text("Patient: ${event['patient_id'] is List ? event['patient_id'][1] : "Patient Inconnu"}", style: GoogleFonts.dmSans(fontWeight: FontWeight.w600)),
+                Text("${loc.t('colPatient')}: ${event['patient_id'] is List ? event['patient_id'][1] : loc.t('unknownPatient')}", style: GoogleFonts.dmSans(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 16),
                 TextField(
                   controller: motifCtrl,
-                  decoration: InputDecoration(labelText: "Motif du rendez-vous", prefixIcon: const Icon(Icons.notes_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                  decoration: InputDecoration(labelText: loc.t('appointmentReason'), prefixIcon: const Icon(Icons.notes_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
                 ),
                 const SizedBox(height: 20),
                 InkWell(
@@ -130,12 +131,12 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
                 if (mounted) Navigator.pop(context); // Close dialog
                 
                 if (res['success']) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Rendez-vous mis à jour avec succès")));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.t('updatedAppointmentSuccess'))));
                   _loadData();
                 }
               },
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-              child: const Text("Enregistrer"),
+              child: Text(loc.t('save')),
             )
           ],
         ),
@@ -154,13 +155,13 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(children: [const Icon(Icons.calendar_month_rounded, color: AppColors.primary), const SizedBox(width: 10), Text("Planifier un Rendez-vous", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 18))]),
+          title: Row(children: [const Icon(Icons.calendar_month_rounded, color: AppColors.primary), const SizedBox(width: 10), Text(loc.t('scheduleAppointment'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 18))]),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<Map>(
-                  decoration: InputDecoration(labelText: "Sélectionner un patient", prefixIcon: const Icon(Icons.person_outline), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                  decoration: InputDecoration(labelText: loc.t('selectPatientLabel'), prefixIcon: const Icon(Icons.person_outline), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
                   value: selectedPatient,
                   items: _allPatients.map((p) => DropdownMenuItem<Map>(value: p, child: Text(p['name'] ?? ''))).toList(),
                   onChanged: (val) => setDialogState(() => selectedPatient = val),
@@ -168,7 +169,7 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
                 const SizedBox(height: 16),
                 TextField(
                   controller: motifCtrl,
-                  decoration: InputDecoration(labelText: "Motif du rendez-vous", prefixIcon: const Icon(Icons.notes_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                  decoration: InputDecoration(labelText: loc.t('appointmentReason'), prefixIcon: const Icon(Icons.notes_rounded), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
                 ),
                 const SizedBox(height: 20),
                 InkWell(
@@ -215,12 +216,12 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
                 if (mounted) Navigator.pop(context); // Close dialog
                 
                 if (res['success']) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Rendez-vous planifié avec succès")));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.t('plannedAppointmentSuccess'))));
                   _loadData();
                 }
               },
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-              child: const Text("Planifier"),
+              child: Text(loc.t('scheduleAppointment')),
             )
           ],
         ),
@@ -247,13 +248,20 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text("Calendrier des Rendez-vous", style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                          Text(loc.t('appointmentCalendarTitle'), style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                           ElevatedButton.icon(
                             onPressed: () => _showScheduleAppointmentDialog(loc),
                             icon: const Icon(Icons.add_task_rounded),
-                            label: const Text("Planifier RDV"),
+                            label: Text(loc.t('scheduleRdv')),
                             style: ElevatedButton.styleFrom(backgroundColor: AppColors.green, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      AppBreadcrumb(
+                        items: [
+                          BreadcrumbItem(label: loc.t('home'), route: '/dashboard'),
+                          BreadcrumbItem(label: loc.t('calendarLabel')),
                         ],
                       ),
                       const SizedBox(height: 24),
@@ -334,7 +342,7 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
                                   ),
                                   const Divider(height: 32),
                                   if (_getEventsForDay(_selectedDay ?? _focusedDay).isEmpty)
-                                    Center(child: Padding(padding: const EdgeInsets.symmetric(vertical: 40), child: Text("Aucun rendez-vous", style: GoogleFonts.dmSans(color: AppColors.textMuted))))
+                                    Center(child: Padding(padding: const EdgeInsets.symmetric(vertical: 40), child: Text(loc.t('noAppointment'), style: GoogleFonts.dmSans(color: AppColors.textMuted))))
                                   else
                                     ..._getEventsForDay(_selectedDay ?? _focusedDay).map((event) => _appointmentTile(event, loc)),
                                 ],

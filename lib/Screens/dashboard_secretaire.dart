@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:medical_app/Services/odoo_api.dart';
 import 'package:medical_app/Widgets/sidebar.dart';
+import 'package:medical_app/Widgets/app_breadcrumb.dart';
 import 'package:medical_app/app_localizations.dart';
 import 'package:medical_app/language_provider.dart';
 import 'package:medical_app/theme.dart';
@@ -96,6 +97,13 @@ class _DashboardSecretaireScreenState extends State<DashboardSecretaireScreen> w
                     ]),
                     _dateBadge(l10n),
                   ]),
+                  const SizedBox(height: 12),
+                  AppBreadcrumb(
+                    items: [
+                      BreadcrumbItem(label: l10n.t('home')),
+                      BreadcrumbItem(label: l10n.t('dashboardSecretary')),
+                    ],
+                  ),
                   const SizedBox(height: 32),
 
                   // STAT CARDS (Total patient, Consultation, Vue du Jour, salle d'attente)
@@ -108,13 +116,13 @@ class _DashboardSecretaireScreenState extends State<DashboardSecretaireScreen> w
                         Icons.medical_services_rounded, AppColors.yellow, AppColors.yellowLight,
                         l10n.t('allConsultations'), isRtl),
                     const SizedBox(width: 16),
-                    _statCard("Vue du Jour", todayCount,
+                    _statCard(l10n.t('todayView'), todayCount,
                         Icons.visibility_rounded, AppColors.purple, AppColors.purpleLight,
-                        "Consultations d'aujourd'hui", isRtl),
+                        l10n.t('todayConsults'), isRtl),
                     const SizedBox(width: 16),
                     _statCard(l10n.t('waitingRoom'), waitingList.length,
                         Icons.hourglass_empty_rounded, AppColors.red, AppColors.redLight,
-                        "Patients en attente", isRtl, 
+                        l10n.t('patientsWaiting'), isRtl, 
                         onTap: () => _showWaitingRoomDialog(l10n, isRtl)),
                   ]),
                   const SizedBox(height: 32),
@@ -123,11 +131,11 @@ class _DashboardSecretaireScreenState extends State<DashboardSecretaireScreen> w
                   Text(l10n.t('quickActions'), style: titleStyle(17)),
                   const SizedBox(height: 14),
                   Row(children: [
-                    _quickCard("Voir le patient", Icons.people_alt_rounded,
+                    _quickCard(l10n.t('viewPatientAction'), Icons.people_alt_rounded,
                         AppColors.primary, AppColors.primaryLight, '/patients',
                         '${stats['patients']} ${l10n.t('navPatients')}', isRtl),
                     const SizedBox(width: 16),
-                    _quickCard("Voir le Calendrier", Icons.calendar_month_rounded,
+                    _quickCard(l10n.t('viewCalendar'), Icons.calendar_month_rounded,
                         AppColors.purple, AppColors.purpleLight, '/calendar',
                         l10n.t('calendarSubtitle'), isRtl),
                     const Spacer(flex: 2),
