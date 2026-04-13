@@ -7,6 +7,7 @@ import 'package:medical_app/Widgets/sidebar.dart';
 import 'package:medical_app/app_localizations.dart';
 import 'package:medical_app/language_provider.dart';
 import 'package:medical_app/theme.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -24,6 +25,8 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
   int waitingCount = 0;
   int confirmedCount = 0;
   int todayCount = 0;
+  List appNotifications = [];
+  List<int> readNotifIds = []; // IDs des notifications déjà lues localement
   late AnimationController _animCtrl;
   late Animation<double> _fadeAnim;
 
@@ -40,23 +43,28 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
 
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() => doctorName = prefs.getString('doctor_name') ?? 'Médecin');
+    setState(() {
+      doctorName = prefs.getString('doctor_name') ?? 'Médecin';
+      // Charger la liste des IDs lus depuis les préférences
+      readNotifIds = (prefs.getStringList('read_notifications') ?? []).map(int.parse).toList();
+    });
 
     final results = await Future.wait([
       OdooApi.getDashboardStats(),
       OdooApi.getMedicalRecords(),
       OdooApi.getPatients(),
       OdooApi.getWaitingRoom(),
+      OdooApi.getAppNotifications(),
     ]);
 
     final allRecords = results[1] as List;
-    final allPatients = results[2] as List;
     final todayKey = _dateKey(DateTime.now());
 
     setState(() {
       stats = results[0] as Map<String, int>;
       recentRecords = allRecords.take(6).toList();
       waitingList = results[3] as List;
+      appNotifications = results[4] as List;
       draftCount = allRecords.where((r) => (r['state']?.toString() ?? 'draft') == 'draft').length;
       waitingCount = waitingList.length;
       confirmedCount = allRecords.where((r) => (r['state']?.toString() ?? '') == 'confirmed' || (r['state']?.toString() ?? '') == 'invoiced').length;
@@ -64,6 +72,21 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
       loading = false;
     });
     _animCtrl.forward();
+  }
+
+  // Filtrer les notifications pour ne compter que les non-lues
+  List get unreadNotifications => appNotifications.where((n) => !readNotifIds.contains(n['id'])).toList();
+
+  Future<void> _markAsRead() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      for (var n in appNotifications) {
+        if (!readNotifIds.contains(n['id'])) {
+          readNotifIds.add(n['id']);
+        }
+      }
+    });
+    await prefs.setStringList('read_notifications', readNotifIds.map((id) => id.toString()).toList());
   }
 
   @override
@@ -101,7 +124,11 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                       const SizedBox(height: 4),
                       Text(l10n.t('dashSubtitle'), style: bodyStyle()),
                     ]),
-                    _dateBadge(l10n),
+                    Row(children: [
+                      _notificationButton(),
+                      const SizedBox(width: 12),
+                      _dateBadge(l10n),
+                    ]),
                   ]),
                   const SizedBox(height: 32),
 
@@ -171,6 +198,83 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
             ),
           ),
         ]),
+      ),
+    );
+  }
+
+  Widget _notificationButton() {
+    int count = unreadNotifications.length;
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 6, offset: const Offset(0, 2))],
+      ),
+      child: IconButton(
+        onPressed: () {
+          _showUpdateDialog();
+          _markAsRead(); // Marquer comme lu dès qu'on ouvre
+        },
+        icon: count > 0 
+          ? Badge(
+              backgroundColor: AppColors.red,
+              label: Text('$count', style: const TextStyle(color: Colors.white, fontSize: 10)),
+              child: const Icon(Icons.notifications_active_rounded, color: AppColors.primary, size: 22),
+            )
+          : const Icon(Icons.notifications_none_rounded, color: AppColors.primary, size: 22),
+        tooltip: 'Mises à jour & Infos',
+      ),
+    );
+  }
+
+  void _showUpdateDialog() {
+    if (appNotifications.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aucune notification.'))
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Centre de Notifications', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+        content: SizedBox(
+          width: 400,
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: appNotifications.length,
+            separatorBuilder: (_, __) => const Divider(),
+            itemBuilder: (context, index) {
+              final notif = appNotifications[index];
+              bool isUnread = !readNotifIds.contains(notif['id']);
+              return ListTile(
+                leading: Icon(
+                  notif['is_critical'] == true ? Icons.warning_rounded : Icons.info_rounded,
+                  color: notif['is_critical'] == true ? AppColors.red : AppColors.primary,
+                ),
+                title: Text(notif['title'] ?? '', style: GoogleFonts.dmSans(fontWeight: isUnread ? FontWeight.bold : FontWeight.normal)),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(notif['content'] ?? ''),
+                    if (notif['url'] != null && notif['url'].toString().isNotEmpty)
+                      TextButton.icon(
+                        onPressed: () => launchUrl(Uri.parse(notif['url'])),
+                        icon: const Icon(Icons.download_rounded, size: 16),
+                        label: const Text('Télécharger la mise à jour'),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fermer')),
+        ],
       ),
     );
   }
