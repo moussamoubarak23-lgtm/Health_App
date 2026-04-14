@@ -121,7 +121,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                   // HEADER
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('${l10n.greeting()}, Dr. $doctorName 👋', style: titleStyle(24)),
+                      Text('${l10n.greeting()}, $doctorName 👋', style: titleStyle(24)),
                       const SizedBox(height: 4),
                       Text(l10n.t('dashSubtitle'), style: bodyStyle()),
                     ]),
@@ -166,23 +166,24 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                   // ACTIONS RAPIDES
                   Text(l10n.t('quickActions'), style: titleStyle(17)),
                   const SizedBox(height: 14),
-                  Row(children: [
-                    _quickCard(l10n.t('viewPatients'), Icons.people_alt_rounded,
-                        AppColors.primary, AppColors.primaryLight, '/patients',
-                        '${stats['patients']} ${l10n.t('navPatients')}', isRtl),
-                    const SizedBox(width: 16),
-                    _quickCard(l10n.t('newRecord'), Icons.add_circle_rounded,
-                        AppColors.green, AppColors.greenLight, '/add_record',
-                        l10n.t('createNow'), isRtl),
-                    const SizedBox(width: 16),
-                    _quickCard(l10n.t('allRecords'), Icons.folder_open_rounded,
-                        AppColors.red, AppColors.redLight, '/records',
-                        '${stats['records']} ${l10n.t('navRecords')}', isRtl),
-                    const SizedBox(width: 16),
-                    _quickCard(l10n.t('viewCalendar'), Icons.calendar_month_rounded,
-                        AppColors.purple, AppColors.purpleLight, '/calendar',
-                        l10n.t('calendarSubtitle'), isRtl),
-                  ]),
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 16,
+                    children: [
+                      _quickCard(l10n.t('viewPatients'), Icons.people_alt_rounded,
+                          AppColors.primary, AppColors.primaryLight, '/patients',
+                          '${stats['patients']} ${l10n.t('navPatients')}', isRtl),
+                      _quickCard(l10n.t('newRecord'), Icons.add_circle_rounded,
+                          AppColors.green, AppColors.greenLight, '/add_record',
+                          l10n.t('createNow'), isRtl),
+                      _quickCard(l10n.t('allRecords'), Icons.folder_open_rounded,
+                          AppColors.red, AppColors.redLight, '/records',
+                          '${stats['records']} ${l10n.t('navRecords')}', isRtl),
+                      _quickCard(l10n.t('viewCalendar'), Icons.calendar_month_rounded,
+                          AppColors.purple, AppColors.purpleLight, '/calendar',
+                          l10n.t('calendarSubtitle'), isRtl),
+                    ],
+                  ),
                   const SizedBox(height: 32),
 
                   // ACTIVITÉ RÉCENTE
@@ -348,7 +349,8 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
 
   Widget _quickCard(String label, IconData icon, Color color, Color bgColor,
       String route, String subtitle, bool isRtl) =>
-      Expanded(
+      SizedBox(
+        width: 260,
         child: GestureDetector(
           onTap: () => Navigator.pushReplacementNamed(context, route),
           child: Container(
@@ -364,14 +366,26 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                   decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12)),
                   child: Icon(icon, color: color, size: 20)),
               const SizedBox(width: 12),
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(label, style: isRtl
-                    ? GoogleFonts.cairo(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)
-                    : GoogleFonts.dmSans(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
-                Text(subtitle, style: isRtl
-                    ? GoogleFonts.cairo(color: color, fontSize: 11, fontWeight: FontWeight.w500)
-                    : GoogleFonts.dmSans(color: color, fontSize: 11, fontWeight: FontWeight.w500)),
-              ]),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: isRtl
+                        ? GoogleFonts.cairo(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)
+                        : GoogleFonts.dmSans(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: isRtl
+                        ? GoogleFonts.cairo(color: color, fontSize: 11, fontWeight: FontWeight.w500)
+                        : GoogleFonts.dmSans(color: color, fontSize: 11, fontWeight: FontWeight.w500),
+                  ),
+                ]),
+              ),
             ]),
           ),
         ),

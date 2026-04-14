@@ -1,6 +1,5 @@
 import 'dart:io';
-import 'dart:typed_data';
-import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -31,7 +30,11 @@ class PdfService {
     required DateTime date,
     String cabinetAddress = "",
     String cabinetPhone = "",
+    String cabinetEmail = "",
+    String cabinetFax = "",
     String? logoPath,
+    String specialtyFr = "Médecin Généraliste",
+    String experienceFr = "",
   }) async {
     final pdf = pw.Document();
     final font = await _getFont();
@@ -53,48 +56,102 @@ class PdfService {
           return pw.Padding(
             padding: const pw.EdgeInsets.all(32),
             child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                if (logoImage != null)
-                  pw.Center(child: pw.Image(logoImage, height: 80))
-                else
-                  pw.SizedBox(height: 80),
-                pw.SizedBox(height: 20),
+                pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Expanded(
+                      child: pw.Row(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          if (logoImage != null)
+                            pw.Container(
+                              width: 58,
+                              height: 58,
+                              decoration: const pw.BoxDecoration(shape: pw.BoxShape.circle),
+                              child: pw.ClipOval(child: pw.Image(logoImage, fit: pw.BoxFit.cover)),
+                            )
+                          else
+                            pw.Container(
+                              width: 58,
+                              height: 58,
+                              decoration: pw.BoxDecoration(
+                                shape: pw.BoxShape.circle,
+                                border: pw.Border.all(color: PdfColors.grey300),
+                              ),
+                            ),
+                          pw.SizedBox(width: 12),
+                          pw.Expanded(
+                            child: pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Text(
+                                  " ${doctorName.toUpperCase()}",
+                                  style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+                                ),
+                                pw.SizedBox(height: 2),
+                                pw.Text(
+                                  specialtyFr,
+                                  style: pw.TextStyle(fontSize: 10, color: PdfColors.grey800),
+                                ),
+                                if (experienceFr.trim().isNotEmpty) ...[
+                                  pw.SizedBox(height: 2),
+                                  pw.Text(
+                                    experienceFr,
+                                    style: pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Text(
+                          "CERTIFICAT MEDICAL",
+                          style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold),
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          "Le: ${DateFormat('dd/MM/yyyy').format(date)}",
+                          style: const pw.TextStyle(fontSize: 10),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 14),
+                pw.Divider(thickness: 1),
+                pw.SizedBox(height: 24),
                 pw.Center(
                   child: pw.Column(
                     children: [
-                      pw.Text("Dr. ${doctorName.toUpperCase()}",
-                          style: pw.TextStyle(
-                              fontSize: 18,
-                              fontWeight: pw.FontWeight.bold)),
-                      pw.Text("Médecin Généraliste",
-                          style: const pw.TextStyle(fontSize: 12)),
+                      pw.Text(
+                        "CERTIFICAT MEDICAL",
+                        style: pw.TextStyle(
+                          fontSize: 22,
+                          fontWeight: pw.FontWeight.bold,
+                          decoration: pw.TextDecoration.underline,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                pw.SizedBox(height: 10),
-                pw.Align(
-                  alignment: pw.Alignment.centerRight,
-                  child: pw.Text(
-                      "Le: ${DateFormat('dd/MM/yyyy').format(date)}",
-                      style: const pw.TextStyle(fontSize: 10)),
-                ),
-                pw.SizedBox(height: 40),
-                pw.Text("CERTIFICAT MEDICAL",
-                    style: pw.TextStyle(
-                        fontSize: 22,
-                        fontWeight: pw.FontWeight.bold,
-                        decoration: pw.TextDecoration.underline)),
-                pw.SizedBox(height: 40),
+                pw.SizedBox(height: 32),
                 pw.Paragraph(
-                  textAlign: pw.TextAlign.center,
+                  textAlign: pw.TextAlign.justify,
                   text:
                   "Je soussigné, Dr. $doctorName, certifie avoir examiné ce jour M./Mme/Mlle $patientName.",
                   style: const pw.TextStyle(fontSize: 14),
                 ),
                 pw.SizedBox(height: 20),
                 pw.Paragraph(
-                  textAlign: pw.TextAlign.center,
+                  textAlign: pw.TextAlign.justify,
                   text: content,
                   style: const pw.TextStyle(fontSize: 14),
                 ),
@@ -119,13 +176,22 @@ class PdfService {
                   ),
                 ),
                 pw.SizedBox(height: 30),
-                pw.Divider(thickness: 0.5),
+                pw.Divider(thickness: 1),
+                pw.SizedBox(height: 6),
                 pw.Center(
                   child: pw.Text(
-                      "$cabinetAddress • Tel: $cabinetPhone",
-                      style: const pw.TextStyle(
-                          fontSize: 9,
-                          fontWeight: pw.FontWeight.bold)),
+                    "Adresse : $cabinetAddress",
+                    textAlign: pw.TextAlign.center,
+                    style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+                pw.Center(
+                  child: pw.Text(
+                    "Tel : $cabinetPhone${cabinetFax.isNotEmpty ? '  -  Fax : $cabinetFax' : ''}${cabinetEmail.isNotEmpty ? '  -  Email : $cabinetEmail' : ''}",
+                    textAlign: pw.TextAlign.center,
+                    style: const pw.TextStyle(fontSize: 9),
+                  ),
                 ),
               ],
             ),
@@ -461,6 +527,9 @@ class PdfService {
     required String patientName,
     required String qrData,
   }) async {
+    if (kIsWeb) {
+      throw UnsupportedError("Génération de fichier local non supportée sur Web.");
+    }
     final pdf = pw.Document();
     final font = await _getFont();
 
@@ -553,6 +622,9 @@ class PdfService {
     required List measurements,
     List bodyMeasurements = const [],
   }) async {
+    if (kIsWeb) {
+      throw UnsupportedError("Génération de fichier local non supportée sur Web.");
+    }
     final pdf = pw.Document();
     final font = await _getFont();
     final fontBold = await _getFontBold();

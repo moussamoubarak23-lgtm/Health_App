@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -126,38 +127,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showAddActDialog() {
+    final loc = AppLocalizations.of(context);
     final nameCtrl = TextEditingController();
     final priceCtrl = TextEditingController();
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("Nouvel Acte Médical", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+        title: Text(loc.t('newMedicalActTitle'), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "Nom de l'acte", hintText: "ex: Consultation")),
+            TextField(controller: nameCtrl, decoration: InputDecoration(labelText: loc.t('actName'), hintText: loc.t('exampleConsultation'))),
             const SizedBox(height: 16),
-            TextField(controller: priceCtrl, decoration: const InputDecoration(labelText: "Prix (DH)"), keyboardType: TextInputType.number),
+            TextField(controller: priceCtrl, decoration: InputDecoration(labelText: loc.t('priceDh')), keyboardType: TextInputType.number),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
           ElevatedButton(
             onPressed: () async {
-              if (nameCtrl.text.isNotEmpty && priceCtrl.text.isNotEmpty) {
-                final price = double.tryParse(priceCtrl.text) ?? 0.0;
-                final res = await OdooApi.createMedicalAct(name: nameCtrl.text, price: price);
-                Navigator.pop(context);
-                if (res['success']) {
-                  _loadActs();
+              final navigator = Navigator.of(context);
+              final name = nameCtrl.text.trim();
+              final priceText = priceCtrl.text.trim();
+              if (name.isEmpty || priceText.isEmpty) {
+                _snack("Veuillez remplir le nom et le tarif.", isError: true);
+                return;
+              }
+
+              final price = double.tryParse(priceText);
+              if (price == null || price <= 0) {
+                _snack("Tarif invalide.", isError: true);
+                return;
+              }
+
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(child: CircularProgressIndicator()),
+              );
+
+              try {
+                final res = await OdooApi.createMedicalAct(name: name, price: price);
+                if (!mounted) return;
+                if (navigator.canPop()) navigator.pop(); // loader
+                if (navigator.canPop()) navigator.pop(); // add dialog
+
+                if (res['success'] == true) {
+                  await _loadActs();
                   _snack("Acte créé avec succès");
                 } else {
-                  _snack("Erreur: ${res['error']}", isError: true);
+                  _snack("Erreur: ${res['error'] ?? 'création impossible'}", isError: true);
                 }
+              } catch (e) {
+                if (!mounted) return;
+                if (navigator.canPop()) navigator.pop(); // loader
+                _snack("Erreur réseau lors de la création de l'acte.", isError: true);
               }
             },
-            child: const Text("Enregistrer"),
+            child: Text(loc.t('save')),
           ),
         ],
       ),
@@ -165,17 +193,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showActsListDialog() {
+    final loc = AppLocalizations.of(context);
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("Mes Actes Médicaux", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+              Text(loc.t('medicalActsTitle'), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
               IconButton(onPressed: () {
-                _showAddActDialog();
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
+                Future.microtask(_showAddActDialog);
               }, icon: const Icon(Icons.add_circle, color: AppColors.primary)),
             ],
           ),
@@ -185,7 +214,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: loadingActs
                 ? const Center(child: CircularProgressIndicator())
                 : myActs.isEmpty
-                    ? Center(child: Text("Aucun acte configuré", style: GoogleFonts.dmSans(color: AppColors.textMuted)))
+                    ? Center(child: Text(loc.t('noActConfigured'), style: GoogleFonts.dmSans(color: AppColors.textMuted)))
                     : ListView.separated(
                         itemCount: myActs.length,
                         separatorBuilder: (_, __) => const Divider(),
@@ -195,19 +224,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
           ),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("Fermer"))],
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('close')))],
         ),
       ),
     );
   }
 
   void _showScanDialog() {
+    final loc = AppLocalizations.of(context);
     final idCtrl = TextEditingController();
     
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("Identification Patient", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+        title: Text(loc.t('identificationPatient'), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
         content: SizedBox(
           width: 450,
           height: 550,
@@ -216,21 +246,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Expanded(
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: QRCodeDartScanView(
-                    onCapture: (Result result) {
-                      Navigator.pop(context);
-                      _handleQRCode(result.text);
-                    },
-                  ),
+                  child: kIsWeb
+                      ? Container(
+                          color: AppColors.surfaceAlt,
+                          alignment: Alignment.center,
+                          child: Text(
+                            "Scan caméra non supporté sur Web.\nUtilisez l'ID manuel.",
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.dmSans(color: AppColors.textSecond),
+                          ),
+                        )
+                      : QRCodeDartScanView(
+                          onCapture: (Result result) {
+                            Navigator.pop(context);
+                            _handleQRCode(result.text);
+                          },
+                        ),
                 ),
               ),
               const SizedBox(height: 20),
-              Text("Si la caméra ne s'affiche pas, saisissez l'ID :", style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.bold)),
+              Text(loc.t('idManualHint'), style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
               TextField(
                 controller: idCtrl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: "Saisir ID Patient", hintText: "Ex: 42", prefixIcon: Icon(Icons.numbers)),
+                decoration: InputDecoration(labelText: loc.t('enterPatientId'), hintText: "Ex: 42", prefixIcon: const Icon(Icons.numbers)),
                 onSubmitted: (v) {
                   final id = int.tryParse(v);
                   if (id != null) {
@@ -243,7 +283,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
           ElevatedButton(
             onPressed: () {
               final id = int.tryParse(idCtrl.text);
@@ -252,7 +292,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _identifyAndRedirect(id);
               }
             },
-            child: const Text("Valider ID"),
+            child: Text(loc.t('validateId')),
           ),
         ],
       ),
@@ -260,6 +300,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showCertificateDialog() {
+    final loc = AppLocalizations.of(context);
     final patientNameCtrl = TextEditingController();
     final contentCtrl = TextEditingController(text: "L'état de santé de l'intéressé(e) nécessite un repos de ... jours à compter du ...");
 
@@ -270,7 +311,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             const Icon(Icons.description, color: AppColors.primary),
             const SizedBox(width: 10),
-            Text("Certificat Médical Personnalisé", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+            Text(loc.t('customMedicalCertificate'), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
           ],
         ),
         content: SizedBox(
@@ -280,27 +321,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               TextField(
                 controller: patientNameCtrl,
-                decoration: const InputDecoration(
-                  labelText: "Nom du Patient",
-                  hintText: "Ex: Mohamed Alami",
-                  prefixIcon: Icon(Icons.person_outline),
+                decoration: InputDecoration(
+                  labelText: loc.t('patientNameLabel'),
+                  hintText: loc.t('patientNameExample'),
+                  prefixIcon: const Icon(Icons.person_outline),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: contentCtrl,
                 maxLines: 6,
-                decoration: const InputDecoration(
-                  labelText: "Contenu du certificat",
+                decoration: InputDecoration(
+                  labelText: loc.t('certificateContent'),
                   alignLabelWithHint: true,
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
           ElevatedButton.icon(
             onPressed: () async {
               if (patientNameCtrl.text.isEmpty) {
@@ -314,12 +355,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 date: DateTime.now(),
                 cabinetAddress: cabinetAddress,
                 cabinetPhone: cabinetPhone,
+                cabinetEmail: cabinetEmail,
+                cabinetFax: cabinetFax,
                 logoPath: cabinetLogoPath,
+                specialtyFr: specialtyFr,
+                experienceFr: experienceFr,
               );
               Navigator.pop(context);
             },
             icon: const Icon(Icons.print),
-            label: const Text("Imprimer / PDF"),
+            label: Text(loc.t('printPdf')),
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
           ),
         ],
@@ -328,6 +373,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showPrescriptionDialog() {
+    final loc = AppLocalizations.of(context);
     final patientNameCtrl = TextEditingController();
     final contentCtrl = TextEditingController(text: "1. \n2. \n3. ");
 
@@ -338,7 +384,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             const Icon(Icons.receipt_long, color: AppColors.green),
             const SizedBox(width: 10),
-            Text("Nouvelle Ordonnance", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+            Text(loc.t('newPrescription'), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
           ],
         ),
         content: SizedBox(
@@ -348,27 +394,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               TextField(
                 controller: patientNameCtrl,
-                decoration: const InputDecoration(
-                  labelText: "Nom du Patient",
-                  hintText: "Ex: Mohamed Alami",
-                  prefixIcon: Icon(Icons.person_outline),
+                decoration: InputDecoration(
+                  labelText: loc.t('patientNameLabel'),
+                  hintText: loc.t('patientNameExample'),
+                  prefixIcon: const Icon(Icons.person_outline),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: contentCtrl,
                 maxLines: 10,
-                decoration: const InputDecoration(
-                  labelText: "Médicaments et posologie",
+                decoration: InputDecoration(
+                  labelText: loc.t('medicationPosology'),
                   alignLabelWithHint: true,
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
           ElevatedButton.icon(
             onPressed: () async {
               if (patientNameCtrl.text.isEmpty) {
@@ -393,7 +439,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Navigator.pop(context);
             },
             icon: const Icon(Icons.print),
-            label: const Text("Imprimer / PDF"),
+            label: Text(loc.t('printPdf')),
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.green, foregroundColor: Colors.white),
           ),
         ],
@@ -402,6 +448,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showCabinetInfoDialog() {
+    final loc = AppLocalizations.of(context);
     final addrCtrl = TextEditingController(text: cabinetAddress);
     final phoneCtrl = TextEditingController(text: cabinetPhone);
     final emailCtrl = TextEditingController(text: cabinetEmail);
@@ -416,7 +463,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text("Configuration de l'ordonnance papier", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+          title: Text(loc.t('paperConfigTitle'), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
           content: SizedBox(
             width: 700,
             child: SingleChildScrollView(
@@ -431,7 +478,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         flex: 1,
                         child: Column(
                           children: [
-                            Text("Logo", style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold)),
+                            Text(loc.t('logoLabel'), style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold)),
                             const SizedBox(height: 8),
                             GestureDetector(
                               onTap: () async {
@@ -456,15 +503,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         child: Column(
                           children: [
                             Row(children: [
-                              Expanded(child: TextField(controller: specFrCtrl, decoration: const InputDecoration(labelText: "Spécialité (FR)"))),
+                              Expanded(child: TextField(controller: specFrCtrl, decoration: InputDecoration(labelText: loc.t('specialtyFr')))),
                               const SizedBox(width: 10),
-                              Expanded(child: TextField(controller: specArCtrl, decoration: const InputDecoration(labelText: "Spécialité (AR)"), textDirection: TextDirection.rtl)),
+                              Expanded(child: TextField(controller: specArCtrl, decoration: InputDecoration(labelText: loc.t('specialtyAr')), textDirection: TextDirection.rtl)),
                             ]),
                             const SizedBox(height: 10),
                             Row(children: [
-                              Expanded(child: TextField(controller: expFrCtrl, decoration: const InputDecoration(labelText: "Titres / Expérience (FR)"), maxLines: 2)),
+                              Expanded(child: TextField(controller: expFrCtrl, decoration: InputDecoration(labelText: loc.t('experienceFr')), maxLines: 2)),
                               const SizedBox(width: 10),
-                              Expanded(child: TextField(controller: expArCtrl, decoration: const InputDecoration(labelText: "Titres / Expérience (AR)"), textDirection: TextDirection.rtl, maxLines: 2)),
+                              Expanded(child: TextField(controller: expArCtrl, decoration: InputDecoration(labelText: loc.t('experienceAr')), textDirection: TextDirection.rtl, maxLines: 2)),
                             ]),
                           ],
                         ),
@@ -473,22 +520,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const Divider(height: 32),
                   Row(children: [
-                    Expanded(child: TextField(controller: addrCtrl, decoration: const InputDecoration(labelText: "Adresse du Cabinet", prefixIcon: Icon(Icons.location_on)))),
+                    Expanded(child: TextField(controller: addrCtrl, decoration: InputDecoration(labelText: loc.t('cabinetAddressLabel'), prefixIcon: const Icon(Icons.location_on)))),
                   ]),
                   const SizedBox(height: 10),
                   Row(children: [
-                    Expanded(child: TextField(controller: phoneCtrl, decoration: const InputDecoration(labelText: "Téléphone", prefixIcon: Icon(Icons.phone)))),
+                    Expanded(child: TextField(controller: phoneCtrl, decoration: InputDecoration(labelText: loc.t('phone'), prefixIcon: const Icon(Icons.phone)))),
                     const SizedBox(width: 10),
-                    Expanded(child: TextField(controller: faxCtrl, decoration: const InputDecoration(labelText: "Fax", prefixIcon: Icon(Icons.print)))),
+                    Expanded(child: TextField(controller: faxCtrl, decoration: InputDecoration(labelText: loc.t('faxLabel'), prefixIcon: const Icon(Icons.print)))),
                   ]),
                   const SizedBox(height: 10),
-                  TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: "Email", prefixIcon: Icon(Icons.email))),
+                  TextField(controller: emailCtrl, decoration: InputDecoration(labelText: loc.t('email'), prefixIcon: const Icon(Icons.email))),
                 ],
               ),
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+            TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
             ElevatedButton(
               onPressed: () async {
                 final prefs = await SharedPreferences.getInstance();
@@ -516,7 +563,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Navigator.pop(context);
                 _snack("Configuration enregistrée");
               },
-              child: const Text("Enregistrer"),
+              child: Text(loc.t('save')),
             ),
           ],
         ),
@@ -537,76 +584,78 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Sidebar(currentRoute: '/settings'),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.all(40),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(loc.t('navSettings'), style: GoogleFonts.plusJakartaSans(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                  const SizedBox(height: 8),
-                  Text("Personnalisez votre expérience et gérez vos outils.", style: GoogleFonts.dmSans(fontSize: 16, color: AppColors.textSecond)),
-                  const SizedBox(height: 12),
-                  AppBreadcrumb(
-                    items: [
-                      BreadcrumbItem(label: loc.t('home'), route: '/dashboard'),
-                      BreadcrumbItem(label: loc.t('settingsLabel')),
-                    ],
-                  ),
-                  const SizedBox(height: 48),
-                  Wrap(
-                    spacing: 24,
-                    runSpacing: 24,
-                    children: [
-                      if (userRole == 'doctor')
+              padding: const EdgeInsets.all(28),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(loc.t('navSettings'), style: GoogleFonts.plusJakartaSans(fontSize: 26, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                    const SizedBox(height: 6),
+                    Text(loc.t('settingsSubtitle'), style: GoogleFonts.dmSans(fontSize: 14, color: AppColors.textSecond)),
+                    const SizedBox(height: 10),
+                    AppBreadcrumb(
+                      items: [
+                        BreadcrumbItem(label: loc.t('home'), route: '/dashboard'),
+                        BreadcrumbItem(label: loc.t('settingsLabel')),
+                      ],
+                    ),
+                    const SizedBox(height: 28),
+                    Wrap(
+                      spacing: 18,
+                      runSpacing: 18,
+                      children: [
+                        if (userRole == 'doctor')
+                          _buildMenuTile(
+                            title: "Actes Médicaux",
+                            subtitle: "Gérer vos services et tarifs",
+                            icon: Icons.medical_services_rounded,
+                            color: Colors.blue,
+                            onTap: _showActsListDialog,
+                          ),
+                        if (userRole == 'doctor')
+                          _buildMenuTile(
+                            title: "Infos Cabinet",
+                            subtitle: "Configuration ordonnance papier",
+                            icon: Icons.business_rounded,
+                            color: Colors.indigo,
+                            onTap: _showCabinetInfoDialog,
+                          ),
+                        if (userRole == 'doctor')
+                          _buildMenuTile(
+                            title: "Ordonnances",
+                            subtitle: "Générer une ordonnance",
+                            icon: Icons.receipt_long_rounded,
+                            color: Colors.green,
+                            onTap: _showPrescriptionDialog,
+                          ),
+                        if (userRole == 'doctor')
+                          _buildMenuTile(
+                            title: "Certificats",
+                            subtitle: "Générer un document médical",
+                            icon: Icons.assignment_rounded,
+                            color: Colors.orange,
+                            onTap: _showCertificateDialog,
+                          ),
                         _buildMenuTile(
-                          title: "Actes Médicaux",
-                          subtitle: "Gérer vos services et tarifs",
-                          icon: Icons.medical_services_rounded,
-                          color: Colors.blue,
-                          onTap: _showActsListDialog,
+                          title: "Identification",
+                          subtitle: "Scanner ou chercher un patient",
+                          icon: Icons.person_search_rounded,
+                          color: Colors.teal,
+                          onTap: _showScanDialog,
                         ),
-                      if (userRole == 'doctor')
                         _buildMenuTile(
-                          title: "Infos Cabinet",
-                          subtitle: "Configuration ordonnance papier",
-                          icon: Icons.business_rounded,
-                          color: Colors.indigo,
-                          onTap: _showCabinetInfoDialog,
+                          title: "Langue",
+                          subtitle: "Changer la langue de l'app",
+                          icon: Icons.language_rounded,
+                          color: Colors.purple,
+                          onTap: () {
+                            _snack("Fonctionnalité accessible via la sidebar");
+                          },
                         ),
-                      if (userRole == 'doctor')
-                        _buildMenuTile(
-                          title: "Ordonnances",
-                          subtitle: "Générer une ordonnance",
-                          icon: Icons.receipt_long_rounded,
-                          color: Colors.green,
-                          onTap: _showPrescriptionDialog,
-                        ),
-                      if (userRole == 'doctor')
-                        _buildMenuTile(
-                          title: "Certificats",
-                          subtitle: "Générer un document médical",
-                          icon: Icons.assignment_rounded,
-                          color: Colors.orange,
-                          onTap: _showCertificateDialog,
-                        ),
-                      _buildMenuTile(
-                        title: "Identification",
-                        subtitle: "Scanner ou chercher un patient",
-                        icon: Icons.person_search_rounded,
-                        color: Colors.teal,
-                        onTap: _showScanDialog,
-                      ),
-                      _buildMenuTile(
-                        title: "Langue",
-                        subtitle: "Changer la langue de l'app",
-                        icon: Icons.language_rounded,
-                        color: Colors.purple,
-                        onTap: () {
-                          _snack("Fonctionnalité accessible via la sidebar");
-                        },
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -626,8 +675,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        width: 280,
-        padding: const EdgeInsets.all(24),
+        width: 240,
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(20),
@@ -644,18 +693,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: color, size: 28),
+              child: Icon(icon, color: color, size: 24),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
             Text(
               title,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 18,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: AppColors.textPrimary,
               ),
@@ -664,7 +713,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Text(
               subtitle,
               style: GoogleFonts.dmSans(
-                fontSize: 13,
+                fontSize: 12,
                 color: AppColors.textMuted,
               ),
             ),

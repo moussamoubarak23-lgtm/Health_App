@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -20,6 +21,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 enum PatientTab { consultations, vaccination, actes, ordonnances, bilanBio, bilanRx, certificats, compteRendu, comptabilite, factures }
 
@@ -107,6 +109,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   }
 
   void _showCertificateDialog() {
+    final loc = AppLocalizations.of(context);
     final patientNameCtrl = TextEditingController(text: _s(currentPatient['name']));
     final contentCtrl = TextEditingController(text: "L'état de santé de l'intéressé(e) nécessite un repos de ... jours à compter du ...");
 
@@ -117,7 +120,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
           children: [
             const Icon(Icons.description, color: AppColors.primary),
             const SizedBox(width: 10),
-            Text("Certificat Médical", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+            Text(loc.t('medicalCertificate'), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
           ],
         ),
         content: SizedBox(
@@ -127,26 +130,26 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
             children: [
               TextField(
                 controller: patientNameCtrl,
-                decoration: const InputDecoration(
-                  labelText: "Nom du Patient",
-                  prefixIcon: Icon(Icons.person_outline),
+                decoration: InputDecoration(
+                  labelText: loc.t('patientNameLabel'),
+                  prefixIcon: const Icon(Icons.person_outline),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: contentCtrl,
                 maxLines: 6,
-                decoration: const InputDecoration(
-                  labelText: "Contenu du certificat",
+                decoration: InputDecoration(
+                  labelText: loc.t('certificateContent'),
                   alignLabelWithHint: true,
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
           ElevatedButton.icon(
             onPressed: () async {
               await PdfService.generateAndPrintCertificate(
@@ -156,12 +159,16 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                 date: DateTime.now(),
                 cabinetAddress: cabinetAddress,
                 cabinetPhone: cabinetPhone,
+                cabinetEmail: cabinetEmail,
+                cabinetFax: cabinetFax,
                 logoPath: cabinetLogoPath,
+                specialtyFr: specialtyFr,
+                experienceFr: experienceFr,
               );
               Navigator.pop(context);
             },
             icon: const Icon(Icons.print),
-            label: const Text("Imprimer / PDF"),
+            label: Text(loc.t('printPdf')),
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
           ),
         ],
@@ -170,6 +177,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   }
 
   void _showPrescriptionDialog() {
+    final loc = AppLocalizations.of(context);
     final patientNameCtrl = TextEditingController(text: _s(currentPatient['name']));
     final contentCtrl = TextEditingController(text: "1. \n2. \n3. ");
 
@@ -180,7 +188,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
           children: [
             const Icon(Icons.receipt_long, color: AppColors.green),
             const SizedBox(width: 10),
-            Text("Nouvelle Ordonnance", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+            Text(loc.t('newPrescription'), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
           ],
         ),
         content: SizedBox(
@@ -190,26 +198,26 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
             children: [
               TextField(
                 controller: patientNameCtrl,
-                decoration: const InputDecoration(
-                  labelText: "Nom du Patient",
-                  prefixIcon: Icon(Icons.person_outline),
+                decoration: InputDecoration(
+                  labelText: loc.t('patientNameLabel'),
+                  prefixIcon: const Icon(Icons.person_outline),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: contentCtrl,
                 maxLines: 10,
-                decoration: const InputDecoration(
-                  labelText: "Médicaments et posologie",
+                decoration: InputDecoration(
+                  labelText: loc.t('medicationPosology'),
                   alignLabelWithHint: true,
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
           ElevatedButton.icon(
             onPressed: () async {
               await PdfService.generateAndPrintPrescription(
@@ -230,7 +238,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
               Navigator.pop(context);
             },
             icon: const Icon(Icons.print),
-            label: const Text("Imprimer / PDF"),
+            label: Text(loc.t('printPdf')),
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.green, foregroundColor: Colors.white),
           ),
         ],
@@ -262,7 +270,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
             padding: const EdgeInsets.all(28),
             child: SingleChildScrollView(
               child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text("Modifier la Fiche Patient", style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                Text(loc.t('editPatientSheet'), style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primary)),
                 const Divider(height: 32),
                 _editField("Nom Complet (*)", nameCtrl, Icons.person_rounded),
                 const SizedBox(height: 16),
@@ -581,17 +589,57 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
       ),
     );
 
-    final docsDir = await getApplicationDocumentsDirectory();
     final fileName = 'qr_patient_${_s(currentPatient['name']).replaceAll(' ', '_')}.pdf';
+    final pdfBytes = await pdf.save();
+
+    if (kIsWeb) {
+      // Sur Web: déclenche le téléchargement local via le navigateur.
+      await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
+      return fileName;
+    }
+
+    final docsDir = await getApplicationDocumentsDirectory();
     final file = File('${docsDir.path}/$fileName');
-    await file.writeAsBytes(await pdf.save());
+    await file.writeAsBytes(pdfBytes);
     return file.path;
   }
 
   Future<void> _shareQrAsPdf() async {
     try {
       final path = await _generateQrPdf();
-      await launchUrl(Uri.file(path), mode: LaunchMode.externalApplication);
+      String phone = _s(currentPatient['phone']).replaceAll(RegExp(r'[^0-9]'), '');
+      if (phone.startsWith('0')) {
+        phone = "212${phone.substring(1)}";
+      } else if (!phone.startsWith('212') && phone.length == 9) {
+        phone = "212$phone";
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("PDF QR enregistré : $path"),
+            action: kIsWeb
+                ? null
+                : SnackBarAction(
+                    label: "Ouvrir",
+                    onPressed: () => launchUrl(Uri.file(path)),
+                  ),
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+
+      if (phone.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Numéro patient absent: WhatsApp non ouvert.")),
+          );
+        }
+        return;
+      }
+
+      final waUrl = Uri.parse("https://wa.me/$phone");
+      await launchUrl(waUrl, mode: LaunchMode.externalApplication);
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Erreur: $e")),
@@ -605,10 +653,12 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("PDF enregistré : $path"),
-          action: SnackBarAction(
-            label: "Ouvrir",
-            onPressed: () => launchUrl(Uri.file(path)),
-          ),
+          action: kIsWeb
+              ? null
+              : SnackBarAction(
+                  label: "Ouvrir",
+                  onPressed: () => launchUrl(Uri.file(path)),
+                ),
           duration: const Duration(seconds: 6),
         ),
       );
@@ -746,11 +796,11 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(children: [const Icon(Icons.calendar_month_rounded, color: AppColors.primary), const SizedBox(width: 10), Text("Planifier un Rendez-vous", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 18))]),
+          title: Row(children: [const Icon(Icons.calendar_month_rounded, color: AppColors.primary), const SizedBox(width: 10), Text(loc.t('scheduleAppointment'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 18))]),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _editField("Motif du rendez-vous", motifCtrl, Icons.notes_rounded),
+              _editField(loc.t('appointmentReason'), motifCtrl, Icons.notes_rounded),
               const SizedBox(height: 20),
               InkWell(
                 onTap: () async {
@@ -799,7 +849,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                 }
               },
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-              child: const Text("Planifier"),
+              child: Text(loc.t('scheduleAppointment')),
             )
           ],
         ),
@@ -818,8 +868,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("Valider la Consultation", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
-        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [TextField(controller: fileNumCtrl, decoration: const InputDecoration(labelText: "N° Dossier Consultation")), TextField(controller: diagCtrl, decoration: InputDecoration(labelText: loc.t('diagnosticLabel'))), TextField(controller: presCtrl, decoration: InputDecoration(labelText: loc.t('prescription')), maxLines: 2), TextField(controller: infoObsCtrl, decoration: InputDecoration(labelText: loc.t('observations')), maxLines: 2)])),
+        title: Text(loc.t('confirmConsultation'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
+        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [TextField(controller: fileNumCtrl, decoration: InputDecoration(labelText: loc.t('consultRecordNumber'))), TextField(controller: diagCtrl, decoration: InputDecoration(labelText: loc.t('diagnosticLabel'))), TextField(controller: presCtrl, decoration: InputDecoration(labelText: loc.t('prescription')), maxLines: 2), TextField(controller: infoObsCtrl, decoration: InputDecoration(labelText: loc.t('observations')), maxLines: 2)])),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))), ElevatedButton(onPressed: () async {
           final newDossier = fileNumCtrl.text.trim();
           final res = await OdooApi.updateMedicalRecord(recordId: record['id'], motif: _s(record['motif']), diagnostic: diagCtrl.text, prescription: presCtrl.text, observations: infoObsCtrl.text, state: 'confirmed', medicalFileNumber: newDossier);
@@ -843,7 +893,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
 
           if (mounted) Navigator.pop(context);
           if (res['success']) _loadData();
-        }, style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white), child: const Text("Valider et Confirmer"))],
+        }, style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white), child: Text(loc.t('validateAndConfirm')))],
       ),
     );
   }
