@@ -55,6 +55,7 @@ class _SidebarState extends State<Sidebar> {
       _NavItem(Icons.calendar_month_rounded, "Calendrier",           '/calendar',  AppColors.primaryMid, AppColors.primaryLight),
       _NavItem(Icons.people_alt_rounded,     l10n.t('navPatients'),  '/patients',  AppColors.purple,   AppColors.purpleLight),
       _NavItem(Icons.badge_rounded,          l10n.t('navSecretaries'), '/secretaries', AppColors.primary, AppColors.primaryLight),
+      _NavItem(Icons.health_and_safety_rounded, "Infirmiers", '/nurses', AppColors.primaryMid, AppColors.primaryLight),
       _NavItem(Icons.add_circle_rounded,     l10n.t('navAddRecord'), '/add_record',AppColors.green,    AppColors.greenLight),
       _NavItem(Icons.folder_special_rounded, l10n.t('navRecords'),   '/records',   AppColors.yellow,   AppColors.yellowLight),
       _NavItem(Icons.receipt_long_rounded,   l10n.t('navInvoices'),  '/invoices',  AppColors.primaryMid, AppColors.primaryLight),
@@ -62,11 +63,12 @@ class _SidebarState extends State<Sidebar> {
     ];
 
     List<_NavItem> navItems;
-    if (userRole == 'secretary') {
+    if (userRole == 'secretary' || userRole == 'nurse') {
       navItems = allNavItems.where((item) =>
       item.route == '/dashboard_secretaire' ||
           item.route == '/calendar' ||
           item.route == '/patients' ||
+          item.route == '/nurses' ||
           item.route == '/invoices' ||
           item.route == '/settings'
       ).toList();
@@ -190,7 +192,7 @@ class _SidebarState extends State<Sidebar> {
                             decoration: const BoxDecoration(
                                 color: AppColors.greenMid, shape: BoxShape.circle)),
                         const SizedBox(width: 4),
-                        Text(userRole == 'secretary' ? "Secrétaire" : l10n.t('online'),
+                        Text(userRole == 'secretary' ? "Secrétaire" : (userRole == 'nurse' ? "Infirmier" : l10n.t('online')),
                             style: isRtl
                                 ? GoogleFonts.cairo(color: AppColors.green,
                                 fontSize: 11, fontWeight: FontWeight.w500)

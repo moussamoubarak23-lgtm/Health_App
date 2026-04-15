@@ -8,6 +8,7 @@ import 'package:medical_app/Screens/dashboard.dart';
 import 'package:medical_app/Screens/dashboard_secretaire.dart';
 import 'package:medical_app/Screens/patients.dart';
 import 'package:medical_app/Screens/secretaries.dart';
+import 'package:medical_app/Screens/nurse.dart';
 import 'package:medical_app/Screens/records.dart';
 import 'package:medical_app/Screens/add_record.dart';
 import 'package:medical_app/Screens/invoices.dart';
@@ -72,6 +73,7 @@ class MedicalApp extends StatelessWidget {
               '/dashboard_secretaire': (_) => const DashboardSecretaireScreen(),
               '/patients':             (_) => const PatientsScreen(),
               '/secretaries':          (_) => const SecretariesScreen(),
+              '/nurses':               (_) => const NursesScreen(),
               '/records':              (_) => const RecordsScreen(),
               '/add_record':           (_) => const AddRecordScreen(),
               '/invoices':             (_) => const InvoicesScreen(),
