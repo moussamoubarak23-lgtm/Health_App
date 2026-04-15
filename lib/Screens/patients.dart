@@ -182,7 +182,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
                   Row(children: [
                     Expanded(child: _field("Téléphone", phoneCtrl, Icons.phone_rounded, inputType: TextInputType.phone)),
                     const SizedBox(width: 16),
-                    Expanded(child: _dropdownSearch("Nationalité (*)", nationalite, (v) => setDialogState(() => nationalite = v!))),
+                    Expanded(child: _dropdownSearch("Nationalité (*)", nationalite, (v) => setDialogState(() => nationalite = v))),
                   ]),
                   const SizedBox(height: 16),
                   _dropdown("Couverture sociale (*)", couverture, ["Sans", "AMO", "RAMED", "CNOPS", "Privé"], (v) => setDialogState(() => couverture = v!)),
@@ -381,7 +381,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
                   const SizedBox(height: 12),
                   _field(l10n.t('phone'), phoneCtrl, Icons.phone_rounded),
                   const SizedBox(height: 12),
-                  _dropdownSearch("Nationalité (*)", nationalite, (v) => setDialogState(() => nationalite = v!)),
+                  _dropdownSearch("Nationalité (*)", nationalite, (v) => setDialogState(() => nationalite = v)),
                   const SizedBox(height: 12),
                   _field(l10n.t('insurance'), insuranceCtrl, Icons.health_and_safety_rounded),
                   const SizedBox(height: 12),

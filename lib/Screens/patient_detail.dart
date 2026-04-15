@@ -286,7 +286,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                   Expanded(child: _editField("Âge", ageCtrl, Icons.cake_rounded, inputType: TextInputType.number)),
                 ]),
                 const SizedBox(height: 16),
-                _dropdownSearch("Nationalité (*)", nationalite, (v) => setDialogState(() => nationalite = v!)),
+                _dropdownSearch("Nationalité (*)", nationalite, (v) => setDialogState(() => nationalite = v)),
                 const SizedBox(height: 16),
                 _editDropdown("Couverture sociale", couverture, ["Sans", "AMO", "RAMED", "CNOPS", "Privé"], (v) => setDialogState(() => couverture = v!)),
                 const SizedBox(height: 32),
