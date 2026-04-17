@@ -27,7 +27,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   bool _showRegister = false;
   String? _error;
   String? _success;
-  String _selectedRole = 'doctor'; // 'doctor' or 'secretary' or 'nurse'
+  String _selectedRole = 'doctor'; // 'doctor' or 'secretary'
 
   late AnimationController _fadeCtrl;
   late Animation<double> _fadeAnim;
@@ -68,7 +68,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
       setState(() => _loading = false);
       if (result['success'] == true) {
-        if (result['role'] == 'secretary' || result['role'] == 'nurse') {
+        if (result['role'] == 'secretary') {
           Navigator.pushReplacementNamed(context, '/dashboard_secretaire');
         } else {
           Navigator.pushReplacementNamed(context, '/dashboard');
@@ -260,8 +260,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         Expanded(child: _roleButton(loc.t('roleDoctor'), 'doctor', Icons.medical_services_rounded)),
         const SizedBox(width: 12),
         Expanded(child: _roleButton(loc.t('roleSecretary'), 'secretary', Icons.badge_rounded)),
-        const SizedBox(width: 12),
-        Expanded(child: _roleButton('Infirmier', 'nurse', Icons.health_and_safety_rounded)),
       ]),
       const SizedBox(height: 32),
 
@@ -275,7 +273,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       _passwordField(
         controller: _passCtrl, 
         obscure: _obscure, 
-        label: _selectedRole == 'doctor' ? loc.t('password') : (_selectedRole == 'nurse' ? 'Code licence / mot de passe' : loc.t('secCodeLabel')),
+        label: _selectedRole == 'doctor' ? loc.t('password') : loc.t('secCodeLabel'),
         toggle: () => setState(() => _obscure = !_obscure), 
         onSubmit: _login
       ),

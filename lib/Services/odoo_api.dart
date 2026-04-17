@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 class OdooApi {
-  static String _odooUrl = 'http://192.168.1.89:8069';
+  static String _odooUrl = 'http://192.168.1.123:8069';
   static String _proxyUrl = 'http://localhost:8000';
   static String get baseUrl => kIsWeb ? _proxyUrl : _odooUrl;
 
@@ -21,7 +21,7 @@ class OdooApi {
   // ─── INITIALISATION ─────────────────────────────────────────────────────────
   static Future<void> initConfig() async {
     final prefs = await SharedPreferences.getInstance();
-    _odooUrl = prefs.getString('odoo_server_url') ?? 'http://192.168.1.89:8069';
+    _odooUrl = prefs.getString('odoo_server_url') ?? 'http://192.168.1.123:8069';
     _proxyUrl = prefs.getString('proxy_url') ?? 'http://localhost:8000';
   }
 
