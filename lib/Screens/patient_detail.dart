@@ -57,7 +57,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   final GlobalKey qrKey = GlobalKey();
 
   static const List<String> nationalities = [
-    "Marocaine", "Française", "Algérienne", "Tunisienne", "Espagnole", "Italienne", "Sénégalaise", "Malienne", "Ivoirienne", "Américaine", "Canadienne", "Allemande", "Belge", "Suisse", "Libyenne", "Égyptienne", "Saoudienne", "Émiratie", "Qatarienne", "Koweïtienne", "Bahreïnie", "Omanaise", "Jordanienne", "Libanaise", "Syrienne", "Irakienne", "Yéménite", "Soudanaise", "Mauritanienne", "Portugaise", "Néerlandaise"
+    "Marocaine", "Française", "Algérienne", "Tunisienne", "Espagnole", "Italienne", "Sénégalaise", "Malienne", "Ivoirienne", "Américaine", "Canadienne", "Allemande", "Belge", "Suisse", "Libyenne", "Égyptienne", "Saoudienne", "Émiratie", "Qatarienne", "Koweïtienne", "Bahreïnie", "Omanaise", "Jordanienne", "Libanaise", "Syrienne", "Irakienne", "Yéménite", "Soudanaise", "Mauritanienne", "Portugaise", "Néerlandaise", "Nigérienne", "Gabonaise", "Togolaise"
   ];
 
   @override
@@ -69,6 +69,32 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   }
 
   String _s(dynamic val) => (val is String && val != "false") ? val : '';
+
+  /// Extrait la nationalité depuis le commentaire Odoo (souvent avec HTML type `<p>`).
+  String _nationalityFromComment(dynamic comment) {
+    if (comment == null || comment.toString().isEmpty) return 'Marocaine';
+    final s = comment.toString();
+    if (!s.contains('Nationalité:')) return 'Marocaine';
+    final parts = s.split('Nationalité:');
+    if (parts.length < 2) return 'Marocaine';
+    var raw = parts[1].trim();
+    raw = raw.replaceAll(RegExp(r'<[^>]*>'), ' ');
+    raw = raw.replaceAll('&nbsp;', ' ');
+    raw = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (raw.contains('|')) raw = raw.split('|').first.trim();
+    raw = raw.split(RegExp(r'[\n\r]')).first.trim();
+    raw = raw.replaceAll('/p>', '').trim();
+    if (raw.isEmpty) return 'Marocaine';
+    return raw;
+  }
+
+  /// Affiche une valeur numérique issue de la balance avec 2 décimales.
+  String _fmt2(dynamic val) {
+    if (val == null) return '—';
+    final n = val is num ? val.toDouble() : double.tryParse(val.toString().trim().replaceAll(',', '.'));
+    if (n == null || n.isNaN) return '—';
+    return n.toStringAsFixed(2);
+  }
 
   Future<void> _loadCabinetSettings() async {
     final prefs = await SharedPreferences.getInstance();
@@ -255,10 +281,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     String couverture = _s(currentPatient['insurance_id']).isEmpty ? "Sans" : _s(currentPatient['insurance_id']);
     if (!["Sans", "AMO", "RAMED", "CNOPS", "Privé"].contains(couverture)) couverture = "Sans";
 
-    String nationalite = 'Marocaine';
-    if (currentPatient['comment'] is String && currentPatient['comment'].toString().contains('Nationalité:')) {
-      nationalite = currentPatient['comment'].toString().split('Nationalité:')[1].trim();
-    }
+    String nationalite = _nationalityFromComment(currentPatient['comment']);
 
     showDialog(
       context: context,
@@ -641,16 +664,19 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
       final waUrl = Uri.parse("https://wa.me/$phone");
       await launchUrl(waUrl, mode: LaunchMode.externalApplication);
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Erreur: $e")),
       );
+      }
     }
   }
 
   Future<void> _saveQrAsPdf() async {
     try {
       final path = await _generateQrPdf();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("PDF enregistré : $path"),
           action: kIsWeb
@@ -662,10 +688,13 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
           duration: const Duration(seconds: 6),
         ),
       );
+      }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Erreur: $e")),
       );
+      }
     }
   }
 
@@ -924,10 +953,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     final loc = AppLocalizations.of(context);
     final p = currentPatient;
 
-    String nationalite = 'Marocaine';
-    if (p['comment'] is String && p['comment'].toString().contains('Nationalité:')) {
-      nationalite = p['comment'].toString().split('Nationalité:')[1].trim();
-    }
+    final nationalite = _nationalityFromComment(p['comment']);
 
     return Directionality(
       textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
@@ -1183,13 +1209,13 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
           spacing: 16,
           runSpacing: 8,
           children: [
-            _bodyValueSmall(loc.t('weight'), "${m['weight']} kg"),
-            _bodyValueSmall(loc.t('bmi'), "${m['bmi']}"),
-            _bodyValueSmall(loc.t('bodyFat'), "${m['body_fat']}%"),
-            _bodyValueSmall(loc.t('muscleMass'), "${m['muscle_mass']} kg"),
-            _bodyValueSmall(loc.t('bodyWater'), "${m['water']}%"),
-            _bodyValueSmall(loc.t('visceralFat'), "${m['visceral_fat']}"),
-            _bodyValueSmall(loc.t('metabolicAge'), "${m['metabolic_age']} ans"),
+            _bodyValueSmall(loc.t('weight'), "${_fmt2(m['weight'])} kg"),
+            _bodyValueSmall(loc.t('bmi'), _fmt2(m['bmi'])),
+            _bodyValueSmall(loc.t('bodyFat'), "${_fmt2(m['body_fat'])}%"),
+            _bodyValueSmall(loc.t('muscleMass'), "${_fmt2(m['muscle_mass'])} kg"),
+            _bodyValueSmall(loc.t('bodyWater'), "${_fmt2(m['water'])}%"),
+            _bodyValueSmall(loc.t('visceralFat'), _fmt2(m['visceral_fat'])),
+            _bodyValueSmall(loc.t('metabolicAge'), "${_fmt2(m['metabolic_age'])} ans"),
           ],
         ),
         const Divider(height: 24),

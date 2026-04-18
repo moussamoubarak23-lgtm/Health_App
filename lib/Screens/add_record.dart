@@ -8,6 +8,7 @@ import 'package:medical_app/app_localizations.dart';
 import 'package:medical_app/language_provider.dart';
 import 'package:medical_app/theme.dart';
 import 'package:medical_app/Widgets/app_breadcrumb.dart';
+import 'package:medical_app/utils/medical_file_number_suggest.dart';
 
 class AddRecordScreen extends StatefulWidget {
   const AddRecordScreen({super.key});
@@ -55,16 +56,28 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
     setState(() => _uid = prefs.getInt('uid') ?? 0);
     final p = await OdooApi.getPatients();
     setState(() => patients = p);
-    
-    // Si un patient est déjà sélectionné, on s'assure d'avoir son numéro de dossier
-    if (selectedPatientId != null && _fileNumCtrl.text.isEmpty) {
-      try {
-        final selected = patients.firstWhere((pat) => pat['id'] == selectedPatientId);
-        final dossier = selected['medical_file_number'];
-        if (dossier != null && dossier != false) {
-          setState(() => _fileNumCtrl.text = dossier.toString());
-        }
-      } catch (_) {}
+    _applyDossierForPatient(selectedPatientId);
+  }
+
+  /// Renseigne le n° dossier depuis la fiche patient, ou une proposition automatique si vide.
+  void _applyDossierForPatient(int? patientId) {
+    if (!mounted) return;
+    if (patientId == null) {
+      setState(() => _fileNumCtrl.clear());
+      return;
+    }
+    if (patients.isEmpty) return;
+    try {
+      final selected = patients.firstWhere((pat) => pat['id'] == patientId);
+      final dossier = selected['medical_file_number'];
+      final raw = (dossier == null || dossier == false) ? '' : dossier.toString().trim();
+      if (raw.isNotEmpty && raw != '—') {
+        setState(() => _fileNumCtrl.text = raw);
+      } else {
+        setState(() => _fileNumCtrl.text = MedicalFileNumberSuggest.suggestNext(patients));
+      }
+    } catch (_) {
+      setState(() => _fileNumCtrl.text = MedicalFileNumberSuggest.suggestNext(patients));
     }
   }
 
@@ -194,26 +207,14 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                           child: Text(p['name'].toString(), style: isRtl ? GoogleFonts.cairo(color: AppColors.textPrimary, fontSize: 14) : GoogleFonts.dmSans(color: AppColors.textPrimary, fontSize: 14)),
                         )).toList(),
                         onChanged: (v) {
-                          setState(() {
-                            selectedPatientId = v;
-                            try {
-                              final selected = patients.firstWhere((pat) => pat['id'] == v);
-                              final dossier = selected['medical_file_number'];
-                              if (dossier != null && dossier != false) {
-                                _fileNumCtrl.text = dossier.toString();
-                              } else {
-                                _fileNumCtrl.clear();
-                              }
-                            } catch (_) {
-                              _fileNumCtrl.clear();
-                            }
-                          });
+                          setState(() => selectedPatientId = v);
+                          _applyDossierForPatient(v);
                         },
                       ),
                       const SizedBox(height: 18),
                       _fieldLabel("Numéro de Dossier", isRtl),
                       const SizedBox(height: 8),
-                      _textArea(_fileNumCtrl, "Numéro du dossier (automatique si déjà renseigné sur le patient)", 1, isRtl, accentColor: AppColors.primary),
+                      _textArea(_fileNumCtrl, "N° dossier : repris du patient ou proposé automatiquement (modifiable)", 1, isRtl, accentColor: AppColors.primary),
                       const SizedBox(height: 18),
                       _fieldLabel(l10n.t('consultDate'), isRtl),
                       const SizedBox(height: 8),

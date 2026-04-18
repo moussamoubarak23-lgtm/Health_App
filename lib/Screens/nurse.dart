@@ -8,6 +8,7 @@ import 'package:medical_app/language_provider.dart';
 import 'package:medical_app/theme.dart';
 import 'package:medical_app/Screens/nurse_detail.dart';
 import 'package:medical_app/Widgets/app_breadcrumb.dart';
+import 'package:medical_app/utils/duplicate_guard.dart';
 
 class NursesScreen extends StatefulWidget {
   const NursesScreen({super.key});
@@ -115,8 +116,8 @@ class _NursesScreenState extends State<NursesScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => Dialog(
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (_, setDialogState) => Dialog(
           backgroundColor: AppColors.surface,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           child: SizedBox(
@@ -127,7 +128,7 @@ class _NursesScreenState extends State<NursesScreen> {
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   Text(nurse == null ? "Nouvel infirmier" : "Modifier infirmier",
                       style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.primary)),
-                  IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded)),
+                  IconButton(onPressed: () => Navigator.pop(dialogCtx), icon: const Icon(Icons.close_rounded)),
                 ]),
                 const SizedBox(height: 18),
                 Row(children: [
@@ -151,7 +152,7 @@ class _NursesScreenState extends State<NursesScreen> {
                 Row(children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: gender,
+                      initialValue: gender,
                       decoration: _ddDeco("Genre"),
                       items: const [
                         DropdownMenuItem(value: 'male', child: Text("Homme")),
@@ -163,7 +164,7 @@ class _NursesScreenState extends State<NursesScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: specialization,
+                      initialValue: specialization,
                       decoration: _ddDeco("Spécialisation"),
                       items: const [
                         DropdownMenuItem(value: 'generaliste', child: Text("Généraliste")),
@@ -179,7 +180,7 @@ class _NursesScreenState extends State<NursesScreen> {
                 Row(children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: state,
+                      initialValue: state,
                       decoration: _ddDeco("Statut"),
                       items: const [
                         DropdownMenuItem(value: 'active', child: Text("Actif")),
@@ -200,7 +201,7 @@ class _NursesScreenState extends State<NursesScreen> {
                 _field("Notes", notesCtrl, Icons.note_rounded, maxLines: 2),
                 const SizedBox(height: 24),
                 Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                  OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+                  OutlinedButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text("Annuler")),
                   const SizedBox(width: 12),
                   ElevatedButton(
                     onPressed: () async {
@@ -223,9 +224,28 @@ class _NursesScreenState extends State<NursesScreen> {
                         'notes': notesCtrl.text.trim(),
                       }..removeWhere((k, v) => v == null);
 
+                      final nid = nurse?['id'] is int ? nurse!['id'] as int : int.tryParse(nurse?['id']?.toString() ?? '');
+                      final warnings = DuplicateGuard.nurseWarnings(
+                        nurses,
+                        name: nameCtrl.text.trim(),
+                        phone: phoneCtrl.text.trim(),
+                        email: emailCtrl.text.trim(),
+                        license: licenseCtrl.text.trim(),
+                        excludeId: nid,
+                      );
+                      if (warnings.isNotEmpty) {
+                        final proceed = await showDuplicateProceedDialog(
+                          dialogCtx,
+                          title: nurse == null ? 'Infirmier — doublon possible' : 'Infirmier — conflit avec une autre fiche',
+                          warnings: warnings,
+                          confirmLabel: nurse == null ? 'Créer quand même' : 'Enregistrer quand même',
+                        );
+                        if (!proceed) return;
+                      }
+
                       final result = nurse == null ? await OdooApi.createNurse(vals) : await OdooApi.updateNurse(nurse['id'], vals);
-                      if (!mounted) return;
-                      Navigator.of(this.context).pop();
+                      if (!dialogCtx.mounted) return;
+                      Navigator.pop(dialogCtx);
                       if (result['success'] == true) {
                         _snack(nurse == null ? "Infirmier créé" : "Infirmier mis à jour");
                         _load();

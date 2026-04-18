@@ -8,6 +8,7 @@ import 'package:medical_app/language_provider.dart';
 import 'package:medical_app/theme.dart';
 import 'package:medical_app/Screens/secretary_detail.dart';
 import 'package:medical_app/Widgets/app_breadcrumb.dart';
+import 'package:medical_app/utils/duplicate_guard.dart';
 
 class SecretariesScreen extends StatefulWidget {
   const SecretariesScreen({super.key});
@@ -120,8 +121,8 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => Directionality(
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (_, setDialogState) => Directionality(
           textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
           child: Dialog(
             backgroundColor: AppColors.surface,
@@ -134,16 +135,16 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     Text(secretary == null ? l10n.t('newSecretary') : l10n.t('editSecretary'), 
                          style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.primary)),
-                    IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded, color: AppColors.textMuted)),
+                    IconButton(onPressed: () => Navigator.pop(dialogCtx), icon: const Icon(Icons.close_rounded, color: AppColors.textMuted)),
                   ]),
                   const SizedBox(height: 24),
                   
                   _sectionHeader("INFORMATIONS PERSONNELLES", Icons.person_rounded),
                   const SizedBox(height: 16),
                   Row(children: [
-                    Expanded(child: _field(l10n.t('firstName') + " (*)", firstNameCtrl, Icons.person_outline)),
+                    Expanded(child: _field("${l10n.t('firstName')} (*)", firstNameCtrl, Icons.person_outline)),
                     const SizedBox(width: 16),
-                    Expanded(child: _field(l10n.t('lastName') + " (*)", lastNameCtrl, Icons.person_rounded)),
+                    Expanded(child: _field("${l10n.t('lastName')} (*)", lastNameCtrl, Icons.person_rounded)),
                   ]),
                   const SizedBox(height: 16),
                   Row(children: [
@@ -204,7 +205,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
 
                   const SizedBox(height: 32),
                   Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                    OutlinedButton(onPressed: () => Navigator.pop(context), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: Text(l10n.t('cancel'))),
+                    OutlinedButton(onPressed: () => Navigator.pop(dialogCtx), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: Text(l10n.t('cancel'))),
                     const SizedBox(width: 16),
                     ElevatedButton(
                       onPressed: () async {
@@ -231,6 +232,28 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                           'notes': notesCtrl.text.trim(),
                         };
                         
+                        final sid = secretary?['id'] is int ? secretary!['id'] as int : int.tryParse(secretary?['id']?.toString() ?? '');
+                        final warnings = DuplicateGuard.secretaryWarnings(
+                          secretaries,
+                          firstName: firstNameCtrl.text.trim(),
+                          lastName: lastNameCtrl.text.trim(),
+                          phone: phoneCtrl.text.trim(),
+                          mobile: mobileCtrl.text.trim(),
+                          email: emailCtrl.text.trim(),
+                          code: codeCtrl.text.trim(),
+                          nationalId: cinCtrl.text.trim(),
+                          excludeId: sid,
+                        );
+                        if (warnings.isNotEmpty) {
+                          final proceed = await showDuplicateProceedDialog(
+                            dialogCtx,
+                            title: secretary == null ? 'Secrétaire — doublon possible' : 'Secrétaire — conflit avec une autre fiche',
+                            warnings: warnings,
+                            confirmLabel: secretary == null ? 'Créer quand même' : 'Enregistrer quand même',
+                          );
+                          if (!proceed) return;
+                        }
+
                         Map<String, dynamic> result;
                         if (secretary == null) {
                           result = await OdooApi.createSecretary(vals);
@@ -238,14 +261,13 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                           result = await OdooApi.updateSecretary(secretary['id'], vals);
                         }
 
-      if (mounted) {
-                          Navigator.pop(context);
-                          if (result['success']) {
-                            _snack(secretary == null ? l10n.t('secretaryCreated') : l10n.t('secretaryUpdated'));
-                            _load();
-                          } else {
-                            _snack("Erreur lors de l'enregistrement", isError: true);
-                          }
+                        if (!dialogCtx.mounted) return;
+                        Navigator.pop(dialogCtx);
+                        if (result['success']) {
+                          _snack(secretary == null ? l10n.t('secretaryCreated') : l10n.t('secretaryUpdated'));
+                          _load();
+                        } else {
+                          _snack("Erreur lors de l'enregistrement", isError: true);
                         }
                       },
                       style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),

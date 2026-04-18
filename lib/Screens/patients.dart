@@ -8,6 +8,8 @@ import 'package:medical_app/language_provider.dart';
 import 'package:medical_app/theme.dart';
 import 'package:medical_app/Screens/patient_detail.dart';
 import 'package:medical_app/Widgets/app_breadcrumb.dart';
+import 'package:medical_app/utils/duplicate_guard.dart';
+import 'package:medical_app/utils/medical_file_number_suggest.dart';
 import 'package:intl/intl.dart' as intl;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -120,7 +122,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
   }
 
   void _showAddDialog(AppLocalizations l10n, bool isRtl) {
-    final dossierCtrl = TextEditingController();
+    final dossierCtrl = TextEditingController(text: MedicalFileNumberSuggest.suggestNext(patients));
     final cinCtrl = TextEditingController();
     final nomCtrl = TextEditingController();
     final prenomCtrl = TextEditingController();
@@ -132,8 +134,8 @@ class _PatientsScreenState extends State<PatientsScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => Directionality(
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (_, setDialogState) => Directionality(
           textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
           child: Dialog(
             backgroundColor: AppColors.surface,
@@ -145,13 +147,13 @@ class _PatientsScreenState extends State<PatientsScreen> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     Text(l10n.t('newPatientTitle2'), style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.primary)),
-                    IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded, color: AppColors.textMuted)),
+                    IconButton(onPressed: () => Navigator.pop(dialogCtx), icon: const Icon(Icons.close_rounded, color: AppColors.textMuted)),
                   ]),
                   const SizedBox(height: 24),
                   _sectionHeader("INFORMATIONS ESSENTIELLES", Icons.contact_emergency_rounded),
                   const SizedBox(height: 20),
                   Row(children: [
-                    Expanded(child: _field("N° Dossier", dossierCtrl, Icons.folder_shared_rounded)),
+                    Expanded(child: _field("N° Dossier", dossierCtrl, Icons.folder_shared_rounded, hintText: 'Proposition automatique — modifiable')),
                     const SizedBox(width: 16),
                     Expanded(child: _field("CIN", cinCtrl, Icons.badge_rounded)),
                   ]),
@@ -188,7 +190,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
                   _dropdown("Couverture sociale (*)", couverture, ["Sans", "AMO", "RAMED", "CNOPS", "Privé"], (v) => setDialogState(() => couverture = v!)),
                   const SizedBox(height: 32),
                   Row(children: [
-                    Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), side: const BorderSide(color: AppColors.border)), child: Text(l10n.t('close')))),
+                    Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(dialogCtx), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), side: const BorderSide(color: AppColors.border)), child: Text(l10n.t('close')))),
                     const SizedBox(width: 16),
                     Expanded(flex: 2, child: ElevatedButton(
                       onPressed: () async {
@@ -197,6 +199,21 @@ class _PatientsScreenState extends State<PatientsScreen> {
                           return;
                         }
                         final fullName = "${nomCtrl.text.trim()} ${prenomCtrl.text.trim()}";
+                        final warnings = DuplicateGuard.patientWarnings(
+                          patients,
+                          fullName: fullName,
+                          phone: phoneCtrl.text.trim(),
+                          cin: cinCtrl.text.trim(),
+                          dossier: dossierCtrl.text.trim(),
+                        );
+                        if (warnings.isNotEmpty) {
+                          final proceed = await showDuplicateProceedDialog(
+                            dialogCtx,
+                            title: 'Patient — doublon possible',
+                            warnings: warnings,
+                          );
+                          if (!proceed) return;
+                        }
                         final result = await OdooApi.createPatient(
                           name: fullName,
                           medicalFileNumber: dossierCtrl.text.trim(),
@@ -207,14 +224,13 @@ class _PatientsScreenState extends State<PatientsScreen> {
                           age: int.tryParse(ageCtrl.text.trim()) ?? 0,
                           comment: "Sexe: $sexe | Nationalité: $nationalite",
                         );
-                        if (mounted) {
-                          Navigator.pop(context);
-                          if (result['success']) {
-                            _load();
-                            _showPostCreateOptions(fullName, result['id'], dossierCtrl.text.trim(), l10n);
-                          } else {
-                            _snack("Erreur lors de la création", isError: true);
-                          }
+                        if (!dialogCtx.mounted) return;
+                        Navigator.pop(dialogCtx);
+                        if (result['success']) {
+                          _load();
+                          _showPostCreateOptions(fullName, result['id'], dossierCtrl.text.trim(), l10n);
+                        } else {
+                          _snack("Erreur lors de la création", isError: true);
                         }
                       },
                       style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
@@ -234,7 +250,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (postCtx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(l10n.t('patientCreatedTitle'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
         content: Text(l10n.t('patientCreatedQuestion')),
@@ -254,17 +270,16 @@ class _PatientsScreenState extends State<PatientsScreen> {
                 status: 'waiting',
                 medicalFileNumber: dossier,
               );
-              if (mounted) {
-                Navigator.pop(context);
-                _snack("Consultation ajoutée pour aujourd'hui");
-              }
+              if (!postCtx.mounted) return;
+              Navigator.pop(postCtx);
+              _snack("Consultation ajoutée pour aujourd'hui");
             },
             style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
             child: const Text("Ajouter une consultation"),
           ),
           ElevatedButton.icon(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(postCtx);
               _showScheduleFromPatient(id, name, dossier, l10n);
             },
             icon: const Icon(Icons.calendar_month),
@@ -283,8 +298,8 @@ class _PatientsScreenState extends State<PatientsScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+      builder: (schedCtx) => StatefulBuilder(
+        builder: (_, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text("${loc.t('scheduleFor')} $name"),
           content: Column(
@@ -294,7 +309,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
               const SizedBox(height: 16),
               InkWell(
                 onTap: () async {
-                  final date = await showDatePicker(context: context, initialDate: selectedDate, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)));
+                  final date = await showDatePicker(context: schedCtx, initialDate: selectedDate, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)));
                   if (date != null) setDialogState(() => selectedDate = date);
                 },
                 child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.inputFill, borderRadius: BorderRadius.circular(12)), child: Row(children: [const Icon(Icons.event, color: AppColors.primary), const SizedBox(width: 12), Text(intl.DateFormat('dd/MM/yyyy').format(selectedDate))])),
@@ -302,15 +317,15 @@ class _PatientsScreenState extends State<PatientsScreen> {
               const SizedBox(height: 12),
               InkWell(
                 onTap: () async {
-                  final time = await showTimePicker(context: context, initialTime: selectedTime);
+                  final time = await showTimePicker(context: schedCtx, initialTime: selectedTime);
                   if (time != null) setDialogState(() => selectedTime = time);
                 },
-                child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.inputFill, borderRadius: BorderRadius.circular(12)), child: Row(children: [const Icon(Icons.access_time, color: AppColors.primary), const SizedBox(width: 12), Text(selectedTime.format(context))])),
+                child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.inputFill, borderRadius: BorderRadius.circular(12)), child: Row(children: [const Icon(Icons.access_time, color: AppColors.primary), const SizedBox(width: 12), Text(selectedTime.format(schedCtx))])),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
+            TextButton(onPressed: () => Navigator.pop(schedCtx), child: Text(loc.t('cancel'))),
             ElevatedButton(
               onPressed: () async {
                 final scheduledDateTime = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, selectedTime.hour, selectedTime.minute);
@@ -327,7 +342,8 @@ class _PatientsScreenState extends State<PatientsScreen> {
                   medicalFileNumber: dossier,
                 );
                 
-                if (mounted) Navigator.pop(context);
+                if (!schedCtx.mounted) return;
+                Navigator.pop(schedCtx);
                 if (res['success']) {
                   _snack("Rendez-vous planifié");
                 }
@@ -364,7 +380,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
           child: Container(
             width: 500, padding: const EdgeInsets.all(28),
             child: StatefulBuilder(
-              builder: (context, setDialogState) => SingleChildScrollView(
+              builder: (_, setDialogState) => SingleChildScrollView(
                 child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     Text(l10n.t('editPatient'), style: _titleSm(isRtl)),
@@ -396,6 +412,24 @@ class _PatientsScreenState extends State<PatientsScreen> {
                     const SizedBox(width: 12),
                     ElevatedButton(
                       onPressed: () async {
+                        final pid = p['id'] is int ? p['id'] as int : int.tryParse(p['id'].toString());
+                        final warnings = DuplicateGuard.patientWarnings(
+                          patients,
+                          fullName: nameCtrl.text.trim(),
+                          phone: phoneCtrl.text.trim(),
+                          cin: cinCtrl.text.trim(),
+                          dossier: dossierCtrl.text.trim(),
+                          excludePatientId: pid,
+                        );
+                        if (warnings.isNotEmpty) {
+                          final proceed = await showDuplicateProceedDialog(
+                            dialogCtx,
+                            title: 'Patient — conflit avec une autre fiche',
+                            warnings: warnings,
+                            confirmLabel: 'Enregistrer quand même',
+                          );
+                          if (!proceed) return;
+                        }
                         await OdooApi.updatePatient(
                           patientId: p['id'],
                           name: nameCtrl.text.trim(),
@@ -408,7 +442,9 @@ class _PatientsScreenState extends State<PatientsScreen> {
                           medicalFileNumber: dossierCtrl.text.trim(),
                           comment: p['comment'] is String ? p['comment'].toString().replaceAll(RegExp(r'Nationalité:.*'), 'Nationalité: $nationalite') : 'Nationalité: $nationalite',
                         );
-                        if (mounted) { Navigator.pop(dialogCtx); _load(); }
+                        if (!dialogCtx.mounted) return;
+                        Navigator.pop(dialogCtx);
+                        _load();
                       },
                       style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
                       child: Text(l10n.t('save')),
@@ -423,12 +459,14 @@ class _PatientsScreenState extends State<PatientsScreen> {
     );
   }
 
-  Widget _field(String label, TextEditingController ctrl, IconData icon, {TextInputType inputType = TextInputType.text}) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  Widget _field(String label, TextEditingController ctrl, IconData icon, {TextInputType inputType = TextInputType.text, String? hintText}) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecond)),
     const SizedBox(height: 8),
     TextField(
       controller: ctrl, keyboardType: inputType,
       decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: GoogleFonts.dmSans(color: AppColors.textHint, fontSize: 12),
         prefixIcon: Icon(icon, size: 18, color: AppColors.primary),
         filled: true, fillColor: AppColors.inputFill,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),

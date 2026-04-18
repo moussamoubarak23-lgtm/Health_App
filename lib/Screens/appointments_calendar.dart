@@ -162,7 +162,7 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
               children: [
                 DropdownButtonFormField<Map>(
                   decoration: InputDecoration(labelText: loc.t('selectPatientLabel'), prefixIcon: const Icon(Icons.person_outline), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-                  value: selectedPatient,
+                  initialValue: selectedPatient,
                   items: _allPatients.map((p) => DropdownMenuItem<Map>(value: p, child: Text(p['name'] ?? ''))).toList(),
                   onChanged: (val) => setDialogState(() => selectedPatient = val),
                 ),

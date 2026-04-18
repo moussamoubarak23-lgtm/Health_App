@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:medical_app/Services/odoo_api.dart';
 import 'package:medical_app/app_localizations.dart';
+import 'package:medical_app/utils/duplicate_guard.dart';
 import 'package:medical_app/language_provider.dart';
 import 'package:medical_app/theme.dart';
 
@@ -100,6 +101,25 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     setState(() { _loading = true; _error = null; _success = null; });
 
     try {
+      final dup = await OdooApi.findDoctorRegistrationDuplicateWarnings(
+        name: _regNameCtrl.text.trim(),
+        login: _regLoginCtrl.text.trim(),
+        phone: _regPhoneCtrl.text.trim(),
+      );
+      if (!mounted) return;
+      if (dup.isNotEmpty) {
+        final proceed = await showDuplicateProceedDialog(
+          context,
+          title: 'Compte médecin — doublon possible',
+          warnings: dup,
+        );
+        if (!proceed) {
+          setState(() => _loading = false);
+          return;
+        }
+      }
+      if (!mounted) return;
+
       final result = await OdooApi.registerDoctor(
         name: _regNameCtrl.text.trim(),
         login: _regLoginCtrl.text.trim(),

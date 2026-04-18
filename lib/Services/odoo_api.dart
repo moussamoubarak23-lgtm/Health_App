@@ -2,9 +2,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:medical_app/utils/duplicate_guard.dart';
 
 class OdooApi {
-  static String _odooUrl = 'http://192.168.1.123:8069';
+  static String _odooUrl = 'http://192.168.11.111:8069';
   static String _proxyUrl = 'http://localhost:8000';
   static String get baseUrl => kIsWeb ? _proxyUrl : _odooUrl;
 
@@ -21,7 +22,7 @@ class OdooApi {
   // ─── INITIALISATION ─────────────────────────────────────────────────────────
   static Future<void> initConfig() async {
     final prefs = await SharedPreferences.getInstance();
-    _odooUrl = prefs.getString('odoo_server_url') ?? 'http://192.168.1.123:8069';
+    _odooUrl = prefs.getString('odoo_server_url') ?? 'http://192.168.11.111:8069';
     _proxyUrl = prefs.getString('proxy_url') ?? 'http://localhost:8000';
   }
 
@@ -772,6 +773,75 @@ class OdooApi {
     final data = await _callRpc('/jsonrpc', {'service': 'common', 'method': 'version', 'args': []});
     if (data != null && data['result'] != null) return {'success': true, 'version': data['result']['server_version']?.toString() ?? 'Odoo'};
     return {'success': false, 'error': 'Erreur'};
+  }
+
+  /// Avant création d'un médecin : recherche Odoo sur login, e-mail, téléphone et nom proche.
+  static Future<List<String>> findDoctorRegistrationDuplicateWarnings({
+    required String name,
+    required String login,
+    String phone = '',
+  }) async {
+    try {
+      final auth = await _callRpc('/web/session/authenticate', {'db': dbName, 'login': _adminLogin, 'password': _adminPassword});
+      if (auth == null || auth['result'] == null) return [];
+      final cookie = _s(auth['set-cookie']);
+      final lt = login.trim().toLowerCase();
+      final digits = phone.replaceAll(RegExp(r'\D'), '');
+      final tail = digits.length >= 9 ? digits.substring(digits.length - 9) : digits;
+      final trimmedName = name.trim();
+      final clauses = <List<dynamic>>[];
+      if (lt.isNotEmpty) {
+        clauses.add(['login', '=ilike', lt]);
+        clauses.add(['email', '=ilike', lt]);
+      }
+      if (tail.length >= 8) {
+        clauses.add(['|', ['phone', 'ilike', tail], ['mobile', 'ilike', tail]]);
+      }
+      if (trimmedName.length >= 4) {
+        clauses.add(['name', 'ilike', trimmedName]);
+      }
+      if (clauses.isEmpty) return [];
+
+      final domain = odooOrDomain(clauses);
+      final data = await _callRpc('/web/dataset/call_kw', {
+        'model': 'res.users',
+        'method': 'search_read',
+        'args': [domain],
+        'kwargs': {'fields': ['id', 'name', 'login', 'email', 'phone', 'mobile'], 'limit': 80},
+      }, cookie: cookie);
+
+      if (data == null || data['result'] == null) return [];
+      final users = data['result'] as List;
+      final warnings = <String>{};
+      final newPhone = DuplicateGuard.normPhone(phone);
+
+      for (final raw in users) {
+        if (raw is! Map) continue;
+        final u = Map<String, dynamic>.from(raw);
+        final uname = _s(u['name']);
+        final ulogin = _s(u['login']).trim().toLowerCase();
+        final uemail = _s(u['email']).trim().toLowerCase();
+
+        if (lt.isNotEmpty && (ulogin == lt || (uemail.isNotEmpty && uemail == lt))) {
+          warnings.add('Identifiant ou e-mail déjà associé au compte « $uname »');
+        }
+        if (newPhone.isNotEmpty) {
+          final up = DuplicateGuard.normPhone(_s(u['phone']));
+          final um = DuplicateGuard.normPhone(_s(u['mobile']));
+          if ((up.isNotEmpty && up == newPhone) || (um.isNotEmpty && um == newPhone)) {
+            warnings.add('Téléphone déjà associé au compte « $uname »');
+          }
+        }
+        if (trimmedName.isNotEmpty &&
+            uname.isNotEmpty &&
+            DuplicateGuard.nameSimilarity(trimmedName, uname) >= DuplicateGuard.nameSimilarityThreshold) {
+          warnings.add('Nom très proche du compte existant « $uname »');
+        }
+      }
+      return warnings.toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   static Future<Map<String, dynamic>> registerDoctor({required String name, required String login, required String password, String? phone}) async {
