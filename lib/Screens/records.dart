@@ -139,7 +139,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                       style: GoogleFonts.dmSans(color: AppColors.textMuted, fontSize: 12)),
                   const SizedBox(height: 18),
 
-                  _dlgField("Numéro de Dossier", fileNumCtrl, Icons.folder_shared_rounded, isRtl),
+                  _dlgField(l10n.t('medicalFileNumber'), fileNumCtrl, Icons.folder_shared_rounded, isRtl),
                   const SizedBox(height: 12),
 
                   Text(l10n.t('status'), style: _labelStyle(isRtl)),
@@ -428,7 +428,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(color: AppColors.surfaceAlt, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border)),
-                child: Text("DOSSIER: $dossier", style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                child: Text("${l10n.t('medicalFileNumber').toUpperCase()}: $dossier", style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
               ),
               const SizedBox(width: 10),
             ],

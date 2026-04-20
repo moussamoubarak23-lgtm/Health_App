@@ -120,6 +120,48 @@ class AppLocalizations {
     'confirmConsultation': {'fr': 'Valider la consultation', 'ar': 'تأكيد الاستشارة'},
     'consultRecordNumber': {'fr': 'N° dossier consultation', 'ar': 'رقم ملف الاستشارة'},
     'validateAndConfirm': {'fr': 'Valider et confirmer', 'ar': 'تأكيد واعتماد'},
+    'essentialInfo':      {'fr': 'INFORMATIONS ESSENTIELLES', 'ar': 'معلومات أساسية'},
+    'medicalFileNumber':  {'fr': 'N° de dossier', 'ar': 'رقم الملف'},
+    'fileNumHint':        {'fr': 'Proposition automatique — modifiable', 'ar': 'اقتراح تلقائي - قابل للتعديل'},
+    'socialCoverage':     {'fr': 'Couverture sociale', 'ar': 'التغطية الصحية'},
+    'modulesTitle':       {'fr': 'Modules', 'ar': 'الوحدات'},
+    'sehatiModuleTitle':  {'fr': 'Mesures SEHATI', 'ar': 'مقاييس صحتي'},
+    'sehatiModuleDetail': {'fr': 'Détail', 'ar': 'تفاصيل'},
+    'sehatiModuleDesc':   {'fr': 'Ce module affiche dans la fiche patient les mesures synchronisées depuis les appareils SEHATI (tensiomètre + balance). Activez-le uniquement si le médecin utilise ces appareils et souhaite voir ces données ici.', 'ar': 'تعرض هذه الوحدة في ملف المريض القياسات المتزامنة من أجهزة صحتي (جهاز ضغط الدم + الميزان). قم بتفعيلها فقط إذا كان الطبيب يستخدم هذه الأجهزة ويريد رؤية هذه البيانات هنا.'},
+    'sehatiModuleSwitchSub': {'fr': 'Afficher les mesures du tensiomètre et de la balance dans la fiche patient.', 'ar': 'عرض قياسات جهاز الضغط والميزان في ملف المريض.'},
+    'modulesTip':         {'fr': 'Astuce: désactivez ce module si vous ne souhaitez utiliser qu\'une seule application.', 'ar': 'نصيحة: قم بتعطيل هذه الوحدة إذا كنت ترغب في استخدام تطبيق واحد فقط.'},
+    'addConsultation':    {'fr': 'Ajouter une consultation', 'ar': 'إضافة استشارة'},
+    'consultationAdded':  {'fr': 'Consultation ajoutée pour aujourd\'hui', 'ar': 'تمت إضافة الاستشارة لهذا اليوم'},
+    'appointmentPlanned': {'fr': 'Rendez-vous planifié', 'ar': 'تمت جدولة الموعد'},
+    'selectDay':          {'fr': 'Sélectionnez un jour', 'ar': 'اختر يوماً'},
+    'actCreated':         {'fr': 'Acte créé avec succès', 'ar': 'تم إنشاء العمل الطبي بنجاح'},
+    'actNameRequired':    {'fr': 'Veuillez remplir le nom et le tarif.', 'ar': 'يرجى ملء الاسم والتعريفة.'},
+    'invalidPrice':       {'fr': 'Tarif invalide.', 'ar': 'تعريفة غير صالحة.'},
+    'configSaved':        {'fr': 'Configuration enregistrée', 'ar': 'تم حفظ الإعدادات'},
+    'manualIdWeb':        {'fr': "Scan caméra non supporté sur Web.\nUtilisez l'ID manuel.", 'ar': 'المسح بالكاميرا غير مدعوم على الويب. استخدم المعرف اليدوي.'},
+    'selectNationality':  {'fr': 'Choisir une Nationalité', 'ar': 'اختر الجنسية'},
+    'duplicateWarn':      {'fr': 'Patient — doublon possible', 'ar': 'مريض - احتمال وجود تكرار'},
+    'duplicateConflict':  {'fr': 'Patient — conflit avec une autre fiche', 'ar': 'مريض - تعارض مع ملف آخر'},
+    'saveAnyway':         {'fr': 'Enregistrer quand même', 'ar': 'حفظ على أي حال'},
+    'pageOf':             {'fr': 'Page {page} sur {total}', 'ar': 'صفحة {page} من {total}'},
+    'modulesSub':         {'fr': 'Activer/Désactiver des fonctionnalités', 'ar': 'تفعيل/تعطيل الميزات'},
+    'actManagementSub':   {'fr': 'Gérer vos services et tarifs', 'ar': 'إدارة الخدمات والأسعار'},
+    'cabinetInfoSub':     {'fr': 'Configuration ordonnance papier', 'ar': 'إعداد وصفة الورق'},
+    'prescriptionSub':    {'fr': 'Générer une ordonnance', 'ar': 'إنشاء وصفة طبية'},
+    'certificateSub':     {'fr': 'Générer un document médical', 'ar': 'إنشاء وثيقة طبية'},
+    'idSub':              {'fr': 'Scanner ou chercher un patient', 'ar': 'مسح أو البحث عن مريض'},
+    'langSub':            {'fr': 'Changer la langue de l\'app', 'ar': 'تغيير لغة التطبيق'},
+    'langSidebarHint':    {'fr': 'Fonctionnalité accessible via la sidebar', 'ar': 'الميزة متاحة عبر الشريط الجانبي'},
+    'fileNumLongHint':    {'fr': 'N° dossier : repris du patient ou proposé automatiquement (modifiable)', 'ar': 'رقم الملف: مأخوذ من المريض أو مقترح تلقائياً (قابل للتعديل)'},
+    'secIdentifierHint':  {'fr': 'Ex: secretaire@clinique.com / 0600000000', 'ar': 'مثال: secretaire@clinique.com / 0600000000'},
+    'notificationCenter': {'fr': 'Centre de Notifications', 'ar': 'مركز التنبيهات'},
+    'noNotifications':    {'fr': 'Aucune notification.', 'ar': 'لا توجد تنبيهات.'},
+    'downloadUpdate':     {'fr': 'Télécharger la mise à jour', 'ar': 'تحميل التحديث'},
+    'updatesInfos':       {'fr': 'Mises à jour & Infos', 'ar': 'التحديثات والمعلومات'},
+    'criticalError':      {'fr': 'Erreur critique', 'ar': 'خطأ حرج'},
+    'registerErrorConn':  {'fr': 'Impossible de créer le compte. Vérifiez votre connexion.', 'ar': 'تعذر إنشاء الحساب. تحقق من اتصالك.'},
+    'doctorDuplicateWarn': {'fr': 'Compte médecin — doublon possible', 'ar': 'حساب طبيب - احتمال وجود تكرار'},
+    'marhaba':            {'fr': 'Bienvenue !', 'ar': 'مرحباً !'},
 
     // ── SPLASH ───────────────────────────────────────────────────────────────
     'splashInit':         {'fr': 'Initialisation...',                'ar': 'جارٍ التهيئة...'},
@@ -228,7 +270,7 @@ class AppLocalizations {
     'email':              {'fr': 'Email',                'ar': 'البريد الإلكتروني'},
     'insurance':          {'fr': 'N° Assurance',         'ar': 'رقم التأمين'},
     'nationality':        {'fr': 'Nationalité',          'ar': 'الجنسية'},
-    'height':             {'fr': 'Taille (cm)',          'ar': 'الطول (سم)'},
+    'height':             {'fr': 'Taille (cm)',          'ar': 'التول (سم)'},
     'age':                {'fr': 'Âge',                  'ar': 'العمر'},
     'years':              {'fr': 'ans',                  'ar': 'سنة'},
     'cm':                 {'fr': 'cm',                   'ar': 'سم'},
@@ -422,9 +464,15 @@ class AppLocalizations {
     'dec': {'fr': 'Déc', 'ar': 'دجنبر'},
   };
 
-  String t(String key) {
+  String t(String key, {Map<String, String>? args}) {
     final lang = locale.languageCode;
-    return _translations[key]?[lang] ?? _translations[key]?['fr'] ?? key;
+    String text = _translations[key]?[lang] ?? _translations[key]?['fr'] ?? key;
+    if (args != null) {
+      args.forEach((k, v) {
+        text = text.replaceAll('{$k}', v);
+      });
+    }
+    return text;
   }
 
   // Helper pour les jours/mois

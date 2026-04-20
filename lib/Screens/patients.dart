@@ -106,11 +106,11 @@ class _PatientsScreenState extends State<PatientsScreen> {
               setState(() => loading = true);
               final res = await OdooApi.deletePatient(p['id']);
               if (res['success']) {
-                _snack("Patient et toutes ses données supprimés");
+                _snack(l10n.t('patientUpdated')); // Reuse or add patientDeleted
                 _load();
               } else {
                 setState(() => loading = false);
-                _snack("Erreur lors de la suppression", isError: true);
+                _snack(l10n.t('error'), isError: true);
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.red, foregroundColor: Colors.white),
@@ -150,22 +150,22 @@ class _PatientsScreenState extends State<PatientsScreen> {
                     IconButton(onPressed: () => Navigator.pop(dialogCtx), icon: const Icon(Icons.close_rounded, color: AppColors.textMuted)),
                   ]),
                   const SizedBox(height: 24),
-                  _sectionHeader("INFORMATIONS ESSENTIELLES", Icons.contact_emergency_rounded),
+                  _sectionHeader(l10n.t('essentialInfo'), Icons.contact_emergency_rounded),
                   const SizedBox(height: 20),
                   Row(children: [
-                    Expanded(child: _field("N° Dossier", dossierCtrl, Icons.folder_shared_rounded, hintText: 'Proposition automatique — modifiable')),
+                    Expanded(child: _field(l10n.t('medicalFileNumber'), dossierCtrl, Icons.folder_shared_rounded, hintText: l10n.t('fileNumHint'))),
                     const SizedBox(width: 16),
                     Expanded(child: _field("CIN", cinCtrl, Icons.badge_rounded)),
                   ]),
                   const SizedBox(height: 16),
                   Row(children: [
-                    Expanded(child: _field("Nom (*)", nomCtrl, Icons.person_rounded)),
+                    Expanded(child: _field("${l10n.t('lastName')} (*)", nomCtrl, Icons.person_rounded)),
                     const SizedBox(width: 16),
-                    Expanded(child: _field("Prénom (*)", prenomCtrl, Icons.person_outline_rounded)),
+                    Expanded(child: _field("${l10n.t('firstName')} (*)", prenomCtrl, Icons.person_outline_rounded)),
                   ]),
                   const SizedBox(height: 16),
                   Row(children: [
-                    Expanded(child: _field("Âge", ageCtrl, Icons.cake_rounded, inputType: TextInputType.number)),
+                    Expanded(child: _field(l10n.t('age'), ageCtrl, Icons.cake_rounded, inputType: TextInputType.number)),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -182,12 +182,12 @@ class _PatientsScreenState extends State<PatientsScreen> {
                   ]),
                   const SizedBox(height: 16),
                   Row(children: [
-                    Expanded(child: _field("Téléphone", phoneCtrl, Icons.phone_rounded, inputType: TextInputType.phone)),
+                    Expanded(child: _field(l10n.t('phone'), phoneCtrl, Icons.phone_rounded, inputType: TextInputType.phone)),
                     const SizedBox(width: 16),
-                    Expanded(child: _dropdownSearch("Nationalité (*)", nationalite, (v) => setDialogState(() => nationalite = v))),
+                    Expanded(child: _dropdownSearch("${l10n.t('nationality')} (*)", nationalite, (v) => setDialogState(() => nationalite = v))),
                   ]),
                   const SizedBox(height: 16),
-                  _dropdown("Couverture sociale (*)", couverture, ["Sans", "AMO", "RAMED", "CNOPS", "Privé"], (v) => setDialogState(() => couverture = v!)),
+                  _dropdown("${l10n.t('socialCoverage')} (*)", couverture, ["Sans", "AMO", "RAMED", "CNOPS", "Privé"], (v) => setDialogState(() => couverture = v!)),
                   const SizedBox(height: 32),
                   Row(children: [
                     Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(dialogCtx), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), side: const BorderSide(color: AppColors.border)), child: Text(l10n.t('close')))),
@@ -195,7 +195,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
                     Expanded(flex: 2, child: ElevatedButton(
                       onPressed: () async {
                         if (nomCtrl.text.isEmpty || prenomCtrl.text.isEmpty) {
-                          _snack("Nom et Prénom sont obligatoires", isError: true);
+                          _snack(l10n.t('allFieldsRequired'), isError: true);
                           return;
                         }
                         final fullName = "${nomCtrl.text.trim()} ${prenomCtrl.text.trim()}";
@@ -209,7 +209,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
                         if (warnings.isNotEmpty) {
                           final proceed = await showDuplicateProceedDialog(
                             dialogCtx,
-                            title: 'Patient — doublon possible',
+                            title: l10n.t('duplicateWarn'),
                             warnings: warnings,
                           );
                           if (!proceed) return;
@@ -230,7 +230,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
                           _load();
                           _showPostCreateOptions(fullName, result['id'], dossierCtrl.text.trim(), l10n);
                         } else {
-                          _snack("Erreur lors de la création", isError: true);
+                          _snack(l10n.t('error'), isError: true);
                         }
                       },
                       style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
@@ -272,10 +272,10 @@ class _PatientsScreenState extends State<PatientsScreen> {
               );
               if (!postCtx.mounted) return;
               Navigator.pop(postCtx);
-              _snack("Consultation ajoutée pour aujourd'hui");
+              _snack(l10n.t('consultationAdded'));
             },
             style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-            child: const Text("Ajouter une consultation"),
+            child: Text(l10n.t('addConsultation')),
           ),
           ElevatedButton.icon(
             onPressed: () {
@@ -283,7 +283,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
               _showScheduleFromPatient(id, name, dossier, l10n);
             },
             icon: const Icon(Icons.calendar_month),
-            label: const Text("Planifier RDV"),
+            label: Text(l10n.t('scheduleRdv')),
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.green, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
           ),
         ],
@@ -305,7 +305,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _field("Motif", motifCtrl, Icons.notes),
+              _field(loc.t('reason'), motifCtrl, Icons.notes),
               const SizedBox(height: 16),
               InkWell(
                 onTap: () async {
@@ -345,10 +345,10 @@ class _PatientsScreenState extends State<PatientsScreen> {
                 if (!schedCtx.mounted) return;
                 Navigator.pop(schedCtx);
                 if (res['success']) {
-                  _snack("Rendez-vous planifié");
+                  _snack(loc.t('appointmentPlanned'));
                 }
               },
-              child: const Text("Confirmer"),
+              child: Text(loc.t('confirm')),
             )
           ],
         ),
@@ -388,7 +388,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
                   ]),
                   const SizedBox(height: 20),
                   Row(children: [
-                    Expanded(child: _field("N° Dossier", dossierCtrl, Icons.folder_shared_rounded)),
+                    Expanded(child: _field(l10n.t('medicalFileNumber'), dossierCtrl, Icons.folder_shared_rounded)),
                     const SizedBox(width: 12),
                     Expanded(child: _field("CIN", cinCtrl, Icons.badge_rounded)),
                   ]),
@@ -397,7 +397,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
                   const SizedBox(height: 12),
                   _field(l10n.t('phone'), phoneCtrl, Icons.phone_rounded),
                   const SizedBox(height: 12),
-                  _dropdownSearch("Nationalité (*)", nationalite, (v) => setDialogState(() => nationalite = v)),
+                  _dropdownSearch("${l10n.t('nationality')} (*)", nationalite, (v) => setDialogState(() => nationalite = v)),
                   const SizedBox(height: 12),
                   _field(l10n.t('insurance'), insuranceCtrl, Icons.health_and_safety_rounded),
                   const SizedBox(height: 12),
@@ -424,9 +424,9 @@ class _PatientsScreenState extends State<PatientsScreen> {
                         if (warnings.isNotEmpty) {
                           final proceed = await showDuplicateProceedDialog(
                             dialogCtx,
-                            title: 'Patient — conflit avec une autre fiche',
+                            title: l10n.t('duplicateConflict'),
                             warnings: warnings,
-                            confirmLabel: 'Enregistrer quand même',
+                            confirmLabel: l10n.t('saveAnyway'),
                           );
                           if (!proceed) return;
                         }
@@ -510,19 +510,20 @@ class _PatientsScreenState extends State<PatientsScreen> {
 
   void _showNationalityPicker(Function(String) onSelected) {
     String query = "";
+    final loc = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           final list = query.isEmpty ? nationalities : nationalities.where((n) => n.toLowerCase().contains(query.toLowerCase())).toList();
           return AlertDialog(
-            title: const Text("Choisir une Nationalité"),
+            title: Text(loc.t('selectNationality')),
             content: SizedBox(
               width: 400,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextField(decoration: InputDecoration(hintText: AppLocalizations.of(context).t('searchHint'), prefixIcon: const Icon(Icons.search)), onChanged: (v) => setDialogState(() => query = v)),
+                  TextField(decoration: InputDecoration(hintText: loc.t('searchHint'), prefixIcon: const Icon(Icons.search)), onChanged: (v) => setDialogState(() => query = v)),
                   const SizedBox(height: 10),
                   SizedBox(
                     height: 300,
@@ -591,13 +592,13 @@ class _PatientsScreenState extends State<PatientsScreen> {
   Widget _buildPatientTable(List paginated, bool isRtl, AppLocalizations l10n) => Container(
     decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
     child: Column(children: [
-      Container(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13), decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.primary, width: 2))), child: Row(children: [Expanded(flex: 3, child: _thLabel(l10n.t('fullName').toUpperCase(), isRtl)), Expanded(flex: 2, child: _thLabel("CIN", isRtl)), Expanded(flex: 2, child: _thLabel("N° DOSSIER", isRtl)), Expanded(flex: 1, child: _thLabel(l10n.t('age').toUpperCase(), isRtl)), Expanded(flex: 2, child: _thLabel(l10n.t('phone').toUpperCase(), isRtl)), Expanded(flex: 2, child: _thLabel(l10n.t('colStatus').toUpperCase(), isRtl))])),
-      Expanded(child: paginated.isEmpty ? Center(child: Padding(padding: const EdgeInsets.all(20), child: Text("Aucun patient trouvé", style: GoogleFonts.dmSans(color: AppColors.textMuted)))) : ListView.builder(itemCount: paginated.length, itemBuilder: (_, i) => _patientRow(paginated[i], i, l10n, isRtl))),
-      _buildPaginationControls(),
+      Container(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13), decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.primary, width: 2))), child: Row(children: [Expanded(flex: 3, child: _thLabel(l10n.t('fullName').toUpperCase(), isRtl)), Expanded(flex: 2, child: _thLabel("CIN", isRtl)), Expanded(flex: 2, child: _thLabel(l10n.t('medicalFileNumber').toUpperCase(), isRtl)), Expanded(flex: 1, child: _thLabel(l10n.t('age').toUpperCase(), isRtl)), Expanded(flex: 2, child: _thLabel(l10n.t('phone').toUpperCase(), isRtl)), Expanded(flex: 2, child: _thLabel(l10n.t('colStatus').toUpperCase(), isRtl))])),
+      Expanded(child: paginated.isEmpty ? Center(child: Padding(padding: const EdgeInsets.all(20), child: Text(l10n.t('noPatientFound'), style: GoogleFonts.dmSans(color: AppColors.textMuted)))) : ListView.builder(itemCount: paginated.length, itemBuilder: (_, i) => _patientRow(paginated[i], i, l10n, isRtl))),
+      _buildPaginationControls(l10n),
     ]),
   );
 
-  Widget _buildPaginationControls() => Container(padding: const EdgeInsets.all(12), decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.border))), child: Row(children: [Text('Page $_currentPage sur $_totalPages', style: GoogleFonts.dmSans(fontSize: 13, color: AppColors.textSecond, fontWeight: FontWeight.w500)), const Spacer(), IconButton(icon: const Icon(Icons.chevron_left), onPressed: _currentPage > 1 ? () => setState(() => _currentPage--) : null), IconButton(icon: const Icon(Icons.chevron_right), onPressed: _currentPage < _totalPages ? () => setState(() => _currentPage++) : null)]));
+  Widget _buildPaginationControls(AppLocalizations l10n) => Container(padding: const EdgeInsets.all(12), decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.border))), child: Row(children: [Text(l10n.t('pageOf', args: {'page': '$_currentPage', 'total': '$_totalPages'}), style: GoogleFonts.dmSans(fontSize: 13, color: AppColors.textSecond, fontWeight: FontWeight.w500)), const Spacer(), IconButton(icon: const Icon(Icons.chevron_left), onPressed: _currentPage > 1 ? () => setState(() => _currentPage--) : null), IconButton(icon: const Icon(Icons.chevron_right), onPressed: _currentPage < _totalPages ? () => setState(() => _currentPage++) : null)]));
 
   Widget _patientRow(Map p, int index, AppLocalizations l10n, bool isRtl) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),

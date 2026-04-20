@@ -232,6 +232,7 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
+    final isArabic = loc.isArabic;
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Row(
@@ -278,6 +279,7 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
                                 lastDay: DateTime.now().add(const Duration(days: 365)),
                                 focusedDay: _focusedDay,
                                 calendarFormat: _calendarFormat,
+                                locale: isArabic ? 'ar' : 'fr_FR',
                                 selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
                                 onDaySelected: (selectedDay, focusedDay) {
                                   setState(() {
@@ -337,7 +339,7 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    _selectedDay == null ? "Sélectionnez un jour" : DateFormat('EEEE d MMMM', 'fr_FR').format(_selectedDay!),
+                                    _selectedDay == null ? loc.t('selectDay') : DateFormat('EEEE d MMMM', isArabic ? 'ar' : 'fr_FR').format(_selectedDay!),
                                     style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 18),
                                   ),
                                   const Divider(height: 32),
@@ -362,7 +364,7 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
 
   Widget _appointmentTile(Map event, AppLocalizations loc) {
     final time = DateTime.parse(event['date_consultation']).toLocal();
-    final patientName = event['patient_id'] is List ? event['patient_id'][1] : "Patient Inconnu";
+    final patientName = event['patient_id'] is List ? event['patient_id'][1] : loc.t('unknownPatient');
     
     return InkWell(
       onTap: () => _showEditAppointmentDialog(event, loc),

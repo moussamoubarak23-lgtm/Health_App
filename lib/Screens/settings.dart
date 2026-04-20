@@ -105,6 +105,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _identifyAndRedirect(int id) async {
+    final loc = AppLocalizations.of(context);
     showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator()));
     try {
       final patients = await OdooApi.getPatients();
@@ -116,11 +117,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Navigator.push(context, MaterialPageRoute(builder: (_) => PatientDetailScreen(patient: patient)));
         }
       } else {
-        _snack("Patient non trouvé", isError: true);
+        _snack(loc.t('patientNotFound'), isError: true);
       }
     } catch (e) {
       if (mounted) Navigator.pop(context);
-      _snack("Erreur d'identification", isError: true);
+      _snack(loc.t('identificationError'), isError: true);
     }
   }
 
@@ -153,13 +154,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               final name = nameCtrl.text.trim();
               final priceText = priceCtrl.text.trim();
               if (name.isEmpty || priceText.isEmpty) {
-                _snack("Veuillez remplir le nom et le tarif.", isError: true);
+                _snack(loc.t('actNameRequired'), isError: true);
                 return;
               }
 
               final price = double.tryParse(priceText);
               if (price == null || price <= 0) {
-                _snack("Tarif invalide.", isError: true);
+                _snack(loc.t('invalidPrice'), isError: true);
                 return;
               }
 
@@ -177,14 +178,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                 if (res['success'] == true) {
                   await _loadActs();
-                  _snack("Acte créé avec succès");
+                  _snack(loc.t('actCreated'));
                 } else {
-                  _snack("Erreur: ${res['error'] ?? 'création impossible'}", isError: true);
+                  _snack("${loc.t('error')}: ${res['error'] ?? 'création impossible'}", isError: true);
                 }
               } catch (e) {
                 if (!mounted) return;
                 if (navigator.canPop()) navigator.pop(); // loader
-                _snack("Erreur réseau lors de la création de l'acte.", isError: true);
+                _snack(loc.t('error'), isError: true);
               }
             },
             child: Text(loc.t('save')),
@@ -253,7 +254,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           color: AppColors.surfaceAlt,
                           alignment: Alignment.center,
                           child: Text(
-                            "Scan caméra non supporté sur Web.\nUtilisez l'ID manuel.",
+                            loc.t('manualIdWeb'),
                             textAlign: TextAlign.center,
                             style: GoogleFonts.dmSans(color: AppColors.textSecond),
                           ),
@@ -348,7 +349,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: () async {
               final navigator = Navigator.of(context);
               if (patientNameCtrl.text.isEmpty) {
-                _snack("Veuillez saisir le nom du patient", isError: true);
+                _snack(loc.t('patientNameRequired'), isError: true);
                 return;
               }
               await PdfService.generateAndPrintCertificate(
@@ -423,7 +424,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: () async {
               final navigator = Navigator.of(context);
               if (patientNameCtrl.text.isEmpty) {
-                _snack("Veuillez saisir le nom du patient", isError: true);
+                _snack(loc.t('patientNameRequired'), isError: true);
                 return;
               }
               await PdfService.generateAndPrintPrescription(
@@ -569,7 +570,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 });
                 if (!mounted) return;
                 if (navigator.canPop()) navigator.pop();
-                _snack("Configuration enregistrée");
+                _snack(loc.t('configSaved'));
               },
               child: Text(loc.t('save')),
             ),
@@ -590,7 +591,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               const Icon(Icons.extension_rounded, color: AppColors.primary),
               const SizedBox(width: 10),
-              Text("Modules", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+              Text(loc.t('modulesTitle'), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
             ],
           ),
           content: SizedBox(
@@ -616,10 +617,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     title: Row(
                       children: [
                         Expanded(
-                          child: Text("Mesures SEHATI", style: GoogleFonts.dmSans(fontWeight: FontWeight.w700)),
+                          child: Text(loc.t('sehatiModuleTitle'), style: GoogleFonts.dmSans(fontWeight: FontWeight.w700)),
                         ),
                         Tooltip(
-                          message: "Détail",
+                          message: loc.t('sehatiModuleDetail'),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(999),
                             onTap: () {
@@ -631,12 +632,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     children: [
                                       const Icon(Icons.info_outline_rounded, color: AppColors.primary),
                                       const SizedBox(width: 10),
-                                      Text("Mesures SEHATI", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+                                      Text(loc.t('sehatiModuleTitle'), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
                                     ],
                                   ),
                                   content: Text(
-                                    "Ce module affiche dans la fiche patient les mesures synchronisées depuis les appareils SEHATI (tensiomètre + balance). "
-                                    "Activez-le uniquement si le médecin utilise ces appareils et souhaite voir ces données ici.",
+                                    loc.t('sehatiModuleDesc'),
                                     style: GoogleFonts.dmSans(color: AppColors.textSecond, height: 1.35),
                                   ),
                                   actions: [
@@ -654,7 +654,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ],
                     ),
                     subtitle: Text(
-                      "Afficher les mesures du tensiomètre et de la balance dans la fiche patient.",
+                      loc.t('sehatiModuleSwitchSub'),
                       style: GoogleFonts.dmSans(color: AppColors.textMuted, fontSize: 12),
                     ),
                     secondary: const Icon(Icons.health_and_safety_rounded, color: AppColors.primary),
@@ -665,7 +665,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    "Astuce: désactivez ce module si vous ne souhaitez utiliser qu'une seule application.",
+                    loc.t('modulesTip'),
                     style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textSecond),
                   ),
                 ),
@@ -714,58 +714,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       runSpacing: 18,
                       children: [
                         _buildMenuTile(
-                          title: "Modules",
-                          subtitle: "Activer/Désactiver des fonctionnalités",
+                          title: loc.t('modulesTitle'),
+                          subtitle: loc.t('modulesSub'),
                           icon: Icons.extension_rounded,
                           color: AppColors.primary,
                           onTap: _showModulesDialog,
                         ),
                         if (userRole == 'doctor')
                           _buildMenuTile(
-                            title: "Actes Médicaux",
-                            subtitle: "Gérer vos services et tarifs",
+                            title: loc.t('medicalActsTitle'),
+                            subtitle: loc.t('actManagementSub'),
                             icon: Icons.medical_services_rounded,
                             color: Colors.blue,
                             onTap: _showActsListDialog,
                           ),
                         if (userRole == 'doctor')
                           _buildMenuTile(
-                            title: "Infos Cabinet",
-                            subtitle: "Configuration ordonnance papier",
+                            title: loc.t('paperConfigTitle'),
+                            subtitle: loc.t('cabinetInfoSub'),
                             icon: Icons.business_rounded,
                             color: Colors.indigo,
                             onTap: _showCabinetInfoDialog,
                           ),
                         if (userRole == 'doctor')
                           _buildMenuTile(
-                            title: "Ordonnances",
-                            subtitle: "Générer une ordonnance",
+                            title: loc.t('prescription'),
+                            subtitle: loc.t('prescriptionSub'),
                             icon: Icons.receipt_long_rounded,
                             color: Colors.green,
                             onTap: _showPrescriptionDialog,
                           ),
                         if (userRole == 'doctor')
                           _buildMenuTile(
-                            title: "Certificats",
-                            subtitle: "Générer un document médical",
+                            title: loc.t('medicalCertificate'),
+                            subtitle: loc.t('certificateSub'),
                             icon: Icons.assignment_rounded,
                             color: Colors.orange,
                             onTap: _showCertificateDialog,
                           ),
                         _buildMenuTile(
-                          title: "Identification",
-                          subtitle: "Scanner ou chercher un patient",
+                          title: loc.t('identificationPatient'),
+                          subtitle: loc.t('idSub'),
                           icon: Icons.person_search_rounded,
                           color: Colors.teal,
                           onTap: _showScanDialog,
                         ),
                         _buildMenuTile(
-                          title: "Langue",
-                          subtitle: "Changer la langue de l'app",
+                          title: loc.t('language'),
+                          subtitle: loc.t('langSub'),
                           icon: Icons.language_rounded,
                           color: Colors.purple,
                           onTap: () {
-                            _snack("Fonctionnalité accessible via la sidebar");
+                            _snack(loc.t('langSidebarHint'));
                           },
                         ),
                       ],
