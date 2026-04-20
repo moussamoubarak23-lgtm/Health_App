@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -18,7 +17,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -40,6 +38,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   List availableActs = [];
   List selectedActs = [];
   bool loading = true;
+  bool sehatiMeasuresEnabled = false;
   late Map currentPatient;
 
   // Infos Cabinet pour Ordonnances/Certificats
@@ -66,6 +65,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     currentPatient = Map.from(widget.patient);
     _loadData();
     _loadCabinetSettings();
+    _loadModulesSettings();
   }
 
   String _s(dynamic val) => (val is String && val != "false") ? val : '';
@@ -112,6 +112,14 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
         experienceAr = prefs.getString('cabinet_experience_ar') ?? '';
       });
     }
+  }
+
+  Future<void> _loadModulesSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      sehatiMeasuresEnabled = prefs.getBool('module_sehati_measures_enabled') ?? false;
+    });
   }
 
   Future<void> _loadData() async {
@@ -178,6 +186,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
           TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
           ElevatedButton.icon(
             onPressed: () async {
+              final navigator = Navigator.of(context);
               await PdfService.generateAndPrintCertificate(
                 doctorName: doctorName,
                 patientName: patientNameCtrl.text,
@@ -191,7 +200,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                 specialtyFr: specialtyFr,
                 experienceFr: experienceFr,
               );
-              Navigator.pop(context);
+              if (!mounted) return;
+              if (navigator.canPop()) navigator.pop();
             },
             icon: const Icon(Icons.print),
             label: Text(loc.t('printPdf')),
@@ -246,6 +256,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
           TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
           ElevatedButton.icon(
             onPressed: () async {
+              final navigator = Navigator.of(context);
               await PdfService.generateAndPrintPrescription(
                 doctorName: doctorName,
                 patientName: patientNameCtrl.text,
@@ -261,7 +272,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                 experienceFr: experienceFr,
                 experienceAr: experienceAr,
               );
-              Navigator.pop(context);
+              if (!mounted) return;
+              if (navigator.canPop()) navigator.pop();
             },
             icon: const Icon(Icons.print),
             label: Text(loc.t('printPdf')),
@@ -318,6 +330,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                   const SizedBox(width: 12),
                   ElevatedButton(
                     onPressed: () async {
+                      final navigator = Navigator.of(context);
+                      final messenger = ScaffoldMessenger.of(context);
                       if (nameCtrl.text.isEmpty) return;
                       final res = await OdooApi.updatePatient(
                         patientId: currentPatient['id'],
@@ -341,8 +355,9 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                           currentPatient['medical_file_number'] = dossierCtrl.text.trim();
                           currentPatient['comment'] = currentPatient['comment'] is String ? currentPatient['comment'].toString().replaceAll(RegExp(r'Nationalité:.*'), 'Nationalité: $nationalite') : 'Nationalité: $nationalite';
                         });
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Modifications enregistrées")));
+                        if (!mounted) return;
+                        if (navigator.canPop()) navigator.pop();
+                        messenger.showSnackBar(const SnackBar(content: Text("Modifications enregistrées")));
                       }
                     },
                     style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
@@ -770,51 +785,6 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
 
   double _min(double a, double b) => a < b ? a : b;
 
-  void _sendViaWhatsApp(String text, {bool isPdf = false, bool isQr = false}) async {
-    String phone = _s(currentPatient['phone']).replaceAll(RegExp(r'[^0-9]'), '');
-    if (phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Le numéro de téléphone du patient est invalide ou absent.")));
-      return;
-    }
-
-    if (phone.startsWith('0')) {
-      phone = "212${phone.substring(1)}";
-    } else if (!phone.startsWith('212') && phone.length == 9) {
-      phone = "212$phone";
-    }
-
-    showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
-
-    try {
-      if (isPdf) {
-        final file = await PdfService.generatePatientReportFile(
-          patient: currentPatient,
-          records: records,
-          measurements: bpMeasurements,
-          bodyMeasurements: bodyMeasurements,
-        );
-        if (mounted) Navigator.pop(context);
-        await Share.shareXFiles([XFile(file.path)], text: "Rapport médical complet - ${_s(currentPatient['name'])}");
-      } else if (isQr) {
-        final file = await PdfService.generateQrPdfFile(
-          patientName: _s(currentPatient['name']),
-          qrData: text,
-        );
-        if (mounted) Navigator.pop(context);
-        await Share.shareXFiles([XFile(file.path)], text: "Carte Patient QR - ${_s(currentPatient['name'])}");
-      } else {
-        if (mounted) Navigator.pop(context);
-        final url = "https://wa.me/$phone?text=${Uri.encodeComponent(text)}";
-        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-      }
-    } catch (e) {
-      if (mounted) {
-        if (Navigator.canPop(context)) Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Action impossible. Veuillez utiliser le partage manuel.")));
-      }
-    }
-  }
-
   void _showScheduleAppointmentDialog(AppLocalizations loc) {
     DateTime selectedDate = intl.DateFormat('dd/MM/yyyy').parse(intl.DateFormat('dd/MM/yyyy').format(DateTime.now().add(const Duration(days: 1))));
     TimeOfDay selectedTime = const TimeOfDay(hour: 9, minute: 0);
@@ -852,11 +822,11 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
             TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
             ElevatedButton(
               onPressed: () async {
+                final navigator = Navigator.of(context);
                 final scheduledDateTime = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, selectedTime.hour, selectedTime.minute);
+                showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
                 final prefs = await SharedPreferences.getInstance();
                 final doctorId = prefs.getInt('uid') ?? 0;
-
-                showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
                 final res = await OdooApi.addMedicalRecord(
                   patientId: currentPatient['id'],
                   doctorId: doctorId,
@@ -869,8 +839,9 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                   medicalFileNumber: _s(currentPatient['medical_file_number']),
                 );
 
-                if (mounted) Navigator.pop(context); // Close loader
-                if (mounted) Navigator.pop(context); // Close dialog
+                if (!mounted) return;
+                if (navigator.canPop()) navigator.pop(); // Close loader
+                if (navigator.canPop()) navigator.pop(); // Close dialog
 
                 if (res['success']) {
                   _showQRCodeDialog();
@@ -900,6 +871,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
         title: Text(loc.t('confirmConsultation'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
         content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [TextField(controller: fileNumCtrl, decoration: InputDecoration(labelText: loc.t('consultRecordNumber'))), TextField(controller: diagCtrl, decoration: InputDecoration(labelText: loc.t('diagnosticLabel'))), TextField(controller: presCtrl, decoration: InputDecoration(labelText: loc.t('prescription')), maxLines: 2), TextField(controller: infoObsCtrl, decoration: InputDecoration(labelText: loc.t('observations')), maxLines: 2)])),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))), ElevatedButton(onPressed: () async {
+          final navigator = Navigator.of(context);
           final newDossier = fileNumCtrl.text.trim();
           final res = await OdooApi.updateMedicalRecord(recordId: record['id'], motif: _s(record['motif']), diagnostic: diagCtrl.text, prescription: presCtrl.text, observations: infoObsCtrl.text, state: 'confirmed', medicalFileNumber: newDossier);
 
@@ -920,7 +892,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
             });
           }
 
-          if (mounted) Navigator.pop(context);
+          if (!mounted) return;
+          if (navigator.canPop()) navigator.pop();
           if (res['success']) _loadData();
         }, style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white), child: Text(loc.t('validateAndConfirm')))],
       ),
@@ -1118,7 +1091,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         _patientInfoCard(p, loc, nationalite),
         const SizedBox(height: 16),
-        _sehatiMeasuresCard(loc),
+        if (sehatiMeasuresEnabled) _sehatiMeasuresCard(loc),
       ]),
     ),
   );

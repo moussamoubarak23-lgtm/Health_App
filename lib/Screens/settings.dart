@@ -26,6 +26,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool loadingActs = true;
   String userRole = 'doctor';
   String doctorName = '';
+  bool sehatiMeasuresEnabled = false;
   
   // Infos Cabinet
   String cabinetAddress = '';
@@ -49,6 +50,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       userRole = prefs.getString('user_role') ?? 'doctor';
       doctorName = prefs.getString('doctor_name') ?? 'Médecin';
+      sehatiMeasuresEnabled = prefs.getBool('module_sehati_measures_enabled') ?? false;
       cabinetAddress = prefs.getString('cabinet_address') ?? '';
       cabinetPhone = prefs.getString('cabinet_phone') ?? '';
       cabinetEmail = prefs.getString('cabinet_email') ?? '';
@@ -344,6 +346,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
           ElevatedButton.icon(
             onPressed: () async {
+              final navigator = Navigator.of(context);
               if (patientNameCtrl.text.isEmpty) {
                 _snack("Veuillez saisir le nom du patient", isError: true);
                 return;
@@ -361,7 +364,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 specialtyFr: specialtyFr,
                 experienceFr: experienceFr,
               );
-              Navigator.pop(context);
+              if (!mounted) return;
+              if (navigator.canPop()) navigator.pop();
             },
             icon: const Icon(Icons.print),
             label: Text(loc.t('printPdf')),
@@ -417,6 +421,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
           ElevatedButton.icon(
             onPressed: () async {
+              final navigator = Navigator.of(context);
               if (patientNameCtrl.text.isEmpty) {
                 _snack("Veuillez saisir le nom du patient", isError: true);
                 return;
@@ -436,7 +441,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 experienceFr: experienceFr,
                 experienceAr: experienceAr,
               );
-              Navigator.pop(context);
+              if (!mounted) return;
+              if (navigator.canPop()) navigator.pop();
             },
             icon: const Icon(Icons.print),
             label: Text(loc.t('printPdf')),
@@ -538,6 +544,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
             ElevatedButton(
               onPressed: () async {
+                final navigator = Navigator.of(context);
                 final prefs = await SharedPreferences.getInstance();
                 await prefs.setString('cabinet_address', addrCtrl.text.trim());
                 await prefs.setString('cabinet_phone', phoneCtrl.text.trim());
@@ -560,11 +567,113 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   experienceAr = expArCtrl.text.trim();
                   cabinetLogoPath = tempLogoPath;
                 });
-                Navigator.pop(context);
+                if (!mounted) return;
+                if (navigator.canPop()) navigator.pop();
                 _snack("Configuration enregistrée");
               },
               child: Text(loc.t('save')),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showModulesDialog() {
+    final loc = AppLocalizations.of(context);
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              const Icon(Icons.extension_rounded, color: AppColors.primary),
+              const SizedBox(width: 10),
+              Text("Modules", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: SizedBox(
+            width: 520,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: SwitchListTile.adaptive(
+                    value: sehatiMeasuresEnabled,
+                    onChanged: (v) async {
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setBool('module_sehati_measures_enabled', v);
+                      if (!mounted) return;
+                      setState(() => sehatiMeasuresEnabled = v);
+                      setDialogState(() {});
+                    },
+                    title: Row(
+                      children: [
+                        Expanded(
+                          child: Text("Mesures SEHATI", style: GoogleFonts.dmSans(fontWeight: FontWeight.w700)),
+                        ),
+                        Tooltip(
+                          message: "Détail",
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(999),
+                            onTap: () {
+                              showDialog(
+                                context: context,
+                                builder: (_) => AlertDialog(
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                                  title: Row(
+                                    children: [
+                                      const Icon(Icons.info_outline_rounded, color: AppColors.primary),
+                                      const SizedBox(width: 10),
+                                      Text("Mesures SEHATI", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
+                                  content: Text(
+                                    "Ce module affiche dans la fiche patient les mesures synchronisées depuis les appareils SEHATI (tensiomètre + balance). "
+                                    "Activez-le uniquement si le médecin utilise ces appareils et souhaite voir ces données ici.",
+                                    style: GoogleFonts.dmSans(color: AppColors.textSecond, height: 1.35),
+                                  ),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('close'))),
+                                  ],
+                                ),
+                              );
+                            },
+                            child: const Padding(
+                              padding: EdgeInsets.all(6),
+                              child: Icon(Icons.help_outline_rounded, size: 18, color: AppColors.textMuted),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    subtitle: Text(
+                      "Afficher les mesures du tensiomètre et de la balance dans la fiche patient.",
+                      style: GoogleFonts.dmSans(color: AppColors.textMuted, fontSize: 12),
+                    ),
+                    secondary: const Icon(Icons.health_and_safety_rounded, color: AppColors.primary),
+                    activeColor: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    "Astuce: désactivez ce module si vous ne souhaitez utiliser qu'une seule application.",
+                    style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textSecond),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('close'))),
           ],
         ),
       ),
@@ -604,6 +713,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       spacing: 18,
                       runSpacing: 18,
                       children: [
+                        _buildMenuTile(
+                          title: "Modules",
+                          subtitle: "Activer/Désactiver des fonctionnalités",
+                          icon: Icons.extension_rounded,
+                          color: AppColors.primary,
+                          onTap: _showModulesDialog,
+                        ),
                         if (userRole == 'doctor')
                           _buildMenuTile(
                             title: "Actes Médicaux",

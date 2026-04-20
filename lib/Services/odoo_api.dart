@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:medical_app/utils/duplicate_guard.dart';
 
 class OdooApi {
-  static String _odooUrl = 'http://192.168.11.111:8069';
+  static String _odooUrl = 'http://192.168.1.139:8069';
   static String _proxyUrl = 'http://localhost:8000';
   static String get baseUrl => kIsWeb ? _proxyUrl : _odooUrl;
 
@@ -22,7 +22,7 @@ class OdooApi {
   // ─── INITIALISATION ─────────────────────────────────────────────────────────
   static Future<void> initConfig() async {
     final prefs = await SharedPreferences.getInstance();
-    _odooUrl = prefs.getString('odoo_server_url') ?? 'http://192.168.11.111:8069';
+    _odooUrl = prefs.getString('odoo_server_url') ?? 'http://192.168.1.139:8069';
     _proxyUrl = prefs.getString('proxy_url') ?? 'http://localhost:8000';
   }
 
