@@ -34,7 +34,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
   @override
@@ -58,8 +58,9 @@ class _PatientsScreenState extends State<PatientsScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         setState(() => loading = false);
-        _snack("Erreur lors du chargement des patients", isError: true);
+        _snack(l10n.t('error'), isError: true);
       }
     }
   }
@@ -106,7 +107,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
               setState(() => loading = true);
               final res = await OdooApi.deletePatient(p['id']);
               if (res['success']) {
-                _snack(l10n.t('patientUpdated')); // Reuse or add patientDeleted
+                _snack(l10n.t('patientUpdated'));
                 _load();
               } else {
                 setState(() => loading = false);
@@ -155,7 +156,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
                   Row(children: [
                     Expanded(child: _field(l10n.t('medicalFileNumber'), dossierCtrl, Icons.folder_shared_rounded, hintText: l10n.t('fileNumHint'))),
                     const SizedBox(width: 16),
-                    Expanded(child: _field("CIN", cinCtrl, Icons.badge_rounded)),
+                    Expanded(child: _field(l10n.t('nationalId'), cinCtrl, Icons.badge_rounded)),
                   ]),
                   const SizedBox(height: 16),
                   Row(children: [
@@ -390,7 +391,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
                   Row(children: [
                     Expanded(child: _field(l10n.t('medicalFileNumber'), dossierCtrl, Icons.folder_shared_rounded)),
                     const SizedBox(width: 12),
-                    Expanded(child: _field("CIN", cinCtrl, Icons.badge_rounded)),
+                    Expanded(child: _field(l10n.t('nationalId'), cinCtrl, Icons.badge_rounded)),
                   ]),
                   const SizedBox(height: 12),
                   _field(l10n.t('fullName'), nameCtrl, Icons.person_rounded),
@@ -592,7 +593,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
   Widget _buildPatientTable(List paginated, bool isRtl, AppLocalizations l10n) => Container(
     decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
     child: Column(children: [
-      Container(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13), decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.primary, width: 2))), child: Row(children: [Expanded(flex: 3, child: _thLabel(l10n.t('fullName').toUpperCase(), isRtl)), Expanded(flex: 2, child: _thLabel("CIN", isRtl)), Expanded(flex: 2, child: _thLabel(l10n.t('medicalFileNumber').toUpperCase(), isRtl)), Expanded(flex: 1, child: _thLabel(l10n.t('age').toUpperCase(), isRtl)), Expanded(flex: 2, child: _thLabel(l10n.t('phone').toUpperCase(), isRtl)), Expanded(flex: 2, child: _thLabel(l10n.t('colStatus').toUpperCase(), isRtl))])),
+      Container(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13), decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.primary, width: 2))), child: Row(children: [Expanded(flex: 3, child: _thLabel(l10n.t('fullName').toUpperCase(), isRtl)), Expanded(flex: 2, child: _thLabel(l10n.t('nationalId'), isRtl)), Expanded(flex: 2, child: _thLabel(l10n.t('medicalFileNumber').toUpperCase(), isRtl)), Expanded(flex: 1, child: _thLabel(l10n.t('age').toUpperCase(), isRtl)), Expanded(flex: 2, child: _thLabel(l10n.t('phone').toUpperCase(), isRtl)), Expanded(flex: 2, child: _thLabel(l10n.t('colActions'), isRtl))])),
       Expanded(child: paginated.isEmpty ? Center(child: Padding(padding: const EdgeInsets.all(20), child: Text(l10n.t('noPatientFound'), style: GoogleFonts.dmSans(color: AppColors.textMuted)))) : ListView.builder(itemCount: paginated.length, itemBuilder: (_, i) => _patientRow(paginated[i], i, l10n, isRtl))),
       _buildPaginationControls(l10n),
     ]),

@@ -25,7 +25,8 @@ class _NursesScreenState extends State<NursesScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    // On utilise addPostFrameCallback pour s'assurer que le contexte est prêt
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
   @override
@@ -37,6 +38,7 @@ class _NursesScreenState extends State<NursesScreen> {
   Future<void> _load() async {
     if (!mounted) return;
     setState(() => loading = true);
+    
     try {
       final data = await OdooApi.getNurses();
       if (mounted) {
@@ -48,8 +50,9 @@ class _NursesScreenState extends State<NursesScreen> {
       }
     } catch (_) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         setState(() => loading = false);
-        _snack("Erreur lors du chargement des infirmiers", isError: true);
+        _snack(l10n.t('nurseLoadError'), isError: true);
       }
     }
   }
@@ -71,28 +74,29 @@ class _NursesScreenState extends State<NursesScreen> {
   }
 
   void _confirmDelete(Map nurse) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("Supprimer l'infirmier", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, color: AppColors.red)),
-        content: Text("Confirmer la suppression de ${_s(nurse['name'])} ?"),
+        title: Text(l10n.t('nurseDeleteTitle'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, color: AppColors.red)),
+        content: Text("${l10n.t('nurseDeleteConfirm')} ${_s(nurse['name'])} ?"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.t('cancel'))),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
               setState(() => loading = true);
               final res = await OdooApi.deleteNurse(nurse['id']);
               if (res['success'] == true) {
-                _snack("Infirmier supprimé");
+                _snack(l10n.t('nurseDeleted'));
                 _load();
               } else {
                 setState(() => loading = false);
-                _snack("Erreur lors de la suppression", isError: true);
+                _snack(l10n.t('nurseDeleteError'), isError: true);
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.red, foregroundColor: Colors.white),
-            child: const Text("Supprimer"),
+            child: Text(l10n.t('delete')),
           ),
         ],
       ),
@@ -100,6 +104,7 @@ class _NursesScreenState extends State<NursesScreen> {
   }
 
   void _showAddEditDialog({Map? nurse}) {
+    final l10n = AppLocalizations.of(context);
     final nameCtrl = TextEditingController(text: _s(nurse?['name']));
     final ageCtrl = TextEditingController(text: _s(nurse?['age']));
     final phoneCtrl = TextEditingController(text: _s(nurse?['phone']));
@@ -126,37 +131,37 @@ class _NursesScreenState extends State<NursesScreen> {
               padding: const EdgeInsets.all(28),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Text(nurse == null ? "Nouvel infirmier" : "Modifier infirmier",
+                  Text(nurse == null ? l10n.t('newNurse') : l10n.t('editNurse'),
                       style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.primary)),
                   IconButton(onPressed: () => Navigator.pop(dialogCtx), icon: const Icon(Icons.close_rounded)),
                 ]),
                 const SizedBox(height: 18),
                 Row(children: [
-                  Expanded(child: _field("Nom complet (*)", nameCtrl, Icons.person_rounded)),
+                  Expanded(child: _field("${l10n.t('fullName')} (*)", nameCtrl, Icons.person_rounded)),
                   const SizedBox(width: 12),
-                  Expanded(child: _field("Age", ageCtrl, Icons.cake_rounded)),
+                  Expanded(child: _field(l10n.t('age'), ageCtrl, Icons.cake_rounded)),
                 ]),
                 const SizedBox(height: 14),
                 Row(children: [
-                  Expanded(child: _field("Téléphone", phoneCtrl, Icons.phone_rounded)),
+                  Expanded(child: _field(l10n.t('phone'), phoneCtrl, Icons.phone_rounded)),
                   const SizedBox(width: 12),
-                  Expanded(child: _field("Email", emailCtrl, Icons.email_rounded)),
+                  Expanded(child: _field(l10n.t('email'), emailCtrl, Icons.email_rounded)),
                 ]),
                 const SizedBox(height: 14),
                 Row(children: [
-                  Expanded(child: _field("Numéro de licence (*)", licenseCtrl, Icons.badge_rounded)),
+                  Expanded(child: _field("${l10n.t('licenseNumber')} (*)", licenseCtrl, Icons.badge_rounded)),
                   const SizedBox(width: 12),
-                  Expanded(child: _field("Département", departmentCtrl, Icons.local_hospital_rounded)),
+                  Expanded(child: _field(l10n.t('department'), departmentCtrl, Icons.local_hospital_rounded)),
                 ]),
                 const SizedBox(height: 14),
                 Row(children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       initialValue: gender,
-                      decoration: _ddDeco("Genre"),
-                      items: const [
-                        DropdownMenuItem(value: 'male', child: Text("Homme")),
-                        DropdownMenuItem(value: 'female', child: Text("Femme")),
+                      decoration: _ddDeco(l10n.t('gender')),
+                      items: [
+                        DropdownMenuItem(value: 'male', child: Text(l10n.t('maleLabel'))),
+                        DropdownMenuItem(value: 'female', child: Text(l10n.t('femaleLabel'))),
                       ],
                       onChanged: (v) => setDialogState(() => gender = v ?? 'male'),
                     ),
@@ -165,12 +170,12 @@ class _NursesScreenState extends State<NursesScreen> {
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       initialValue: specialization,
-                      decoration: _ddDeco("Spécialisation"),
-                      items: const [
-                        DropdownMenuItem(value: 'generaliste', child: Text("Généraliste")),
-                        DropdownMenuItem(value: 'urgences', child: Text("Urgences")),
-                        DropdownMenuItem(value: 'pediatrie', child: Text("Pédiatrie")),
-                        DropdownMenuItem(value: 'bloc', child: Text("Bloc")),
+                      decoration: _ddDeco(l10n.t('specialization')),
+                      items: [
+                        DropdownMenuItem(value: 'generaliste', child: Text(l10n.t('generalist'))),
+                        DropdownMenuItem(value: 'urgences', child: Text(l10n.t('emergencies'))),
+                        DropdownMenuItem(value: 'pediatrie', child: Text(l10n.t('pediatrics'))),
+                        DropdownMenuItem(value: 'bloc', child: Text(l10n.t('bloc'))),
                       ],
                       onChanged: (v) => setDialogState(() => specialization = v ?? 'generaliste'),
                     ),
@@ -181,32 +186,32 @@ class _NursesScreenState extends State<NursesScreen> {
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       initialValue: state,
-                      decoration: _ddDeco("Statut"),
-                      items: const [
-                        DropdownMenuItem(value: 'active', child: Text("Actif")),
-                        DropdownMenuItem(value: 'leave', child: Text("En congé")),
-                        DropdownMenuItem(value: 'inactive', child: Text("Inactif")),
+                      decoration: _ddDeco(l10n.t('status')),
+                      items: [
+                        DropdownMenuItem(value: 'active', child: Text(l10n.t('active'))),
+                        DropdownMenuItem(value: 'leave', child: Text(l10n.t('onLeave'))),
+                        DropdownMenuItem(value: 'inactive', child: Text(l10n.t('inactive'))),
                       ],
                       onChanged: (v) => setDialogState(() => state = v ?? 'active'),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Expanded(child: _datePickerField("Expiration licence", expiryDate, (d) => setDialogState(() => expiryDate = d))),
+                  Expanded(child: _datePickerField(l10n.t('licenseExpiry'), expiryDate, (d) => setDialogState(() => expiryDate = d))),
                 ]),
                 const SizedBox(height: 12),
                 Row(children: [
-                  Checkbox(value: active, onChanged: (v) => setDialogState(() => active = v ?? true)),
-                  const Text("Actif"),
+                  Checkbox(value: active, onChanged: (v) => setDialogState(() => active = v ?? true), activeColor: AppColors.primary),
+                  Text(l10n.t('active')),
                 ]),
-                _field("Notes", notesCtrl, Icons.note_rounded, maxLines: 2),
+                _field(l10n.t('notes'), notesCtrl, Icons.note_rounded, maxLines: 2),
                 const SizedBox(height: 24),
                 Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                  OutlinedButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text("Annuler")),
+                  OutlinedButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l10n.t('cancel'))),
                   const SizedBox(width: 12),
                   ElevatedButton(
                     onPressed: () async {
                       if (nameCtrl.text.trim().isEmpty || licenseCtrl.text.trim().isEmpty) {
-                        _snack("Nom et numéro de licence obligatoires", isError: true);
+                        _snack(l10n.t('nameLicenseRequired'), isError: true);
                         return;
                       }
                       final vals = {
@@ -236,9 +241,9 @@ class _NursesScreenState extends State<NursesScreen> {
                       if (warnings.isNotEmpty) {
                         final proceed = await showDuplicateProceedDialog(
                           dialogCtx,
-                          title: nurse == null ? 'Infirmier — doublon possible' : 'Infirmier — conflit avec une autre fiche',
+                          title: nurse == null ? l10n.t('duplicateWarn') : l10n.t('duplicateConflict'),
                           warnings: warnings,
-                          confirmLabel: nurse == null ? 'Créer quand même' : 'Enregistrer quand même',
+                          confirmLabel: l10n.t('saveAnyway'),
                         );
                         if (!proceed) return;
                       }
@@ -247,14 +252,14 @@ class _NursesScreenState extends State<NursesScreen> {
                       if (!dialogCtx.mounted) return;
                       Navigator.pop(dialogCtx);
                       if (result['success'] == true) {
-                        _snack(nurse == null ? "Infirmier créé" : "Infirmier mis à jour");
+                        _snack(nurse == null ? l10n.t('nurseCreated') : l10n.t('nurseUpdated'));
                         _load();
                       } else {
-                        _snack("Erreur lors de l'enregistrement", isError: true);
+                        _snack(l10n.t('nurseSaveError'), isError: true);
                       }
                     },
                     style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
-                    child: const Text("Enregistrer"),
+                    child: Text(l10n.t('save')),
                   ),
                 ]),
               ]),
@@ -291,7 +296,9 @@ class _NursesScreenState extends State<NursesScreen> {
         ),
       ]);
 
-  Widget _datePickerField(String label, String? value, Function(String) onSelected) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  Widget _datePickerField(String label, String? value, Function(String) onSelected) {
+    final l10n = AppLocalizations.of(context);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecond)),
         const SizedBox(height: 8),
         InkWell(
@@ -310,11 +317,12 @@ class _NursesScreenState extends State<NursesScreen> {
             child: Row(children: [
               const Icon(Icons.calendar_today_rounded, size: 18, color: AppColors.primary),
               const SizedBox(width: 12),
-              Text((value == null || value.isEmpty) ? "Sélectionner une date" : value, style: GoogleFonts.dmSans(color: (value == null || value.isEmpty) ? AppColors.textHint : AppColors.textPrimary)),
+              Text((value == null || value.isEmpty) ? l10n.t('selectDate') : value, style: GoogleFonts.dmSans(color: (value == null || value.isEmpty) ? AppColors.textHint : AppColors.textPrimary)),
             ]),
           ),
         ),
       ]);
+  }
 
   void _snack(String msg, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: isError ? AppColors.red : AppColors.green, behavior: SnackBarBehavior.floating));
@@ -335,11 +343,11 @@ class _NursesScreenState extends State<NursesScreen> {
               padding: const EdgeInsets.all(28),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Text("Infirmiers", style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                  Text(l10n.t('nursesTitle'), style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
                   ElevatedButton.icon(
                     onPressed: () => _showAddEditDialog(),
                     icon: const Icon(Icons.add_rounded),
-                    label: const Text("Nouvel infirmier"),
+                    label: Text(l10n.t('newNurse')),
                     style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
                   ),
                 ]),
@@ -347,17 +355,17 @@ class _NursesScreenState extends State<NursesScreen> {
                 AppBreadcrumb(
                   items: [
                     BreadcrumbItem(label: l10n.t('home'), route: '/dashboard'),
-                    const BreadcrumbItem(label: 'Infirmiers'),
+                    BreadcrumbItem(label: l10n.t('nursesTitle')),
                   ],
                 ),
                 const SizedBox(height: 20),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                   decoration: BoxDecoration(color: AppColors.surface, border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(10)),
-                  child: TextField(controller: _search, onChanged: _filter, decoration: const InputDecoration(hintText: "Rechercher par nom, tél, licence...", border: InputBorder.none, icon: Icon(Icons.search))),
+                  child: TextField(controller: _search, onChanged: _filter, decoration: InputDecoration(hintText: l10n.t('nurseSearchHint'), border: InputBorder.none, icon: const Icon(Icons.search))),
                 ),
                 const SizedBox(height: 16),
-                Expanded(child: loading ? const Center(child: CircularProgressIndicator()) : _buildTable()),
+                Expanded(child: loading ? const Center(child: CircularProgressIndicator()) : _buildTable(l10n)),
               ]),
             ),
           ),
@@ -366,30 +374,30 @@ class _NursesScreenState extends State<NursesScreen> {
     );
   }
 
-  Widget _buildTable() => Container(
+  Widget _buildTable(AppLocalizations l10n) => Container(
         decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
         child: Column(children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
             decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.primary, width: 2))),
             child: Row(children: [
-              Expanded(flex: 3, child: _th("NOM")),
-              Expanded(flex: 2, child: _th("LICENCE")),
-              Expanded(flex: 2, child: _th("SPÉCIALISATION")),
-              Expanded(flex: 2, child: _th("DÉPARTEMENT")),
-              Expanded(flex: 1, child: _th("STATUT")),
-              Expanded(flex: 2, child: _th("ACTIONS")),
+              Expanded(flex: 3, child: _th(l10n.t('colName'))),
+              Expanded(flex: 2, child: _th(l10n.t('colLicense'))),
+              Expanded(flex: 2, child: _th(l10n.t('colSpecialization'))),
+              Expanded(flex: 2, child: _th(l10n.t('colDepartment'))),
+              Expanded(flex: 1, child: _th(l10n.t('colStatus'))),
+              Expanded(flex: 2, child: _th(l10n.t('colActions'))),
             ]),
           ),
           Expanded(
             child: filtered.isEmpty
-                ? const Center(child: Text("Aucun infirmier trouvé"))
-                : ListView.builder(itemCount: filtered.length, itemBuilder: (_, i) => _row(filtered[i], i)),
+                ? Center(child: Text(l10n.t('noNurseFound')))
+                : ListView.builder(itemCount: filtered.length, itemBuilder: (_, i) => _row(filtered[i], i, l10n)),
           ),
         ]),
       );
 
-  Widget _row(Map n, int index) => Container(
+  Widget _row(Map n, int index, AppLocalizations l10n) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         color: index % 2 == 0 ? AppColors.surface : AppColors.surfaceAlt,
         child: Row(children: [
@@ -401,9 +409,9 @@ class _NursesScreenState extends State<NursesScreen> {
             ),
           ),
           Expanded(flex: 2, child: Text(_s(n['license_number']).isEmpty ? '—' : _s(n['license_number']))),
-          Expanded(flex: 2, child: Text(_s(n['specialization']).isEmpty ? '—' : _s(n['specialization']))),
+          Expanded(flex: 2, child: Text(_getSpecializationLabel(n['specialization'], l10n))),
           Expanded(flex: 2, child: Text(_s(n['department_id']).isEmpty ? '—' : _s(n['department_id']))),
-          Expanded(flex: 1, child: Text(_s(n['state']).isEmpty ? '—' : _s(n['state']))),
+          Expanded(flex: 1, child: Text(_getStateLabel(n['state'], l10n))),
           Expanded(
             flex: 2,
             child: Row(children: [
@@ -413,6 +421,27 @@ class _NursesScreenState extends State<NursesScreen> {
           ),
         ]),
       );
+
+  String _getSpecializationLabel(dynamic spec, AppLocalizations l10n) {
+    final s = _s(spec);
+    switch(s) {
+      case 'generaliste': return l10n.t('generalist');
+      case 'urgences': return l10n.t('emergencies');
+      case 'pediatrie': return l10n.t('pediatrics');
+      case 'bloc': return l10n.t('bloc');
+      default: return s.isEmpty ? '—' : s;
+    }
+  }
+
+  String _getStateLabel(dynamic state, AppLocalizations l10n) {
+    final s = _s(state);
+    switch(s) {
+      case 'active': return l10n.t('active');
+      case 'leave': return l10n.t('onLeave');
+      case 'inactive': return l10n.t('inactive');
+      default: return s.isEmpty ? '—' : s;
+    }
+  }
 
   Widget _th(String text) => Text(text, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSecond));
 }

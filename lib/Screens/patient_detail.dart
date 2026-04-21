@@ -326,7 +326,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                 _editDropdown("Couverture sociale", couverture, ["Sans", "AMO", "RAMED", "CNOPS", "Privé"], (v) => setDialogState(() => couverture = v!)),
                 const SizedBox(height: 32),
                 Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                  OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+                  OutlinedButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
                   const SizedBox(width: 12),
                   ElevatedButton(
                     onPressed: () async {
@@ -357,11 +357,11 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                         });
                         if (!mounted) return;
                         if (navigator.canPop()) navigator.pop();
-                        messenger.showSnackBar(const SnackBar(content: Text("Modifications enregistrées")));
+                        messenger.showSnackBar(SnackBar(content: Text(loc.t('profileUpdatedSuccess'))));
                       }
                     },
                     style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
-                    child: const Text("Enregistrer"),
+                    child: Text(loc.t('save')),
                   ),
                 ]),
               ]),
@@ -410,19 +410,20 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
 
   void _showNationalityPicker(Function(String) onSelected) {
     String query = "";
+    final loc = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           final list = query.isEmpty ? nationalities : nationalities.where((n) => n.toLowerCase().contains(query.toLowerCase())).toList();
           return AlertDialog(
-            title: const Text("Choisir une Nationalité"),
+            title: Text(loc.t('selectNationality')),
             content: SizedBox(
               width: 400,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextField(decoration: const InputDecoration(hintText: "Rechercher...", prefixIcon: Icon(Icons.search)), onChanged: (v) => setDialogState(() => query = v)),
+                  TextField(decoration: InputDecoration(hintText: loc.t('searchHint'), prefixIcon: const Icon(Icons.search)), onChanged: (v) => setDialogState(() => query = v)),
                   const SizedBox(height: 10),
                   SizedBox(
                     height: 300,
@@ -450,9 +451,9 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Row(children: [const Icon(Icons.description_outlined, color: AppColors.primary), const SizedBox(width: 10), Text("Détails Consultation", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold))]),
-        content: SizedBox(width: 500, child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_detailItem("N° Dossier", dossier), _detailItem("Date", _s(record['date_consultation'])), _detailItem("Motif", _s(record['motif'])), const Divider(), _detailItem("Diagnostic", _s(record['diagnostic'])), _detailItem("Prescription", _s(record['prescription'])), _detailItem("Observations", _s(record['observations']))]))),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("Fermer"))],
+        title: Row(children: [const Icon(Icons.description_outlined, color: AppColors.primary), const SizedBox(width: 10), Text(loc.t('consultDetails'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold))]),
+        content: SizedBox(width: 500, child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_detailItem(loc.t('medicalFileNumber'), dossier), _detailItem(loc.t('colDate'), _s(record['date_consultation'])), _detailItem(loc.t('reason'), _s(record['motif'])), const Divider(), _detailItem(loc.t('diagnostic'), _s(record['diagnostic'])), _detailItem(loc.t('prescription'), _s(record['prescription'])), _detailItem(loc.t('observations'), _s(record['observations']))]))),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('close')))],
       ),
     );
   }
@@ -489,13 +490,13 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text("Facturer la consultation", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
+          title: Text(loc.t('invoiceConsultation'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
           content: SizedBox(
             width: 450,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text("Sélectionnez les actes effectués :", style: GoogleFonts.dmSans(fontSize: 14)),
+                Text(loc.t('selectPerformedActs'), style: GoogleFonts.dmSans(fontSize: 14)),
                 const SizedBox(height: 12),
                 ConstrainedBox(
                   constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.4),
@@ -552,19 +553,20 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   }
 
   void _showQRCodeDialog() {
+    final loc = AppLocalizations.of(context);
     final qrData = _generateFullQrData();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("Options du Dossier", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
-        content: const Text("Que souhaitez-vous faire pour ce patient ?"),
+        title: Text(loc.t('recordOptions'), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+        content: Text(loc.t('recordOptionsQuestion')),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               _displayQrCodeOnly(qrData);
             },
-            child: const Text("Afficher QR"),
+            child: Text(loc.t('showQr')),
           ),
           ElevatedButton.icon(
             onPressed: () async {
@@ -577,7 +579,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
               );
             },
             icon: const Icon(Icons.picture_as_pdf_rounded),
-            label: const Text("Rapport PDF"),
+            label: Text(loc.t('pdfReport')),
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
           ),
         ],
@@ -714,13 +716,14 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   }
 
   void _displayQrCodeOnly(String qrData) {
+    final loc = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Column(
           children: [
-            Text("Dossier QR", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 18)),
+            Text(loc.t('qrRecord'), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 18)),
             Text(_s(currentPatient['name']), style: GoogleFonts.dmSans(fontSize: 14, color: AppColors.textMuted)),
           ],
         ),
@@ -765,7 +768,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                   ElevatedButton.icon(
                     onPressed: _saveQrAsPdf,
                     icon: const Icon(Icons.picture_as_pdf, size: 18),
-                    label: const Text("Enregistrer PDF"),
+                    label: Text(loc.t('savePdf')),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
@@ -777,7 +780,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Fermer")),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('close'))),
         ],
       ),
     );
@@ -788,7 +791,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   void _showScheduleAppointmentDialog(AppLocalizations loc) {
     DateTime selectedDate = intl.DateFormat('dd/MM/yyyy').parse(intl.DateFormat('dd/MM/yyyy').format(DateTime.now().add(const Duration(days: 1))));
     TimeOfDay selectedTime = const TimeOfDay(hour: 9, minute: 0);
-    final motifCtrl = TextEditingController(text: "Consultation");
+    final motifCtrl = TextEditingController(text: loc.t('exampleConsultation').replaceAll("ex: ", ""));
 
     showDialog(
       context: context,
@@ -910,9 +913,9 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
         children: [
           Padding(padding: const EdgeInsets.all(16.0), child: Text(loc.t('quickActions'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 18))),
           ListTile(leading: const Icon(Icons.receipt_long, color: AppColors.primary), title: Text(loc.t('newInvoice')), onTap: () { Navigator.pop(context); setState(() => _activeTab = PatientTab.actes); }),
-          ListTile(leading: const Icon(Icons.calendar_today, color: AppColors.green), title: const Text('Planifier un rendez-vous'), onTap: () { Navigator.pop(context); _showScheduleAppointmentDialog(loc); }),
-          ListTile(leading: const Icon(Icons.receipt_long_rounded, color: Colors.green), title: const Text('Générer une Ordonnance'), onTap: () { Navigator.pop(context); _showPrescriptionDialog(); }),
-          ListTile(leading: const Icon(Icons.assignment_rounded, color: AppColors.yellow), title: const Text('Générer un Certificat'), onTap: () { Navigator.pop(context); _showCertificateDialog(); }),
+          ListTile(leading: const Icon(Icons.calendar_today, color: AppColors.green), title: Text(loc.t('scheduleAppointment')), onTap: () { Navigator.pop(context); _showScheduleAppointmentDialog(loc); }),
+          ListTile(leading: const Icon(Icons.receipt_long_rounded, color: Colors.green), title: Text(loc.t('newPrescription')), onTap: () { Navigator.pop(context); _showPrescriptionDialog(); }),
+          ListTile(leading: const Icon(Icons.assignment_rounded, color: AppColors.yellow), title: Text(loc.t('medicalCertificate')), onTap: () { Navigator.pop(context); _showCertificateDialog(); }),
           const SizedBox(height: 20),
         ],
       ),
@@ -971,7 +974,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     Row(children: [
       _actionBtn("+ ${loc.t('newConsultation')}", AppColors.primary, () => Navigator.pushNamed(context, '/add_record', arguments: currentPatient)),
       const SizedBox(width: 10),
-      _actionBtn('📅 Planifier RDV', AppColors.green, () => _showScheduleAppointmentDialog(loc)),
+      _actionBtn('📅 ${loc.t("scheduleRdv")}', AppColors.green, () => _showScheduleAppointmentDialog(loc)),
       const SizedBox(width: 10),
       _actionBtn("⚡ ${loc.t('quickActions')}", AppColors.primaryLight, () => _showQuickActions(loc), isSecondary: true)
     ]),
@@ -1010,9 +1013,9 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
         children: [
           const Icon(Icons.receipt_long_rounded, size: 64, color: AppColors.textMuted),
           const SizedBox(height: 16),
-          Text("Générer une nouvelle ordonnance pour ce patient", style: GoogleFonts.dmSans(color: AppColors.textSecond)),
+          Text(loc.t('prescriptionSub'), style: GoogleFonts.dmSans(color: AppColors.textSecond)),
           const SizedBox(height: 24),
-          _actionBtn("Créer l'ordonnance", AppColors.green, _showPrescriptionDialog),
+          _actionBtn(loc.t('newPrescription'), AppColors.green, _showPrescriptionDialog),
         ],
       ),
     );
@@ -1025,23 +1028,23 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
         children: [
           const Icon(Icons.assignment_rounded, size: 64, color: AppColors.textMuted),
           const SizedBox(height: 16),
-          Text("Générer un certificat médical pour ce patient", style: GoogleFonts.dmSans(color: AppColors.textSecond)),
+          Text(loc.t('certificateSub'), style: GoogleFonts.dmSans(color: AppColors.textSecond)),
           const SizedBox(height: 24),
-          _actionBtn("Créer le certificat", AppColors.yellow, _showCertificateDialog),
+          _actionBtn(loc.t('medicalCertificate'), AppColors.yellow, _showCertificateDialog),
         ],
       ),
     );
   }
 
   Widget _actesTabView(AppLocalizations loc) {
-    return Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text("Sélection des actes médicaux", style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 16)), if (selectedActs.isNotEmpty) _actionBtn(loc.t('createInvoice'), AppColors.primary, () => _createInvoiceFromActs({}))]), const Divider(), Expanded(child: ListView.builder(itemCount: availableActs.length, itemBuilder: (context, index) { final act = availableActs[index]; final isSelected = selectedActs.contains(act); return CheckboxListTile(title: Text(act['name']), subtitle: Text("${act['list_price']} DH"), value: isSelected, onChanged: (val) { setState(() { if (val == true) {
+    return Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(loc.t('medicalActsTitle'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 16)), if (selectedActs.isNotEmpty) _actionBtn(loc.t('createInvoice'), AppColors.primary, () => _createInvoiceFromActs({}))]), const Divider(), Expanded(child: ListView.builder(itemCount: availableActs.length, itemBuilder: (context, index) { final act = availableActs[index]; final isSelected = selectedActs.contains(act); return CheckboxListTile(title: Text(act['name']), subtitle: Text("${act['list_price']} DH"), value: isSelected, onChanged: (val) { setState(() { if (val == true) {
       selectedActs.add(act);
     } else {
       selectedActs.remove(act);
     } }); }, activeColor: AppColors.primary); }))]));
   }
 
-  Widget _tableHeader(AppLocalizations loc) => Container(padding: const EdgeInsets.all(12), decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.textPrimary, width: 2))), child: Row(children: [Expanded(flex: 2, child: _th("N° DOSSIER CONS.")), Expanded(flex: 2, child: _th(loc.t('colDate').toUpperCase())), Expanded(flex: 4, child: _th(loc.t('reason').toUpperCase())), Expanded(flex: 3, child: _th(loc.t('colStatus').toUpperCase()))]));
+  Widget _tableHeader(AppLocalizations loc) => Container(padding: const EdgeInsets.all(12), decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.textPrimary, width: 2))), child: Row(children: [Expanded(flex: 2, child: _th(loc.t('medicalFileNumber').toUpperCase())), Expanded(flex: 2, child: _th(loc.t('colDate').toUpperCase())), Expanded(flex: 4, child: _th(loc.t('reason').toUpperCase())), Expanded(flex: 3, child: _th(loc.t('colStatus').toUpperCase()))]));
 
   Widget _consultationList(AppLocalizations loc) => ListView.builder(
     itemCount: records.length,
@@ -1060,14 +1063,14 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
           Expanded(flex: 3, child: Row(children: [
             _statusBadge(r['state'], loc),
             const SizedBox(width: 8),
-            Tooltip(message: "Détails", child: InkWell(onTap: () => _viewRecordDetails(r, loc), child: const Icon(Icons.visibility_outlined, color: AppColors.primary, size: 22))),
+            Tooltip(message: loc.t('seeAll'), child: InkWell(onTap: () => _viewRecordDetails(r, loc), child: const Icon(Icons.visibility_outlined, color: AppColors.primary, size: 22))),
             if (r['state'] == 'confirmed') ...[
               const SizedBox(width: 8),
-              Tooltip(message: "Facturer", child: InkWell(onTap: () => _showActSelectionDialog(r, loc), child: const Icon(Icons.receipt_long_outlined, color: AppColors.primary, size: 22))),
+              Tooltip(message: loc.t('invoiceConsultation'), child: InkWell(onTap: () => _showActSelectionDialog(r, loc), child: const Icon(Icons.receipt_long_outlined, color: AppColors.primary, size: 22))),
             ],
             if (r['state'] == 'waiting') ...[
               const SizedBox(width: 8),
-              Tooltip(message: "Valider", child: InkWell(onTap: () => _showQuickEditRecord(r, loc), child: const Icon(Icons.edit_note_rounded, color: AppColors.primary, size: 24))),
+              Tooltip(message: loc.t('confirm'), child: InkWell(onTap: () => _showQuickEditRecord(r, loc), child: const Icon(Icons.edit_note_rounded, color: AppColors.primary, size: 24))),
             ]
           ])),
         ]),
@@ -1102,22 +1105,31 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Expanded(child: Text(_s(p['name']), style: GoogleFonts.plusJakartaSans(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 16))), const Icon(Icons.edit_note_rounded, color: AppColors.primary, size: 18)]),
       const SizedBox(height: 12),
-      _infoChip(Icons.folder_shared_rounded, "Dossier: ${_s(p['medical_file_number'])}"),
+      _infoChip(Icons.folder_shared_rounded, "${loc.t('medicalFileNumber')}: ${_s(p['medical_file_number'])}"),
       _infoChip(Icons.badge_rounded, "CIN: ${_s(p['patient_code'])}"),
-      _infoChip(Icons.public_rounded, "Nationalité: $nationalite"),
-      _infoChip(Icons.cake_rounded, '${p['age'] ?? 0} ans'),
+      _infoChip(Icons.public_rounded, "${loc.t('nationality')}: $nationalite"),
+      _infoChip(Icons.cake_rounded, '${p['age'] ?? 0} ${loc.t('years')}'),
       _infoChip(Icons.phone_rounded, _s(p['phone'])),
     ]),
   );
 
   Widget _th(String text) => Text(text, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSecond));
+
   String _getTranslatedTab(PatientTab tab, AppLocalizations loc) {
     switch (tab) {
       case PatientTab.consultations: return loc.t('navRecords').toUpperCase();
+      case PatientTab.vaccination: return loc.t('vaccination').toUpperCase();
+      case PatientTab.actes: return loc.t('medicalActsTitle').toUpperCase();
+      case PatientTab.ordonnances: return loc.t('prescriptions').toUpperCase();
+      case PatientTab.bilanBio: return loc.t('bilanBio').toUpperCase();
+      case PatientTab.bilanRx: return loc.t('bilanRx').toUpperCase();
+      case PatientTab.certificats: return loc.t('medicalCertificate').toUpperCase();
+      case PatientTab.compteRendu: return loc.t('reports').toUpperCase();
+      case PatientTab.comptabilite: return loc.t('accounting').toUpperCase();
       case PatientTab.factures: return loc.t('statusInvoiced').toUpperCase();
-      default: return tab.name.toUpperCase();
     }
   }
+
   Widget _infoChip(IconData icon, String text) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(children: [Icon(icon, color: AppColors.primary, size: 14), const SizedBox(width: 8), Expanded(child: Text(text.contains(": ") && text.split(": ")[1].isEmpty ? "${text.split(": ")[0]}: —" : text, style: GoogleFonts.dmSans(color: AppColors.textSecond, fontSize: 12, fontWeight: FontWeight.w500)))]));
   
   Widget _sehatiMeasuresCard(AppLocalizations loc) => InkWell(
@@ -1128,7 +1140,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [const Icon(Icons.health_and_safety_rounded, size: 20, color: AppColors.primary), const SizedBox(width: 8), Expanded(child: Text(loc.t('measuresSehati'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primary)))]),
         const Divider(),
-        Text("Cliquer pour voir les mesures du tensiomètre et de la balance.", style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textSecond)),
+        Text(loc.t('sehatiModuleSwitchSub'), style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textSecond)),
       ]),
     ),
   );
@@ -1188,7 +1200,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
             _bodyValueSmall(loc.t('muscleMass'), "${_fmt2(m['muscle_mass'])} kg"),
             _bodyValueSmall(loc.t('bodyWater'), "${_fmt2(m['water'])}%"),
             _bodyValueSmall(loc.t('visceralFat'), _fmt2(m['visceral_fat'])),
-            _bodyValueSmall(loc.t('metabolicAge'), "${_fmt2(m['metabolic_age'])} ans"),
+            _bodyValueSmall(loc.t('metabolicAge'), "${_fmt2(m['metabolic_age'])} ${loc.t('years')}"),
           ],
         ),
         const Divider(height: 24),

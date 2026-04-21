@@ -212,7 +212,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
       Expanded(flex: 2, child: _th(l10n.t('invoiceDate'), isRtl)),
       Expanded(flex: 2, child: _th(l10n.t('amountTotal'), isRtl)),
       Expanded(flex: 2, child: _th(l10n.t('colStatus'), isRtl)),
-      Expanded(flex: 2, child: _th("Actions", isRtl)),
+      Expanded(flex: 2, child: _th(l10n.t('colActions'), isRtl)),
     ]),
   );
 
@@ -224,7 +224,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
 
     if (state == 'cancel') {
       statusColor = AppColors.textMuted;
-      statusLabel = "Annulée";
+      statusLabel = l10n.t('invoiceCancelled');
     } else if (status == 'paid' || status == 'in_payment') {
       statusColor = AppColors.green;
       statusLabel = l10n.t('paid');

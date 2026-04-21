@@ -52,10 +52,10 @@ class _SidebarState extends State<Sidebar> {
 
     final List<_NavItem> allNavItems = [
       _NavItem(Icons.grid_view_rounded,      l10n.t('navDashboard'), userRole == 'secretary' ? '/dashboard_secretaire' : '/dashboard', AppColors.primary,  AppColors.primaryLight),
-      _NavItem(Icons.calendar_month_rounded, "Calendrier",           '/calendar',  AppColors.primaryMid, AppColors.primaryLight),
+      _NavItem(Icons.calendar_month_rounded, l10n.t('calendarLabel'),           '/calendar',  AppColors.primaryMid, AppColors.primaryLight),
       _NavItem(Icons.people_alt_rounded,     l10n.t('navPatients'),  '/patients',  AppColors.purple,   AppColors.purpleLight),
       _NavItem(Icons.badge_rounded,          l10n.t('navSecretaries'), '/secretaries', AppColors.primary, AppColors.primaryLight),
-      _NavItem(Icons.health_and_safety_rounded, "Infirmiers", '/nurses', AppColors.primaryMid, AppColors.primaryLight),
+      _NavItem(Icons.health_and_safety_rounded, l10n.t('navNurses'), '/nurses', AppColors.primaryMid, AppColors.primaryLight),
       _NavItem(Icons.add_circle_rounded,     l10n.t('navAddRecord'), '/add_record',AppColors.green,    AppColors.greenLight),
       _NavItem(Icons.folder_special_rounded, l10n.t('navRecords'),   '/records',   AppColors.yellow,   AppColors.yellowLight),
       _NavItem(Icons.receipt_long_rounded,   l10n.t('navInvoices'),  '/invoices',  AppColors.primaryMid, AppColors.primaryLight),
@@ -119,11 +119,10 @@ class _SidebarState extends State<Sidebar> {
                 ),
               ),
               const SizedBox(width: 12),
-              // ✅ FIX : Expanded pour éviter le overflow
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(l10n.t('appName'),
-                      overflow: TextOverflow.ellipsis, // ✅ coupe si trop long
+                      overflow: TextOverflow.ellipsis,
                       style: isRtl
                           ? GoogleFonts.cairo(color: AppColors.textPrimary,
                           fontWeight: FontWeight.w800, fontSize: 14)
@@ -192,7 +191,7 @@ class _SidebarState extends State<Sidebar> {
                             decoration: const BoxDecoration(
                                 color: AppColors.greenMid, shape: BoxShape.circle)),
                         const SizedBox(width: 4),
-                        Text(userRole == 'secretary' ? "Secrétaire" : (userRole == 'nurse' ? "Infirmier" : l10n.t('online')),
+                        Text(userRole == 'secretary' ? l10n.t('roleSecretary') : (userRole == 'nurse' ? l10n.t('roleNurse') : l10n.t('online')),
                             style: isRtl
                                 ? GoogleFonts.cairo(color: AppColors.green,
                                 fontSize: 11, fontWeight: FontWeight.w500)

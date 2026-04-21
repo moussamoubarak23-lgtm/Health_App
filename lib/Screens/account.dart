@@ -54,6 +54,7 @@ class _AccountScreenState extends State<AccountScreen> {
 
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
+    final l10n = AppLocalizations.of(context);
 
     setState(() => _saving = true);
     final Map<String, dynamic> vals = {
@@ -74,11 +75,11 @@ class _AccountScreenState extends State<AccountScreen> {
       if (res['success']) {
         _newPassCtrl.clear();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context).t('profileUpdatedSuccess')), backgroundColor: AppColors.green),
+          SnackBar(content: Text(l10n.t('profileUpdatedSuccess')), backgroundColor: AppColors.green),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context).t('profileUpdatedError')), backgroundColor: AppColors.red),
+          SnackBar(content: Text(l10n.t('profileUpdatedError')), backgroundColor: AppColors.red),
         );
       }
     }
@@ -100,7 +101,7 @@ class _AccountScreenState extends State<AccountScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildHeader(),
+                        _buildHeader(l10n),
                         const SizedBox(height: 12),
                         AppBreadcrumb(
                           items: [
@@ -120,9 +121,9 @@ class _AccountScreenState extends State<AccountScreen> {
                                   flex: 2,
                                   child: Column(
                                     children: [
-                                      _buildMainCard(),
+                                      _buildMainCard(l10n),
                                       const SizedBox(height: 24),
-                                      if (_userRole == 'doctor') _buildSecurityCard(),
+                                      if (_userRole == 'doctor') _buildSecurityCard(l10n),
                                     ],
                                   ),
                                 ),
@@ -130,7 +131,7 @@ class _AccountScreenState extends State<AccountScreen> {
                                 // --- Right Column: Summary & Actions ---
                                 Expanded(
                                   flex: 1,
-                                  child: _buildSidePanel(),
+                                  child: _buildSidePanel(l10n),
                                 ),
                               ],
                             ),
@@ -145,18 +146,18 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
-  Widget _buildHeader() => Column(
+  Widget _buildHeader(AppLocalizations l10n) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(_userRole == 'secretary' ? "Mon Espace Secrétaire" : "Mon Compte Médecin",
+          Text(_userRole == 'secretary' ? l10n.t('mySecretarySpace') : l10n.t('myDoctorSpace'),
               style: GoogleFonts.plusJakartaSans(fontSize: 32, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
           const SizedBox(height: 8),
-          Text(_userRole == 'secretary' ? "Gérez vos informations personnelles" : "Gérez vos informations et la sécurité de votre accès",
+          Text(_userRole == 'secretary' ? l10n.t('managePersonalInfo') : l10n.t('manageSecuInfo'),
               style: GoogleFonts.dmSans(fontSize: 16, color: AppColors.textMuted)),
         ],
       );
 
-  Widget _buildMainCard() => Container(
+  Widget _buildMainCard(AppLocalizations l10n) => Container(
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -169,23 +170,23 @@ class _AccountScreenState extends State<AccountScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSectionTitle("INFORMATIONS PERSONNELLES", Icons.person_outline_rounded),
+              _buildSectionTitle(l10n.t('personalInfo'), Icons.person_outline_rounded),
               const SizedBox(height: 24),
               Row(
                 children: [
-                  Expanded(child: _buildField("Nom complet", _nameCtrl, Icons.person_rounded)),
+                  Expanded(child: _buildField(l10n.t('fullName'), _nameCtrl, Icons.person_rounded, l10n)),
                   const SizedBox(width: 20),
-                  Expanded(child: _buildReadOnlyField("Identifiant / Login", _login, Icons.badge_rounded)),
+                  Expanded(child: _buildReadOnlyField(l10n.t('identifier'), _login, Icons.badge_rounded)),
                 ],
               ),
               const SizedBox(height: 24),
-              _buildField("Adresse Email", _emailCtrl, Icons.email_rounded),
+              _buildField(l10n.t('email'), _emailCtrl, Icons.email_rounded, l10n),
               const SizedBox(height: 24),
               Row(
                 children: [
-                  Expanded(child: _buildField("Téléphone fixe", _phoneCtrl, Icons.phone_rounded)),
+                  Expanded(child: _buildField(l10n.t('phone'), _phoneCtrl, Icons.phone_rounded, l10n)),
                   const SizedBox(width: 20),
-                  Expanded(child: _buildField("Mobile", _mobileCtrl, Icons.smartphone_rounded)),
+                  Expanded(child: _buildField(l10n.t('mobile'), _mobileCtrl, Icons.smartphone_rounded, l10n)),
                 ],
               ),
             ],
@@ -193,7 +194,7 @@ class _AccountScreenState extends State<AccountScreen> {
         ),
       );
 
-  Widget _buildSecurityCard() => Container(
+  Widget _buildSecurityCard(AppLocalizations l10n) => Container(
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -204,18 +205,18 @@ class _AccountScreenState extends State<AccountScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionTitle("SÉCURITÉ DU COMPTE", Icons.lock_outline_rounded),
+            _buildSectionTitle(l10n.t('accountSecurity'), Icons.lock_outline_rounded),
             const SizedBox(height: 24),
-            Text(AppLocalizations.of(context).t('changePassword'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 15)),
+            Text(l10n.t('changePassword'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 15)),
             const SizedBox(height: 8),
-            Text(AppLocalizations.of(context).t('leaveEmpty'),
+            Text(l10n.t('leaveEmpty'),
                 style: GoogleFonts.dmSans(fontSize: 13, color: AppColors.textMuted)),
             const SizedBox(height: 20),
             TextField(
               controller: _newPassCtrl,
               obscureText: !_showNewPassword,
               decoration: InputDecoration(
-                hintText: AppLocalizations.of(context).t('newPassword'),
+                hintText: l10n.t('newPassword'),
                 prefixIcon: const Icon(Icons.vpn_key_rounded, size: 20, color: AppColors.primary),
                 suffixIcon: IconButton(
                   icon: Icon(_showNewPassword ? Icons.visibility_off : Icons.visibility, color: AppColors.textMuted),
@@ -231,7 +232,7 @@ class _AccountScreenState extends State<AccountScreen> {
         ),
       );
 
-  Widget _buildSidePanel() => Column(
+  Widget _buildSidePanel(AppLocalizations l10n) => Column(
         children: [
           Container(
             padding: const EdgeInsets.all(24),
@@ -255,8 +256,8 @@ class _AccountScreenState extends State<AccountScreen> {
                 const SizedBox(height: 24),
                 const Divider(color: Colors.white24),
                 const SizedBox(height: 16),
-                _actionTile(Icons.verified_user_rounded, "Compte vérifié"),
-                _actionTile(_userRole == 'secretary' ? Icons.badge_rounded : Icons.medical_services_rounded, _userRole == 'secretary' ? "Accès Secrétaire" : "Accès Médecin"),
+                _actionTile(Icons.verified_user_rounded, l10n.t('verifiedAccount')),
+                _actionTile(_userRole == 'secretary' ? Icons.badge_rounded : Icons.medical_services_rounded, _userRole == 'secretary' ? l10n.t('secretaryAccess') : l10n.t('doctorAccess')),
               ],
             ),
           ),
@@ -272,7 +273,7 @@ class _AccountScreenState extends State<AccountScreen> {
             ),
             child: _saving
                 ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : Text(AppLocalizations.of(context).t('saveChanges'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                : Text(l10n.t('saveChanges'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ),
         ],
       );
@@ -296,7 +297,7 @@ class _AccountScreenState extends State<AccountScreen> {
         ],
       );
 
-  Widget _buildField(String label, TextEditingController ctrl, IconData icon) => Column(
+  Widget _buildField(String label, TextEditingController ctrl, IconData icon, AppLocalizations l10n) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
@@ -311,7 +312,7 @@ class _AccountScreenState extends State<AccountScreen> {
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             ),
-            validator: (v) => v!.isEmpty ? "Ce champ est obligatoire" : null,
+            validator: (v) => v!.isEmpty ? l10n.t('allFieldsRequired') : null,
           ),
         ],
       );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart' as intl;
 import 'package:medical_app/Services/odoo_api.dart';
+import 'package:medical_app/app_localizations.dart';
 import 'package:medical_app/theme.dart';
 
 class NurseDetailScreen extends StatefulWidget {
@@ -44,8 +45,9 @@ class _NurseDetailScreenState extends State<NurseDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     final n = widget.nurse;
-    final name = _s(n['name']).isEmpty ? 'Infirmier' : _s(n['name']);
+    final name = _s(n['name']).isEmpty ? loc.t('roleNurse') : _s(n['name']);
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -66,13 +68,13 @@ class _NurseDetailScreenState extends State<NurseDetailScreen> {
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       _profileCard(n, name),
                       const SizedBox(height: 20),
-                      _section("Informations", [
-                        _tile(Icons.badge_rounded, "Licence", _s(n['license_number'])),
-                        _tile(Icons.medical_information_rounded, "Spécialisation", _s(n['specialization'])),
-                        _tile(Icons.local_hospital_rounded, "Département", _s(n['department_id'])),
-                        _tile(Icons.call_rounded, "Téléphone", _s(n['phone'])),
-                        _tile(Icons.email_rounded, "Email", _s(n['email'])),
-                        _tile(Icons.flag_rounded, "Statut", _s(n['state'])),
+                      _section(loc.t('essentialInfo'), [
+                        _tile(Icons.badge_rounded, loc.t('license'), _s(n['license_number'])),
+                        _tile(Icons.medical_information_rounded, loc.t('specialization'), _s(n['specialization'])),
+                        _tile(Icons.local_hospital_rounded, loc.t('department'), _s(n['department_id'])),
+                        _tile(Icons.call_rounded, loc.t('phone'), _s(n['phone'])),
+                        _tile(Icons.email_rounded, loc.t('email'), _s(n['email'])),
+                        _tile(Icons.flag_rounded, loc.t('colStatus'), _s(n['state'])),
                       ]),
                     ]),
                   ),
@@ -86,20 +88,20 @@ class _NurseDetailScreenState extends State<NurseDetailScreen> {
                       length: 3,
                       child: Column(
                         children: [
-                          const TabBar(
+                          TabBar(
                             labelColor: AppColors.primary,
                             tabs: [
-                              Tab(text: "Tension"),
-                              Tab(text: "Balance"),
-                              Tab(text: "Activité"),
+                              Tab(text: loc.t('tension')),
+                              Tab(text: loc.t('weight')),
+                              Tab(text: loc.t('activity')),
                             ],
                           ),
                           Expanded(
                             child: TabBarView(
                               children: [
-                                _bpList(),
-                                _bodyList(),
-                                _logsList(),
+                                _bpList(loc),
+                                _bodyList(loc),
+                                _logsList(loc),
                               ],
                             ),
                           ),
@@ -154,8 +156,8 @@ class _NurseDetailScreenState extends State<NurseDetailScreen> {
         subtitle: Text(value.isEmpty ? '—' : value, style: const TextStyle(fontWeight: FontWeight.w600)),
       );
 
-  Widget _bpList() => bpMeasures.isEmpty
-      ? const Center(child: Text("Aucune mesure de tension"))
+  Widget _bpList(AppLocalizations loc) => bpMeasures.isEmpty
+      ? Center(child: Text(loc.t('noMeasure')))
       : ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: bpMeasures.length,
@@ -166,12 +168,13 @@ class _NurseDetailScreenState extends State<NurseDetailScreen> {
               color: Colors.red,
               title: "SYS/DIA ${_s(m['systolique'])}/${_s(m['diastolique'])} - Pouls ${_s(m['pouls'])}",
               subtitle: _s(m['date_mesure']),
+              l10n: loc,
             );
           },
         );
 
-  Widget _bodyList() => bodyMeasures.isEmpty
-      ? const Center(child: Text("Aucune mesure de balance"))
+  Widget _bodyList(AppLocalizations loc) => bodyMeasures.isEmpty
+      ? Center(child: Text(loc.t('noMeasure')))
       : ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: bodyMeasures.length,
@@ -180,32 +183,43 @@ class _NurseDetailScreenState extends State<NurseDetailScreen> {
             return _measureCard(
               icon: Icons.monitor_weight_rounded,
               color: AppColors.primary,
-              title: "Poids ${_s(m['weight'])} kg | IMC ${_s(m['bmi'])}",
+              title: "${loc.t('weight')} ${_s(m['weight'])} kg | ${loc.t('bmi')} ${_s(m['bmi'])}",
               subtitle: _s(m['date']),
+              l10n: loc,
             );
           },
         );
 
-  Widget _logsList() => logs.isEmpty
-      ? const Center(child: Text("Aucune activité"))
+  Widget _logsList(AppLocalizations loc) => logs.isEmpty
+      ? Center(child: Text(loc.t('noRecentActivity')))
       : ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: logs.length,
           itemBuilder: (_, i) {
             final log = logs[i] as Map;
+            final body = _s(log['body']);
             final dateStr = _s(log['date']);
             final date = dateStr.isNotEmpty ? DateTime.tryParse(dateStr) : null;
             final formatted = date == null ? "—" : intl.DateFormat('dd/MM HH:mm').format(date);
             return _measureCard(
-              icon: Icons.history_rounded,
-              color: AppColors.textMuted,
-              title: _parseHtml(_s(log['body'])),
+              icon: _getLogIcon(body),
+              color: _getLogColor(body),
+              title: _parseHtml(body),
               subtitle: formatted,
+              actionLabel: _getTranslatedAction(body, loc),
+              l10n: loc,
             );
           },
         );
 
-  Widget _measureCard({required IconData icon, required Color color, required String title, required String subtitle}) => Container(
+  Widget _measureCard({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required AppLocalizations l10n,
+    String? actionLabel,
+  }) => Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(color: AppColors.surfaceAlt, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
@@ -218,7 +232,12 @@ class _NurseDetailScreenState extends State<NurseDetailScreen> {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600)),
+              if (actionLabel != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4.0),
+                  child: Text(actionLabel, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+                ),
+              Text(title, style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
               const SizedBox(height: 4),
               Text(subtitle.isEmpty ? '—' : subtitle, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
             ]),
@@ -227,4 +246,31 @@ class _NurseDetailScreenState extends State<NurseDetailScreen> {
       );
 
   String _parseHtml(String html) => html.replaceAll(RegExp(r'<[^>]*>'), '').trim();
+
+  IconData _getLogIcon(String body) {
+    String b = body.toLowerCase();
+    if (b.contains('créat') || b.contains('creat')) return Icons.add_circle_outline;
+    if (b.contains('modif') || b.contains('updat')) return Icons.edit_note;
+    if (b.contains('suppr') || b.contains('delet')) return Icons.delete_forever;
+    if (b.contains('facture') || b.contains('invoice')) return Icons.receipt_long;
+    return Icons.info_outline;
+  }
+
+  Color _getLogColor(String body) {
+    String b = body.toLowerCase();
+    if (b.contains('créat') || b.contains('creat')) return AppColors.green;
+    if (b.contains('suppr') || b.contains('delet')) return AppColors.red;
+    if (b.contains('facture') || b.contains('invoice')) return AppColors.primary;
+    if (b.contains('modif') || b.contains('updat')) return AppColors.yellow;
+    return AppColors.textMuted;
+  }
+
+  String _getTranslatedAction(String body, AppLocalizations l10n) {
+    String b = body.toLowerCase();
+    if (b.contains('créat') || b.contains('creat')) return l10n.t('logCreation');
+    if (b.contains('modif') || b.contains('updat')) return l10n.t('logModification');
+    if (b.contains('suppr') || b.contains('delet')) return l10n.t('logDeletion');
+    if (b.contains('facture') || b.contains('invoice')) return l10n.t('logInvoice');
+    return l10n.t('logUnknown');
+  }
 }

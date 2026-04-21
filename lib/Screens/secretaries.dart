@@ -25,7 +25,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
   @override
@@ -48,8 +48,9 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         setState(() => loading = false);
-        _snack("Erreur lors du chargement des secrétaires", isError: true);
+        _snack(l10n.t('secLoadError'), isError: true);
       }
     }
   }
@@ -80,15 +81,15 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
               setState(() => loading = true);
               final res = await OdooApi.deleteSecretary(s['id']);
               if (res['success']) {
-                _snack("Secrétaire supprimée");
+                _snack(l10n.t('secretaryDeleted'));
                 _load();
               } else {
                 setState(() => loading = false);
-                _snack("Erreur lors de la suppression", isError: true);
+                _snack(l10n.t('error'), isError: true);
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.red, foregroundColor: Colors.white),
-            child: const Text("Supprimer"),
+            child: Text(l10n.t('delete')),
           ),
         ],
       ),
@@ -139,7 +140,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                   ]),
                   const SizedBox(height: 24),
                   
-                  _sectionHeader("INFORMATIONS PERSONNELLES", Icons.person_rounded),
+                  _sectionHeader(l10n.t('personalInfo'), Icons.person_rounded),
                   const SizedBox(height: 16),
                   Row(children: [
                     Expanded(child: _field("${l10n.t('firstName')} (*)", firstNameCtrl, Icons.person_outline)),
@@ -152,10 +153,10 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                       Text(l10n.t('gender'), style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
                       Row(children: [
                         Radio<String>(value: 'male', groupValue: gender, onChanged: (v) => setDialogState(() => gender = v!), activeColor: AppColors.primary),
-                        Text(l10n.t('male')),
+                        Text(l10n.t('maleLabel')),
                         const SizedBox(width: 10),
                         Radio<String>(value: 'female', groupValue: gender, onChanged: (v) => setDialogState(() => gender = v!), activeColor: AppColors.primary),
-                        Text(l10n.t('female')),
+                        Text(l10n.t('femaleLabel')),
                       ]),
                     ])),
                     const SizedBox(width: 16),
@@ -163,7 +164,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                   ]),
                   
                   const SizedBox(height: 24),
-                  _sectionHeader("CONTACT & IDENTITÉ", Icons.contact_phone_rounded),
+                  _sectionHeader(l10n.t('contactIdentity'), Icons.contact_phone_rounded),
                   const SizedBox(height: 16),
                   Row(children: [
                     Expanded(child: _field(l10n.t('phone'), phoneCtrl, Icons.phone_rounded)),
@@ -178,7 +179,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                   ]),
 
                   const SizedBox(height: 24),
-                  _sectionHeader("PROFESSIONNEL", Icons.work_rounded),
+                  _sectionHeader(l10n.t('professional'), Icons.work_rounded),
                   const SizedBox(height: 16),
                   Row(children: [
                     Expanded(child: _field(l10n.t('secretaryCode'), codeCtrl, Icons.qr_code_rounded)),
@@ -210,7 +211,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                     ElevatedButton(
                       onPressed: () async {
                         if (firstNameCtrl.text.isEmpty || lastNameCtrl.text.isEmpty) {
-                          _snack("Nom et Prénom sont obligatoires", isError: true);
+                          _snack(l10n.t('firstNameLastNameRequired'), isError: true);
                           return;
                         }
                         final vals = {
@@ -247,9 +248,9 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                         if (warnings.isNotEmpty) {
                           final proceed = await showDuplicateProceedDialog(
                             dialogCtx,
-                            title: secretary == null ? 'Secrétaire — doublon possible' : 'Secrétaire — conflit avec une autre fiche',
+                            title: secretary == null ? l10n.t('duplicateWarn') : l10n.t('duplicateConflict'),
                             warnings: warnings,
-                            confirmLabel: secretary == null ? 'Créer quand même' : 'Enregistrer quand même',
+                            confirmLabel: l10n.t('saveAnyway'),
                           );
                           if (!proceed) return;
                         }
@@ -267,7 +268,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                           _snack(secretary == null ? l10n.t('secretaryCreated') : l10n.t('secretaryUpdated'));
                           _load();
                         } else {
-                          _snack("Erreur lors de l'enregistrement", isError: true);
+                          _snack(l10n.t('error'), isError: true);
                         }
                       },
                       style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
@@ -299,30 +300,33 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
     ),
   ]);
 
-  Widget _datePickerField(String label, String? value, Function(String) onSelected) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecond)),
-    const SizedBox(height: 8),
-    InkWell(
-      onTap: () async {
-        final date = await showDatePicker(
-          context: context,
-          initialDate: (value != null && value.isNotEmpty) ? DateTime.parse(value) : DateTime.now(),
-          firstDate: DateTime(1950),
-          lastDate: DateTime.now().add(const Duration(days: 365)),
-        );
-        if (date != null) onSelected(date.toString().substring(0, 10));
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(color: AppColors.inputFill, border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(12)),
-        child: Row(children: [
-          const Icon(Icons.calendar_today_rounded, size: 18, color: AppColors.primary),
-          const SizedBox(width: 12),
-          Text((value == null || value.isEmpty) ? "Sélectionner une date" : value, style: GoogleFonts.dmSans(color: (value == null || value.isEmpty) ? AppColors.textHint : AppColors.textPrimary)),
-        ]),
+  Widget _datePickerField(String label, String? value, Function(String) onSelected) {
+    final l10n = AppLocalizations.of(context);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecond)),
+      const SizedBox(height: 8),
+      InkWell(
+        onTap: () async {
+          final date = await showDatePicker(
+            context: context,
+            initialDate: (value != null && value.isNotEmpty) ? DateTime.parse(value) : DateTime.now(),
+            firstDate: DateTime(1950),
+            lastDate: DateTime.now().add(const Duration(days: 365)),
+          );
+          if (date != null) onSelected(date.toString().substring(0, 10));
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(color: AppColors.inputFill, border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(12)),
+          child: Row(children: [
+            const Icon(Icons.calendar_today_rounded, size: 18, color: AppColors.primary),
+            const SizedBox(width: 12),
+            Text((value == null || value.isEmpty) ? l10n.t('selectDate') : value, style: GoogleFonts.dmSans(color: (value == null || value.isEmpty) ? AppColors.textHint : AppColors.textPrimary)),
+          ]),
+        ),
       ),
-    ),
-  ]);
+    ]);
+  }
 
   Widget _sectionHeader(String title, IconData icon) => Row(children: [Icon(icon, size: 18, color: AppColors.textMuted), const SizedBox(width: 8), Text(title, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.textMuted, letterSpacing: 1.2))]);
 
@@ -382,7 +386,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
         Expanded(flex: 2, child: _thLabel(l10n.t('phone').toUpperCase(), isRtl)),
         Expanded(flex: 2, child: _thLabel(l10n.t('workingHours').toUpperCase(), isRtl)),
         Expanded(flex: 1, child: _thLabel(l10n.t('colStatus').toUpperCase(), isRtl)),
-        Expanded(flex: 2, child: _thLabel("ACTIONS", isRtl)),
+        Expanded(flex: 2, child: _thLabel(l10n.t('colActions'), isRtl)),
       ])),
       Expanded(child: filtered.isEmpty ? Center(child: Text(l10n.t('noSecretaryFound'))) : ListView.builder(itemCount: filtered.length, itemBuilder: (_, i) => _row(filtered[i], i, l10n, isRtl))),
     ]),
@@ -408,7 +412,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
         Expanded(flex: 1, child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(color: (s['active'] == true) ? AppColors.greenLight : AppColors.redLight, borderRadius: BorderRadius.circular(8)),
-          child: Text((s['active'] == true) ? "Actif" : "Inactif", style: TextStyle(color: (s['active'] == true) ? AppColors.green : AppColors.red, fontSize: 12, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+          child: Text((s['active'] == true) ? l10n.t('active') : l10n.t('inactive'), style: TextStyle(color: (s['active'] == true) ? AppColors.green : AppColors.red, fontSize: 12, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
         )),
         Expanded(flex: 2, child: Row(children: [
           IconButton(icon: const Icon(Icons.edit_outlined, size: 20, color: AppColors.primary), onPressed: () => _showAddEditDialog(secretary: s)),

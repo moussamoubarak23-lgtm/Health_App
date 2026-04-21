@@ -41,7 +41,6 @@ class _SecretaryDetailScreenState extends State<SecretaryDetailScreen> {
     final l10n = AppLocalizations.of(context);
     final s = widget.secretary;
     
-    // Protection contre les valeurs booléennes renvoyées par Odoo
     String fullName = _s(s['full_name']);
     if (fullName.isEmpty) {
       fullName = "${_s(s['first_name'])} ${_s(s['last_name'])}".trim();
@@ -50,7 +49,7 @@ class _SecretaryDetailScreenState extends State<SecretaryDetailScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(fullName.isEmpty ? 'Détail Secrétaire' : fullName, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+        title: Text(fullName.isEmpty ? l10n.t('roleSecretary') : fullName, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
@@ -60,7 +59,6 @@ class _SecretaryDetailScreenState extends State<SecretaryDetailScreen> {
       ),
       body: Row(
         children: [
-          // ─── COLONNE GAUCHE : INFOS ────────────────────────────────────────
           Expanded(
             flex: 2,
             child: SingleChildScrollView(
@@ -68,13 +66,13 @@ class _SecretaryDetailScreenState extends State<SecretaryDetailScreen> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 _buildProfileCard(s, fullName, l10n),
                 const SizedBox(height: 24),
-                _buildInfoSection("Contact", [
+                _buildInfoSection(l10n.t('contact'), [
                   _infoTile(Icons.phone, l10n.t('phone'), _s(s['phone'])),
                   _infoTile(Icons.email, l10n.t('email'), _s(s['email'])),
                   _infoTile(Icons.location_on, l10n.t('address'), _s(s['address'])),
                 ]),
                 const SizedBox(height: 24),
-                _buildInfoSection("Professionnel", [
+                _buildInfoSection(l10n.t('professional'), [
                   _infoTile(Icons.qr_code, l10n.t('secretaryCode'), _s(s['secretary_code'])),
                   _infoTile(Icons.badge, l10n.t('nationalId'), _s(s['national_id'])),
                   _infoTile(Icons.work, l10n.t('workingHours'), _s(s['working_hours'])),
@@ -82,8 +80,6 @@ class _SecretaryDetailScreenState extends State<SecretaryDetailScreen> {
               ]),
             ),
           ),
-
-          // ─── COLONNE DROITE : NOTIFICATIONS / LOGS ──────────────────────────
           Expanded(
             flex: 3,
             child: Container(
@@ -99,7 +95,7 @@ class _SecretaryDetailScreenState extends State<SecretaryDetailScreen> {
                   child: Row(children: [
                     const Icon(Icons.notifications_active_rounded, color: AppColors.primary),
                     const SizedBox(width: 10),
-                    Text("Fil d'actualité des actions", style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(l10n.t('activityFeed'), style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.bold)),
                   ]),
                 ),
                 const Divider(height: 1),
@@ -107,11 +103,11 @@ class _SecretaryDetailScreenState extends State<SecretaryDetailScreen> {
                   child: loadingLogs 
                     ? const Center(child: CircularProgressIndicator())
                     : logs.isEmpty 
-                      ? _buildEmptyLogs()
+                      ? _buildEmptyLogs(l10n)
                       : ListView.builder(
                           padding: const EdgeInsets.all(20),
                           itemCount: logs.length,
-                          itemBuilder: (context, index) => _buildLogItem(logs[index]),
+                          itemBuilder: (context, index) => _buildLogItem(logs[index], l10n),
                         ),
                 ),
               ]),
@@ -164,11 +160,12 @@ class _SecretaryDetailScreenState extends State<SecretaryDetailScreen> {
     subtitle: Text(value.isEmpty ? '—' : value, style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
   );
 
-  Widget _buildLogItem(Map log) {
+  Widget _buildLogItem(Map log, AppLocalizations l10n) {
     final dateStr = _s(log['date']);
     final date = dateStr.isNotEmpty ? DateTime.parse(dateStr) : DateTime.now();
     final formattedDate = intl.DateFormat('dd/MM HH:mm').format(date);
     final body = _s(log['body']);
+    final cleanBody = _parseHtml(body);
     
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -186,40 +183,54 @@ class _SecretaryDetailScreenState extends State<SecretaryDetailScreen> {
         ),
         const SizedBox(width: 16),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(_parseHtml(body), style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w500)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(_getTranslatedAction(body, l10n), style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold, color: _getLogColor(body))),
+              Text(formattedDate, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+            ],
+          ),
           const SizedBox(height: 4),
-          Text(formattedDate, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+          Text(cleanBody, style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.textPrimary)),
         ])),
       ]),
     );
   }
 
-  String _parseHtml(String html) {
-    return html.replaceAll(RegExp(r'<[^>]*>'), '').trim();
-  }
+  String _parseHtml(String html) => html.replaceAll(RegExp(r'<[^>]*>'), '').trim();
 
   IconData _getLogIcon(String body) {
     String b = body.toLowerCase();
-    if (b.contains('création') || b.contains('created')) return Icons.add_circle_outline;
-    if (b.contains('modification') || b.contains('updated')) return Icons.edit_note;
-    if (b.contains('suppression') || b.contains('deleted')) return Icons.delete_forever;
+    if (b.contains('créat') || b.contains('creat')) return Icons.add_circle_outline;
+    if (b.contains('modif') || b.contains('updat')) return Icons.edit_note;
+    if (b.contains('suppr') || b.contains('delet')) return Icons.delete_forever;
     if (b.contains('facture') || b.contains('invoice')) return Icons.receipt_long;
     return Icons.info_outline;
   }
 
   Color _getLogColor(String body) {
     String b = body.toLowerCase();
-    if (b.contains('création') || b.contains('created')) return AppColors.green;
-    if (b.contains('suppression') || b.contains('deleted')) return AppColors.red;
+    if (b.contains('créat') || b.contains('creat')) return AppColors.green;
+    if (b.contains('suppr') || b.contains('delet')) return AppColors.red;
     if (b.contains('facture') || b.contains('invoice')) return AppColors.primary;
+    if (b.contains('modif') || b.contains('updat')) return AppColors.yellow;
     return AppColors.textMuted;
   }
 
-  Widget _buildEmptyLogs() => Center(
+  String _getTranslatedAction(String body, AppLocalizations l10n) {
+    String b = body.toLowerCase();
+    if (b.contains('créat') || b.contains('creat')) return l10n.t('logCreation');
+    if (b.contains('modif') || b.contains('updat')) return l10n.t('logModification');
+    if (b.contains('suppr') || b.contains('delet')) return l10n.t('logDeletion');
+    if (b.contains('facture') || b.contains('invoice')) return l10n.t('logInvoice');
+    return l10n.t('logUnknown');
+  }
+
+  Widget _buildEmptyLogs(AppLocalizations l10n) => Center(
     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
       Icon(Icons.history_rounded, size: 48, color: AppColors.textMuted.withOpacity(0.3)),
       const SizedBox(height: 16),
-      const Text("Aucune activité récente enregistrée", style: TextStyle(color: AppColors.textMuted)),
+      Text(l10n.t('noRecentActivity'), style: const TextStyle(color: AppColors.textMuted)),
     ]),
   );
 }
