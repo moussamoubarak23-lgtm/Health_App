@@ -3,18 +3,18 @@ Set-Location $PSScriptRoot
 $adminLogin = Read-Host "Login admin Odoo"
 $securePassword = Read-Host "Mot de passe admin Odoo" -AsSecureString
 $dbName = Read-Host "Nom de la base Odoo (laisser vide pour Dossier_medical)"
-$baseUrl = Read-Host "URL Odoo (laisser vide pour http://192.168.1.139:8069)"
+$baseUrl = Read-Host "URL Odoo (laisser vide pour http://192.168.1.169:8069)"
 
 if ([string]::IsNullOrWhiteSpace($adminLogin)) {
-  $adminLogin = "admin"
+  $adminLogin = "sds@gmail.com"
 }
 
 if ([string]::IsNullOrWhiteSpace($dbName)) {
-  $dbName = "Dossier_medical"
+  $dbName = "Test_cabinet"
 }
 
 if ([string]::IsNullOrWhiteSpace($baseUrl)) {
-  $baseUrl = "http://192.168.1.139:8069"
+  $baseUrl = "http://192.168.1.100:8070"
 }
 
 $passwordPtr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
