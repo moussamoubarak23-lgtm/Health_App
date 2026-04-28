@@ -14,7 +14,7 @@ if ([string]::IsNullOrWhiteSpace($dbName)) {
 }
 
 if ([string]::IsNullOrWhiteSpace($baseUrl)) {
-  $baseUrl = "http://192.168.1.100:8070"
+  $baseUrl = "http://192.168.1.197:8069"
 }
 
 $passwordPtr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)

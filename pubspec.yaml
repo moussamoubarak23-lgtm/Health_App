@@ -32,6 +32,15 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  msix: ^3.16.7
+
+msix_config:
+  display_name: Medical App
+  publisher_display_name: Cabinet Medical
+  identity_name: com.medical.app
+  msix_version: 1.0.0.0
+  logo_path: assets/logo.png
+  capabilities: internetClient
 
 flutter:
   generate: true
