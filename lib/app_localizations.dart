@@ -457,7 +457,7 @@ class AppLocalizations {
     'statusConfirmed':    {'fr': 'Validé',               'ar': 'مؤكد'},
     'statusWaiting':      {'fr': 'En attente',           'ar': 'في الانتظار'},
     'statusInvoiced':     {'fr': 'Facturé',              'ar': 'مفوتر'},
-    'reason':             {'fr': 'Motif',                'ar': 'السبب'},
+    'reason':             {'fr': 'Motif de la consultation',                'ar': 'السبب'},
     'diagnostic':         {'fr': 'Diagnostic',           'ar': 'التشخيص'},
     'prescription':       {'fr': 'Prescription',         'ar': 'الوصفة الطبية'},
     'observations':       {'fr': 'Observations',         'ar': 'الملاحظات'},
