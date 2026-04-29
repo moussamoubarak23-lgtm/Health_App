@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -60,9 +61,11 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
       filtered = q.isEmpty
           ? secretaries
           : secretaries.where((s) =>
-              s['full_name'].toString().toLowerCase().contains(q.toLowerCase()) ||
-              s['phone'].toString().contains(q) ||
-              s['secretary_code'].toString().toLowerCase().contains(q.toLowerCase())).toList();
+              _s(s['full_name']).toLowerCase().contains(q.toLowerCase()) ||
+              _s(s['first_name']).toLowerCase().contains(q.toLowerCase()) ||
+              _s(s['last_name']).toLowerCase().contains(q.toLowerCase()) ||
+              _s(s['phone']).contains(q) ||
+              _s(s['secretary_code']).toLowerCase().contains(q.toLowerCase())).toList();
     });
   }
 
@@ -72,7 +75,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(l10n.t('deleteSecretaryTitle'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, color: AppColors.red)),
-        content: Text("${l10n.t('deleteSecretaryConfirm')} ${s['full_name']} ?"),
+        content: Text("${l10n.t('deleteSecretaryConfirm')} ${_s(s['full_name'])} ?"),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.t('cancel'))),
           ElevatedButton(
@@ -98,6 +101,13 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
 
   String _s(dynamic val) => (val is String) ? val : (val == null || val == false ? '' : val.toString());
 
+  String _generateRandomCode() {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    final rnd = Random();
+    return String.fromCharCodes(Iterable.generate(
+        8, (_) => chars.codeUnitAt(rnd.nextInt(chars.length))));
+  }
+
   void _showAddEditDialog({Map? secretary}) {
     final l10n = AppLocalizations.of(context);
     final isRtl = context.read<LanguageProvider>().isArabic;
@@ -107,7 +117,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
     final phoneCtrl = TextEditingController(text: _s(secretary?['phone']));
     final mobileCtrl = TextEditingController(text: _s(secretary?['mobile']));
     final emailCtrl = TextEditingController(text: _s(secretary?['email']));
-    final codeCtrl = TextEditingController(text: _s(secretary?['secretary_code']));
+    final codeCtrl = TextEditingController(text: _s(secretary?['secretary_code']).isEmpty ? (secretary == null ? _generateRandomCode() : '') : _s(secretary?['secretary_code']));
     final cinCtrl = TextEditingController(text: _s(secretary?['national_id']));
     final addressCtrl = TextEditingController(text: _s(secretary?['address']));
     final employeeIdCtrl = TextEditingController(text: _s(secretary?['employee_id']));
@@ -150,7 +160,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                   const SizedBox(height: 16),
                   Row(children: [
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(l10n.t('gender'), style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
+                      Text("${l10n.t('gender')} (*)", style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
                       Row(children: [
                         Radio<String>(value: 'male', groupValue: gender, onChanged: (v) => setDialogState(() => gender = v!), activeColor: AppColors.primary),
                         Text(l10n.t('maleLabel')),
@@ -160,7 +170,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                       ]),
                     ])),
                     const SizedBox(width: 16),
-                    Expanded(child: _datePickerField(l10n.t('birthDate'), birthDate, (d) => setDialogState(() => birthDate = d))),
+                    Expanded(child: _datePickerField("${l10n.t('birthDate')} (*)", birthDate, (d) => setDialogState(() => birthDate = d))),
                   ]),
                   
                   const SizedBox(height: 24),
@@ -169,7 +179,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                   Row(children: [
                     Expanded(child: _field(l10n.t('phone'), phoneCtrl, Icons.phone_rounded)),
                     const SizedBox(width: 16),
-                    Expanded(child: _field(l10n.t('email'), emailCtrl, Icons.email_rounded)),
+                    Expanded(child: _field("${l10n.t('email')} (*)", emailCtrl, Icons.email_rounded)),
                   ]),
                   const SizedBox(height: 16),
                   Row(children: [
@@ -182,9 +192,26 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                   _sectionHeader(l10n.t('professional'), Icons.work_rounded),
                   const SizedBox(height: 16),
                   Row(children: [
-                    Expanded(child: _field(l10n.t('secretaryCode'), codeCtrl, Icons.qr_code_rounded)),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text("${l10n.t('secretaryCode')} (*)", style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecond)),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: codeCtrl,
+                        maxLength: 8,
+                        decoration: InputDecoration(
+                          prefixIcon: Icon(Icons.qr_code_rounded, size: 18, color: AppColors.primary),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.refresh_rounded, size: 18),
+                            onPressed: () => setDialogState(() => codeCtrl.text = _generateRandomCode()),
+                          ),
+                          filled: true, fillColor: AppColors.inputFill,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+                          counterText: '',
+                        ),
+                      ),
+                    ])),
                     const SizedBox(width: 16),
-                    Expanded(child: _field(l10n.t('employeeId'), employeeIdCtrl, Icons.assignment_ind_rounded)),
+                    Expanded(child: _field("${l10n.t('employeeId')} (*)", employeeIdCtrl, Icons.assignment_ind_rounded)),
                   ]),
                   const SizedBox(height: 16),
                   Row(children: [
@@ -210,8 +237,14 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                     const SizedBox(width: 16),
                     ElevatedButton(
                       onPressed: () async {
-                        if (firstNameCtrl.text.isEmpty || lastNameCtrl.text.isEmpty) {
-                          _snack(l10n.t('firstNameLastNameRequired'), isError: true);
+                        if (firstNameCtrl.text.isEmpty || 
+                            lastNameCtrl.text.isEmpty || 
+                            emailCtrl.text.isEmpty || 
+                            employeeIdCtrl.text.isEmpty || 
+                            codeCtrl.text.isEmpty || 
+                            birthDate == null || 
+                            birthDate!.isEmpty) {
+                          _snack(l10n.t('allFieldsRequired'), isError: true);
                           return;
                         }
                         final vals = {
@@ -331,97 +364,136 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
   Widget _sectionHeader(String title, IconData icon) => Row(children: [Icon(icon, size: 18, color: AppColors.textMuted), const SizedBox(width: 8), Text(title, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.textMuted, letterSpacing: 1.2))]);
 
   void _snack(String msg, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: isError ? AppColors.red : AppColors.green, behavior: SnackBarBehavior.floating));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: isError ? AppColors.red : AppColors.primary,
+      behavior: SnackBarBehavior.floating,
+      margin: const EdgeInsets.all(16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final isRtl = context.watch<LanguageProvider>().isArabic;
+    final isArabic = context.watch<LanguageProvider>().isArabic;
+
     return Directionality(
-      textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+      textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
       child: Scaffold(
         backgroundColor: AppColors.background,
         body: Row(children: [
           const Sidebar(currentRoute: '/secretaries'),
+          Expanded(child: Column(children: [
+            _buildAppBar(l10n),
+            Expanded(child: loading ? const Center(child: CircularProgressIndicator()) : _buildContent(l10n)),
+          ])),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildAppBar(AppLocalizations l10n) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+    decoration: const BoxDecoration(color: Colors.white, border: Border(bottom: BorderSide(color: AppColors.border))),
+    child: Row(children: [
+      AppBreadcrumb(items: [
+        BreadcrumbItem(label: l10n.t('home'), route: '/dashboard'),
+        BreadcrumbItem(label: l10n.t('secretariesLabel')),
+      ]),
+      const Spacer(),
+      Container(
+        width: 300,
+        height: 44,
+        decoration: BoxDecoration(color: AppColors.surfaceAlt, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
+        child: TextField(
+          controller: _search,
+          onChanged: _filter,
+          decoration: InputDecoration(hintText: l10n.t('searchSecretary'), hintStyle: GoogleFonts.dmSans(fontSize: 14, color: AppColors.textMuted), prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.textMuted), border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(vertical: 10)),
+        ),
+      ),
+      const SizedBox(width: 16),
+      ElevatedButton.icon(
+        onPressed: () => _showAddEditDialog(),
+        icon: const Icon(Icons.add, size: 20),
+        label: Text(l10n.t('newSecretary'), style: const TextStyle(fontWeight: FontWeight.bold)),
+        style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
+      ),
+    ]),
+  );
+
+  Widget _buildContent(AppLocalizations l10n) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Container(
+        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
+        child: Column(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.primary, width: 2))),
+            child: Row(children: [
+              Expanded(flex: 3, child: _th(l10n.t('colName'))),
+              Expanded(flex: 2, child: _th(l10n.t('employeeId'))),
+              Expanded(flex: 2, child: _th(l10n.t('phone'))),
+              Expanded(flex: 3, child: _th(l10n.t('email'))),
+              Expanded(flex: 2, child: _th(l10n.t('secretaryCode'))),
+              Expanded(flex: 1, child: _th(l10n.t('colStatus'))),
+              Expanded(flex: 2, child: _th(l10n.t('colActions'))),
+            ]),
+          ),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(28),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Text(l10n.t('secretariesTitle'), style: _titleLg(isRtl)),
-                  ElevatedButton.icon(
-                    onPressed: () => _showAddEditDialog(), 
-                    icon: const Icon(Icons.add_rounded), 
-                    label: Text(l10n.t('newSecretary')), 
-                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))),
-                ]),
-                const SizedBox(height: 12),
-                AppBreadcrumb(
-                  items: [
-                    BreadcrumbItem(label: l10n.t('home'), route: '/dashboard'),
-                    BreadcrumbItem(label: l10n.t('secretariesLabel')),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                _buildSearchBar(l10n),
-                const SizedBox(height: 16),
-                Expanded(child: loading ? const Center(child: CircularProgressIndicator()) : _buildTable(isRtl, l10n)),
-              ]),
-            ),
+            child: filtered.isEmpty
+                ? Center(child: Text(l10n.t('noSecretaryFound')))
+                : ListView.builder(
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) => _buildSecretaryRow(filtered[index], index, l10n),
+                  ),
           ),
         ]),
       ),
     );
   }
 
-  Widget _buildSearchBar(AppLocalizations l10n) => Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4), decoration: BoxDecoration(color: AppColors.surface, border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(10)), child: TextField(controller: _search, onChanged: _filter, decoration: InputDecoration(hintText: l10n.t('searchSecretary'), border: InputBorder.none, icon: const Icon(Icons.search))));
-
-  Widget _buildTable(bool isRtl, AppLocalizations l10n) => Container(
-    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
-    child: Column(children: [
-      Container(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13), decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.primary, width: 2))), child: Row(children: [
-        Expanded(flex: 3, child: _thLabel(l10n.t('fullName').toUpperCase(), isRtl)),
-        Expanded(flex: 2, child: _thLabel(l10n.t('secretaryCode').toUpperCase(), isRtl)),
-        Expanded(flex: 2, child: _thLabel(l10n.t('phone').toUpperCase(), isRtl)),
-        Expanded(flex: 2, child: _thLabel(l10n.t('workingHours').toUpperCase(), isRtl)),
-        Expanded(flex: 1, child: _thLabel(l10n.t('colStatus').toUpperCase(), isRtl)),
-        Expanded(flex: 2, child: _thLabel(l10n.t('colActions'), isRtl)),
-      ])),
-      Expanded(child: filtered.isEmpty ? Center(child: Text(l10n.t('noSecretaryFound'))) : ListView.builder(itemCount: filtered.length, itemBuilder: (_, i) => _row(filtered[i], i, l10n, isRtl))),
-    ]),
-  );
-
-  Widget _row(Map s, int index, AppLocalizations l10n, bool isRtl) {
+  Widget _buildSecretaryRow(Map s, int index, AppLocalizations l10n) {
     String name = _s(s['full_name']);
-    if (name.isEmpty) {
-      name = "${_s(s['first_name'])} ${_s(s['last_name'])}".trim();
-    }
-    if (name.isEmpty) name = '—';
+    if (name.isEmpty) name = "${_s(s['first_name'])} ${_s(s['last_name'])}".trim();
+    if (name.isEmpty) name = "—";
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      color: index % 2 == 0 ? AppColors.surface : AppColors.surfaceAlt,
+      decoration: BoxDecoration(
+        color: index % 2 == 0 ? Colors.white : AppColors.surfaceAlt,
+        border: const Border(bottom: BorderSide(color: AppColors.divider)),
+      ),
       child: Row(children: [
-        Expanded(flex: 3, child: GestureDetector(
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SecretaryDetailScreen(secretary: s))),
-          child: Text(name, style: GoogleFonts.dmSans(fontWeight: FontWeight.w600, color: AppColors.primary)))),
-        Expanded(flex: 2, child: Text(_s(s['secretary_code']).isEmpty ? '—' : _s(s['secretary_code']))),
-        Expanded(flex: 2, child: Text(_s(s['phone']).isEmpty ? '—' : _s(s['phone']))),
-        Expanded(flex: 2, child: Text(_s(s['working_hours']).isEmpty ? '—' : _s(s['working_hours']))),
-        Expanded(flex: 1, child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(color: (s['active'] == true) ? AppColors.greenLight : AppColors.redLight, borderRadius: BorderRadius.circular(8)),
-          child: Text((s['active'] == true) ? l10n.t('active') : l10n.t('inactive'), style: TextStyle(color: (s['active'] == true) ? AppColors.green : AppColors.red, fontSize: 12, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-        )),
-        Expanded(flex: 2, child: Row(children: [
-          IconButton(icon: const Icon(Icons.edit_outlined, size: 20, color: AppColors.primary), onPressed: () => _showAddEditDialog(secretary: s)),
-          IconButton(icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.red), onPressed: () => _confirmDelete(s)),
-        ])),
+        Expanded(
+          flex: 3,
+          child: GestureDetector(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SecretaryDetailScreen(secretary: s))),
+            child: Row(children: [
+              CircleAvatar(radius: 14, backgroundColor: AppColors.primary.withOpacity(0.1), child: Text(name[0].toUpperCase(), style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12))),
+              const SizedBox(width: 12),
+              Expanded(child: Text(name, style: GoogleFonts.dmSans(fontWeight: FontWeight.w600, color: AppColors.primary))),
+            ]),
+          ),
+        ),
+        Expanded(flex: 2, child: Text(_s(s['employee_id']))),
+        Expanded(flex: 2, child: Text(_s(s['phone']))),
+        Expanded(flex: 3, child: Text(_s(s['email']))),
+        Expanded(flex: 2, child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: AppColors.surfaceAlt, borderRadius: BorderRadius.circular(6)), child: Text(_s(s['secretary_code']), style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold)))),
+        Expanded(flex: 1, child: _statusBadge(s['active'] == true)),
+        Expanded(
+          flex: 2,
+          child: Row(children: [
+            IconButton(icon: const Icon(Icons.edit_outlined, size: 20, color: AppColors.primary), onPressed: () => _showAddEditDialog(secretary: s)),
+            IconButton(icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.red), onPressed: () => _confirmDelete(s)),
+          ]),
+        ),
       ]),
     );
   }
 
-  Widget _thLabel(String text, bool isRtl) => Text(text, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSecond));
-  TextStyle _titleLg(bool isRtl) => isRtl ? GoogleFonts.cairo(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.textPrimary) : GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.textPrimary);
+  Widget _th(String text) => Text(text.toUpperCase(), style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSecond));
+
+  Widget _statusBadge(bool active) => Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: active ? AppColors.green.withOpacity(0.1) : AppColors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(20)), child: Text(active ? "ACTIF" : "INACTIF", style: GoogleFonts.dmSans(fontSize: 10, fontWeight: FontWeight.w800, color: active ? AppColors.green : AppColors.red)));
 }

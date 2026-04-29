@@ -87,10 +87,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
 
   int get _totalPages => (filtered.length / _perPage).ceil().clamp(1, 999);
 
-  String _display(dynamic value) {
-    if (value == null || value.toString().isEmpty || value.toString() == "0" || value.toString() == "false") return "—";
-    return value.toString();
-  }
+  String _s(dynamic val) => (val is String) ? val : (val == null || val == false ? '' : val.toString());
 
   void _confirmDelete(Map p) {
     final l10n = AppLocalizations.of(context);
@@ -98,7 +95,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(l10n.t('deletePatientTitle'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, color: AppColors.red)),
-        content: Text("${l10n.t('deletePatientWarn')} ${p['name']}, ainsi que tous ses dossiers médicaux, ses rendez-vous et ses factures dans Odoo. Cette action est irréversible."),
+        content: Text("${l10n.t('deletePatientWarn')} ${p['name']} ?"),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.t('cancel'))),
           ElevatedButton(
@@ -142,7 +139,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
             backgroundColor: AppColors.surface,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
             child: Container(
-              width: 700,
+              width: 800,
               padding: const EdgeInsets.all(32),
               child: SingleChildScrollView(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -151,14 +148,8 @@ class _PatientsScreenState extends State<PatientsScreen> {
                     IconButton(onPressed: () => Navigator.pop(dialogCtx), icon: const Icon(Icons.close_rounded, color: AppColors.textMuted)),
                   ]),
                   const SizedBox(height: 24),
-                  _sectionHeader(l10n.t('essentialInfo'), Icons.contact_emergency_rounded),
+                  _sectionHeader(l10n.t('essentialInfo'), Icons.person_add_rounded),
                   const SizedBox(height: 20),
-                  Row(children: [
-                    Expanded(child: _field(l10n.t('medicalFileNumber'), dossierCtrl, Icons.folder_shared_rounded, hintText: l10n.t('fileNumHint'))),
-                    const SizedBox(width: 16),
-                    Expanded(child: _field(l10n.t('nationalId'), cinCtrl, Icons.badge_rounded)),
-                  ]),
-                  const SizedBox(height: 16),
                   Row(children: [
                     Expanded(child: _field("${l10n.t('lastName')} (*)", nomCtrl, Icons.person_rounded)),
                     const SizedBox(width: 16),
@@ -166,7 +157,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
                   ]),
                   const SizedBox(height: 16),
                   Row(children: [
-                    Expanded(child: _field(l10n.t('age'), ageCtrl, Icons.cake_rounded, inputType: TextInputType.number)),
+                    Expanded(child: _field("${l10n.t('age')} (*)", ageCtrl, Icons.cake_rounded, inputType: TextInputType.number)),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -181,6 +172,14 @@ class _PatientsScreenState extends State<PatientsScreen> {
                       ]),
                     ),
                   ]),
+                  const SizedBox(height: 24),
+                  _sectionHeader(l10n.t('contactIdentity'), Icons.contact_phone_rounded),
+                  const SizedBox(height: 20),
+                  Row(children: [
+                    Expanded(child: _field(l10n.t('medicalFileNumber'), dossierCtrl, Icons.folder_shared_rounded, hintText: l10n.t('fileNumHint'))),
+                    const SizedBox(width: 16),
+                    Expanded(child: _field(l10n.t('nationalId'), cinCtrl, Icons.badge_rounded)),
+                  ]),
                   const SizedBox(height: 16),
                   Row(children: [
                     Expanded(child: _field(l10n.t('phone'), phoneCtrl, Icons.phone_rounded, inputType: TextInputType.phone)),
@@ -188,14 +187,14 @@ class _PatientsScreenState extends State<PatientsScreen> {
                     Expanded(child: _dropdownSearch("${l10n.t('nationality')} (*)", nationalite, (v) => setDialogState(() => nationalite = v))),
                   ]),
                   const SizedBox(height: 16),
-                  _dropdown("${l10n.t('socialCoverage')} (*)", couverture, ["Sans", "AMO", "RAMED", "CNOPS", "Privé"], (v) => setDialogState(() => couverture = v!)),
+                  _dropdown(l10n.t('socialCoverage'), couverture, ["Sans", "AMO", "RAMED", "CNOPS", "Privé"], (v) => setDialogState(() => couverture = v!)),
                   const SizedBox(height: 32),
-                  Row(children: [
-                    Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(dialogCtx), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), side: const BorderSide(color: AppColors.border)), child: Text(l10n.t('close')))),
+                  Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                    OutlinedButton(onPressed: () => Navigator.pop(dialogCtx), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: Text(l10n.t('cancel'))),
                     const SizedBox(width: 16),
-                    Expanded(flex: 2, child: ElevatedButton(
+                    ElevatedButton(
                       onPressed: () async {
-                        if (nomCtrl.text.isEmpty || prenomCtrl.text.isEmpty) {
+                        if (nomCtrl.text.trim().isEmpty || prenomCtrl.text.trim().isEmpty || ageCtrl.text.trim().isEmpty) {
                           _snack(l10n.t('allFieldsRequired'), isError: true);
                           return;
                         }
@@ -234,9 +233,9 @@ class _PatientsScreenState extends State<PatientsScreen> {
                           _snack(l10n.t('error'), isError: true);
                         }
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
-                      child: Text(l10n.t('save'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    )),
+                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
+                      child: Text(l10n.t('save'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                    ),
                   ]),
                 ]),
               ),
@@ -358,17 +357,24 @@ class _PatientsScreenState extends State<PatientsScreen> {
   }
 
   void _showEditDialog(Map p, AppLocalizations l10n, bool isRtl) {
-    final nameCtrl = TextEditingController(text: _display(p['name']));
-    final cinCtrl = TextEditingController(text: _display(p['patient_code']));
-    final dossierCtrl = TextEditingController(text: _display(p['medical_file_number']));
-    final phoneCtrl = TextEditingController(text: _display(p['phone']));
-    final insuranceCtrl = TextEditingController(text: _display(p['insurance_id']));
-    final heightCtrl = TextEditingController(text: p['height']?.toString() ?? '');
+    final name = _s(p['name']);
+    final parts = name.split(' ');
+    final nomCtrl = TextEditingController(text: parts.first);
+    final prenomCtrl = TextEditingController(text: parts.length > 1 ? parts.sublist(1).join(' ') : '');
+    
+    final cinCtrl = TextEditingController(text: _s(p['patient_code']));
+    final dossierCtrl = TextEditingController(text: _s(p['medical_file_number']));
+    final phoneCtrl = TextEditingController(text: _s(p['phone']));
+    final insuranceCtrl = TextEditingController(text: _s(p['insurance_id']));
     final ageCtrl = TextEditingController(text: p['age']?.toString() ?? '');
     
+    String sexe = 'H';
     String nationalite = 'Marocaine';
-    if (p['comment'] is String && p['comment'].toString().contains('Nationalité:')) {
-      nationalite = p['comment'].toString().split('Nationalité:')[1].trim();
+    
+    final comment = _s(p['comment']);
+    if (comment.contains('Sexe: F')) sexe = 'F';
+    if (comment.contains('Nationalité:')) {
+      nationalite = comment.split('Nationalité:')[1].split('|').first.trim();
     }
 
     showDialog(
@@ -377,46 +383,70 @@ class _PatientsScreenState extends State<PatientsScreen> {
         textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
         child: Dialog(
           backgroundColor: AppColors.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           child: Container(
-            width: 500, padding: const EdgeInsets.all(28),
+            width: 800, padding: const EdgeInsets.all(32),
             child: StatefulBuilder(
               builder: (_, setDialogState) => SingleChildScrollView(
                 child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Text(l10n.t('editPatient'), style: _titleSm(isRtl)),
+                    Text(l10n.t('editPatient'), style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.primary)),
                     IconButton(onPressed: () => Navigator.pop(dialogCtx), icon: const Icon(Icons.close_rounded, color: AppColors.textMuted)),
                   ]),
+                  const SizedBox(height: 24),
+                  _sectionHeader(l10n.t('personalInfo'), Icons.person_rounded),
+                  const SizedBox(height: 20),
+                  Row(children: [
+                    Expanded(child: _field("${l10n.t('lastName')} (*)", nomCtrl, Icons.person_rounded)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _field("${l10n.t('firstName')} (*)", prenomCtrl, Icons.person_outline_rounded)),
+                  ]),
+                  const SizedBox(height: 16),
+                  Row(children: [
+                    Expanded(child: _field("${l10n.t('age')} (*)", ageCtrl, Icons.cake_rounded, inputType: TextInputType.number)),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text("${l10n.t('gender')} (*)", style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
+                        Row(children: [
+                          Radio<String>(value: 'H', groupValue: sexe, onChanged: (v) => setDialogState(() => sexe = v!), activeColor: AppColors.primary),
+                          Text(l10n.t('maleLabel')),
+                          const SizedBox(width: 10),
+                          Radio<String>(value: 'F', groupValue: sexe, onChanged: (v) => setDialogState(() => sexe = v!), activeColor: AppColors.primary),
+                          Text(l10n.t('femaleLabel')),
+                        ]),
+                      ]),
+                    ),
+                  ]),
+                  const SizedBox(height: 24),
+                  _sectionHeader(l10n.t('contactIdentity'), Icons.contact_phone_rounded),
                   const SizedBox(height: 20),
                   Row(children: [
                     Expanded(child: _field(l10n.t('medicalFileNumber'), dossierCtrl, Icons.folder_shared_rounded)),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 16),
                     Expanded(child: _field(l10n.t('nationalId'), cinCtrl, Icons.badge_rounded)),
                   ]),
-                  const SizedBox(height: 12),
-                  _field(l10n.t('fullName'), nameCtrl, Icons.person_rounded),
-                  const SizedBox(height: 12),
-                  _field(l10n.t('phone'), phoneCtrl, Icons.phone_rounded),
-                  const SizedBox(height: 12),
-                  _dropdownSearch("${l10n.t('nationality')} (*)", nationalite, (v) => setDialogState(() => nationalite = v)),
-                  const SizedBox(height: 12),
-                  _field(l10n.t('insurance'), insuranceCtrl, Icons.health_and_safety_rounded),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   Row(children: [
-                    Expanded(child: _field(l10n.t('height'), heightCtrl, Icons.height_rounded, inputType: TextInputType.number)),
-                    const SizedBox(width: 12),
-                    Expanded(child: _field(l10n.t('age'), ageCtrl, Icons.cake_rounded, inputType: TextInputType.number)),
+                    Expanded(child: _field(l10n.t('phone'), phoneCtrl, Icons.phone_rounded, inputType: TextInputType.phone)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _dropdownSearch("${l10n.t('nationality')} (*)", nationalite, (v) => setDialogState(() => nationalite = v))),
                   ]),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 32),
                   Row(mainAxisAlignment: MainAxisAlignment.end, children: [
                     OutlinedButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l10n.t('cancel'))),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 16),
                     ElevatedButton(
                       onPressed: () async {
+                        if (nomCtrl.text.trim().isEmpty || prenomCtrl.text.trim().isEmpty || ageCtrl.text.trim().isEmpty) {
+                          _snack(l10n.t('allFieldsRequired'), isError: true);
+                          return;
+                        }
+                        final fullName = "${nomCtrl.text.trim()} ${prenomCtrl.text.trim()}";
                         final pid = p['id'] is int ? p['id'] as int : int.tryParse(p['id'].toString());
                         final warnings = DuplicateGuard.patientWarnings(
                           patients,
-                          fullName: nameCtrl.text.trim(),
+                          fullName: fullName,
                           phone: phoneCtrl.text.trim(),
                           cin: cinCtrl.text.trim(),
                           dossier: dossierCtrl.text.trim(),
@@ -433,21 +463,21 @@ class _PatientsScreenState extends State<PatientsScreen> {
                         }
                         await OdooApi.updatePatient(
                           patientId: p['id'],
-                          name: nameCtrl.text.trim(),
+                          name: fullName,
                           phone: phoneCtrl.text.trim(),
                           email: '',
                           insuranceId: insuranceCtrl.text.trim(),
-                          height: double.tryParse(heightCtrl.text.trim()) ?? 0.0,
+                          height: 0.0,
                           age: int.tryParse(ageCtrl.text.trim()) ?? 0,
                           patientCode: cinCtrl.text.trim(),
                           medicalFileNumber: dossierCtrl.text.trim(),
-                          comment: p['comment'] is String ? p['comment'].toString().replaceAll(RegExp(r'Nationalité:.*'), 'Nationalité: $nationalite') : 'Nationalité: $nationalite',
+                          comment: "Sexe: $sexe | Nationalité: $nationalite",
                         );
                         if (!dialogCtx.mounted) return;
                         Navigator.pop(dialogCtx);
                         _load();
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                       child: Text(l10n.t('save')),
                     ),
                   ]),
@@ -562,63 +592,113 @@ class _PatientsScreenState extends State<PatientsScreen> {
         body: Row(children: [
           const Sidebar(currentRoute: '/patients'),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(28),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Text(l10n.t('navPatients'), style: _titleLg(isRtl)),
-                  ElevatedButton.icon(onPressed: () => _showAddDialog(l10n, isRtl), icon: const Icon(Icons.add_rounded), label: Text(l10n.t('newPatientAction')), style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))),
-                ]),
-                const SizedBox(height: 12),
-                AppBreadcrumb(
-                  items: [
-                    BreadcrumbItem(label: l10n.t('home'), route: '/dashboard'),
-                    BreadcrumbItem(label: l10n.t('patientsList')),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                _buildSearchBar(l10n),
-                const SizedBox(height: 16),
-                Expanded(child: loading ? const Center(child: CircularProgressIndicator()) : _buildPatientTable(_paginated, isRtl, l10n)),
-              ]),
-            ),
+            child: Column(children: [
+              _buildAppBar(l10n),
+              Expanded(child: loading ? const Center(child: CircularProgressIndicator()) : _buildContent(l10n, isRtl)),
+            ]),
           ),
         ]),
       ),
     );
   }
 
-  Widget _buildSearchBar(AppLocalizations l10n) => Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4), decoration: BoxDecoration(color: AppColors.surface, border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(10)), child: TextField(controller: _search, onChanged: _filter, decoration: InputDecoration(hintText: l10n.t('searchPatient'), border: InputBorder.none, icon: const Icon(Icons.search))));
-
-  Widget _buildPatientTable(List paginated, bool isRtl, AppLocalizations l10n) => Container(
-    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
-    child: Column(children: [
-      Container(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13), decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.primary, width: 2))), child: Row(children: [Expanded(flex: 3, child: _thLabel(l10n.t('fullName').toUpperCase(), isRtl)), Expanded(flex: 2, child: _thLabel(l10n.t('nationalId'), isRtl)), Expanded(flex: 2, child: _thLabel(l10n.t('medicalFileNumber').toUpperCase(), isRtl)), Expanded(flex: 1, child: _thLabel(l10n.t('age').toUpperCase(), isRtl)), Expanded(flex: 2, child: _thLabel(l10n.t('phone').toUpperCase(), isRtl)), Expanded(flex: 2, child: _thLabel(l10n.t('colActions'), isRtl))])),
-      Expanded(child: paginated.isEmpty ? Center(child: Padding(padding: const EdgeInsets.all(20), child: Text(l10n.t('noPatientFound'), style: GoogleFonts.dmSans(color: AppColors.textMuted)))) : ListView.builder(itemCount: paginated.length, itemBuilder: (_, i) => _patientRow(paginated[i], i, l10n, isRtl))),
-      _buildPaginationControls(l10n),
+  Widget _buildAppBar(AppLocalizations l10n) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+    decoration: const BoxDecoration(color: Colors.white, border: Border(bottom: BorderSide(color: AppColors.border))),
+    child: Row(children: [
+      AppBreadcrumb(items: [
+        BreadcrumbItem(label: l10n.t('home'), route: '/dashboard'),
+        BreadcrumbItem(label: l10n.t('navPatients')),
+      ]),
+      const Spacer(),
+      Container(
+        width: 300,
+        height: 44,
+        decoration: BoxDecoration(color: AppColors.surfaceAlt, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
+        child: TextField(
+          controller: _search,
+          onChanged: _filter,
+          decoration: InputDecoration(hintText: l10n.t('searchPatient'), hintStyle: GoogleFonts.dmSans(fontSize: 14, color: AppColors.textMuted), prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.textMuted), border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(vertical: 10)),
+        ),
+      ),
+      const SizedBox(width: 16),
+      ElevatedButton.icon(
+        onPressed: () => _showAddDialog(l10n, context.read<LanguageProvider>().isArabic),
+        icon: const Icon(Icons.add, size: 20),
+        label: Text(l10n.t('newPatientAction'), style: const TextStyle(fontWeight: FontWeight.bold)),
+        style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
+      ),
     ]),
   );
+
+  Widget _buildContent(AppLocalizations l10n, bool isRtl) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Container(
+        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
+        child: Column(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.primary, width: 2))),
+            child: Row(children: [
+              Expanded(flex: 3, child: _th(l10n.t('fullName'))),
+              Expanded(flex: 2, child: _th(l10n.t('nationalId'))),
+              Expanded(flex: 2, child: _th(l10n.t('medicalFileNumber'))),
+              Expanded(flex: 1, child: _th(l10n.t('age'))),
+              Expanded(flex: 2, child: _th(l10n.t('phone'))),
+              Expanded(flex: 2, child: _th(l10n.t('colActions'))),
+            ]),
+          ),
+          Expanded(
+            child: filtered.isEmpty
+                ? Center(child: Text(l10n.t('noPatientFound')))
+                : ListView.builder(
+                    itemCount: _paginated.length,
+                    itemBuilder: (context, index) => _buildPatientRow(_paginated[index], index, l10n, isRtl),
+                  ),
+          ),
+          _buildPaginationControls(l10n),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildPatientRow(Map p, int index, AppLocalizations l10n, bool isRtl) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: BoxDecoration(
+        color: index % 2 == 0 ? Colors.white : AppColors.surfaceAlt,
+        border: const Border(bottom: BorderSide(color: AppColors.divider)),
+      ),
+      child: Row(children: [
+        Expanded(
+          flex: 3,
+          child: GestureDetector(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PatientDetailScreen(patient: p))),
+            child: Row(children: [
+              CircleAvatar(radius: 14, backgroundColor: AppColors.primary.withOpacity(0.1), child: Text(_s(p['name'])[0].toUpperCase(), style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12))),
+              const SizedBox(width: 12),
+              Expanded(child: Text(_s(p['name']), style: GoogleFonts.dmSans(fontWeight: FontWeight.w600, color: AppColors.primary))),
+            ]),
+          ),
+        ),
+        Expanded(flex: 2, child: Text(_s(p['patient_code']))),
+        Expanded(flex: 2, child: Text(_s(p['medical_file_number']))),
+        Expanded(flex: 1, child: Text(_s(p['age']))),
+        Expanded(flex: 2, child: Text(_s(p['phone']))),
+        Expanded(
+          flex: 2,
+          child: Row(children: [
+            IconButton(icon: const Icon(Icons.edit_outlined, size: 20, color: AppColors.primary), onPressed: () => _showEditDialog(p, l10n, isRtl)),
+            IconButton(icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.red), onPressed: () => _confirmDelete(p)),
+            IconButton(icon: const Icon(Icons.visibility, size: 20, color: AppColors.primary), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PatientDetailScreen(patient: p)))),
+          ]),
+        ),
+      ]),
+    );
+  }
 
   Widget _buildPaginationControls(AppLocalizations l10n) => Container(padding: const EdgeInsets.all(12), decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.border))), child: Row(children: [Text(l10n.t('pageOf', args: {'page': '$_currentPage', 'total': '$_totalPages'}), style: GoogleFonts.dmSans(fontSize: 13, color: AppColors.textSecond, fontWeight: FontWeight.w500)), const Spacer(), IconButton(icon: const Icon(Icons.chevron_left), onPressed: _currentPage > 1 ? () => setState(() => _currentPage--) : null), IconButton(icon: const Icon(Icons.chevron_right), onPressed: _currentPage < _totalPages ? () => setState(() => _currentPage++) : null)]));
 
-  Widget _patientRow(Map p, int index, AppLocalizations l10n, bool isRtl) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-    color: index % 2 == 0 ? AppColors.surface : AppColors.surfaceAlt,
-    child: Row(children: [
-      Expanded(flex: 3, child: GestureDetector(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PatientDetailScreen(patient: p))), child: Text(_display(p['name']), style: GoogleFonts.dmSans(color: AppColors.primary, fontWeight: FontWeight.w600)))),
-      Expanded(flex: 2, child: Text(_display(p['patient_code']))),
-      Expanded(flex: 2, child: Text(_display(p['medical_file_number']))),
-      Expanded(flex: 1, child: Text(_display(p['age']))),
-      Expanded(flex: 2, child: Text(_display(p['phone']))),
-      Expanded(flex: 2, child: Row(children: [
-        IconButton(icon: const Icon(Icons.edit_outlined, size: 20), onPressed: () => _showEditDialog(p, l10n, isRtl)),
-        IconButton(icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.red), onPressed: () => _confirmDelete(p)),
-        IconButton(icon: const Icon(Icons.visibility, size: 20, color: AppColors.primary), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PatientDetailScreen(patient: p)))),
-      ])),
-    ]),
-  );
-
-  Widget _thLabel(String text, bool isRtl) => Text(text, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSecond));
-  TextStyle _titleLg(bool isRtl) => isRtl ? GoogleFonts.cairo(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.textPrimary) : GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.textPrimary);
-  TextStyle _titleSm(bool isRtl) => isRtl ? GoogleFonts.cairo(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textPrimary) : GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textPrimary);
+  Widget _th(String text) => Text(text.toUpperCase(), style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSecond));
 }

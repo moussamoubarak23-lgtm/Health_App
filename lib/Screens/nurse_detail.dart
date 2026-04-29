@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart' as intl;
@@ -14,6 +15,7 @@ class NurseDetailScreen extends StatefulWidget {
 }
 
 class _NurseDetailScreenState extends State<NurseDetailScreen> {
+  late Map n;
   List logs = [];
   List bpMeasures = [];
   List bodyMeasures = [];
@@ -22,6 +24,7 @@ class _NurseDetailScreenState extends State<NurseDetailScreen> {
   @override
   void initState() {
     super.initState();
+    n = Map.from(widget.nurse);
     _loadData();
   }
 
@@ -30,7 +33,7 @@ class _NurseDetailScreenState extends State<NurseDetailScreen> {
   Future<void> _loadData() async {
     setState(() => loading = true);
     final results = await Future.wait([
-      OdooApi.getNurseLogs(widget.nurse['id']),
+      OdooApi.getNurseLogs(n['id']),
       OdooApi.getBpMeasurements(),
       OdooApi.getBodyMeasurements(),
     ]);
@@ -43,10 +46,146 @@ class _NurseDetailScreenState extends State<NurseDetailScreen> {
     });
   }
 
+  String _generateRandomLicense() {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    final rnd = Random();
+    return String.fromCharCodes(Iterable.generate(8, (_) => chars.codeUnitAt(rnd.nextInt(chars.length))));
+  }
+
+  void _showEditDialog() {
+    final l10n = AppLocalizations.of(context);
+    final nameCtrl = TextEditingController(text: _s(n['name']));
+    final emailCtrl = TextEditingController(text: _s(n['email']));
+    final phoneCtrl = TextEditingController(text: _s(n['phone']));
+    final licenseCtrl = TextEditingController(text: _s(n['license_number']));
+    final ageCtrl = TextEditingController(text: _s(n['age']));
+    final departmentCtrl = TextEditingController(text: _s(n['department_id']));
+    
+    String gender = _s(n['gender']).isEmpty ? 'male' : _s(n['gender']);
+    String? expiryDate = _s(n['license_expiry_date']).isEmpty ? null : _s(n['license_expiry_date']);
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            width: 600,
+            padding: const EdgeInsets.all(24),
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(l10n.t('editNurse'), style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                const Divider(height: 32),
+                
+                _editField("${l10n.t('fullName')} (*)", nameCtrl, Icons.person_rounded),
+                const SizedBox(height: 16),
+                Row(children: [
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text("${l10n.t('gender')} (*)", style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
+                    Row(children: [
+                      Radio<String>(value: 'male', groupValue: gender, onChanged: (v) => setDialogState(() => gender = v!), activeColor: AppColors.primary),
+                      Text(l10n.t('maleLabel')),
+                      const SizedBox(width: 10),
+                      Radio<String>(value: 'female', groupValue: gender, onChanged: (v) => setDialogState(() => gender = v!), activeColor: AppColors.primary),
+                      Text(l10n.t('femaleLabel')),
+                    ]),
+                  ])),
+                  const SizedBox(width: 16),
+                  Expanded(child: _datePickerField("${l10n.t('licenseExpiry')} (*)", expiryDate, (d) => setDialogState(() => expiryDate = d))),
+                ]),
+                const SizedBox(height: 16),
+                Row(children: [
+                  Expanded(child: _editField("${l10n.t('email')} (*)", emailCtrl, Icons.email_rounded)),
+                  const SizedBox(width: 16),
+                  Expanded(child: _editField(l10n.t('phone'), phoneCtrl, Icons.phone_rounded)),
+                ]),
+                const SizedBox(height: 16),
+                Row(children: [
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text("${l10n.t('licenseNumber')} (*)", style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: licenseCtrl,
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.badge_rounded, size: 18, color: AppColors.primary),
+                        suffixIcon: IconButton(icon: const Icon(Icons.refresh, size: 18), onPressed: () => setDialogState(() => licenseCtrl.text = _generateRandomLicense())),
+                        filled: true, fillColor: AppColors.inputFill,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+                      ),
+                    ),
+                  ])),
+                  const SizedBox(width: 16),
+                  Expanded(child: _editField(l10n.t('department'), departmentCtrl, Icons.local_hospital_rounded)),
+                ]),
+                
+                const SizedBox(height: 32),
+                Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                  TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l10n.t('cancel'))),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: () async {
+                      if (nameCtrl.text.isEmpty || emailCtrl.text.isEmpty || licenseCtrl.text.isEmpty || expiryDate == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.t('allFieldsRequired'))));
+                        return;
+                      }
+                      final vals = {
+                        'name': nameCtrl.text.trim(),
+                        'email': emailCtrl.text.trim(),
+                        'phone': phoneCtrl.text.trim(),
+                        'license_number': licenseCtrl.text.trim(),
+                        'license_expiry_date': expiryDate,
+                        'gender': gender,
+                        'department_id': departmentCtrl.text.trim(),
+                        'age': int.tryParse(ageCtrl.text.trim()),
+                      };
+                      final res = await OdooApi.updateNurse(n['id'], vals);
+                      if (res['success']) {
+                        setState(() => n.addAll(vals));
+                        if (!mounted) return;
+                        Navigator.pop(dialogCtx);
+                        _loadData();
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+                    child: Text(l10n.t('save')),
+                  ),
+                ]),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _editField(String label, TextEditingController ctrl, IconData icon) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
+    const SizedBox(height: 6),
+    TextField(
+      controller: ctrl,
+      decoration: InputDecoration(prefixIcon: Icon(icon, size: 18), filled: true, fillColor: AppColors.inputFill, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
+    ),
+  ]);
+
+  Widget _datePickerField(String label, String? value, Function(String) onSelected) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
+    const SizedBox(height: 6),
+    InkWell(
+      onTap: () async {
+        final date = await showDatePicker(context: context, initialDate: value != null ? DateTime.parse(value) : DateTime.now(), firstDate: DateTime(1950), lastDate: DateTime.now().add(const Duration(days: 3650)));
+        if (date != null) onSelected(date.toString().substring(0, 10));
+      },
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: AppColors.inputFill, border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(12)),
+        child: Row(children: [const Icon(Icons.calendar_today, size: 18, color: AppColors.primary), const SizedBox(width: 12), Text(value ?? 'Sélectionner')]),
+      ),
+    ),
+  ]);
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final n = widget.nurse;
     final name = _s(n['name']).isEmpty ? loc.t('roleNurse') : _s(n['name']);
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -55,7 +194,10 @@ class _NurseDetailScreenState extends State<NurseDetailScreen> {
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
-        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData)],
+        actions: [
+          IconButton(icon: const Icon(Icons.edit_outlined), onPressed: _showEditDialog),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData)
+        ],
       ),
       body: loading
           ? const Center(child: CircularProgressIndicator())

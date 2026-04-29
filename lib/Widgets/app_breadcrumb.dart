@@ -58,62 +58,63 @@ class AppBreadcrumb extends StatelessWidget {
           ),
         );
       },
-      child: Container(
+      child: RepaintBoundary(
         key: ValueKey(safeItems.map((e) => e.label).join('/')),
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border),
-          boxShadow: const [
-            BoxShadow(
-              color: AppColors.shadow,
-              blurRadius: 8,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Wrap(
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            const Icon(Icons.home_rounded, size: 16, color: AppColors.textMuted),
-            const _Slash(),
-            ...List.generate(safeItems.length, (index) {
-              final isLast = index == safeItems.length - 1;
-              final item = safeItems[index];
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+            boxShadow: const [
+              BoxShadow(
+                color: AppColors.shadow,
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              const Icon(Icons.home_rounded, size: 16, color: AppColors.textMuted),
+              const _Slash(),
+              ...List.generate(safeItems.length, (index) {
+                final isLast = index == safeItems.length - 1;
+                final item = safeItems[index];
 
-              final tile = InkWell(
-                onTap: isLast ? null : () => _handleTap(context, item),
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  child: Text(
-                    item.label,
-                    style: isLast
-                        ? GoogleFonts.dmSans(
-                            color: AppColors.primaryDark,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          )
-                        : GoogleFonts.dmSans(
-                            color: AppColors.textSecond,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
+                final tile = InkWell(
+                  onTap: isLast ? null : () => _handleTap(context, item),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    child: Text(
+                      item.label,
+                      style: isLast
+                          ? GoogleFonts.dmSans(
+                              color: AppColors.primaryDark,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            )
+                          : GoogleFonts.dmSans(
+                              color: AppColors.textSecond,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                    ),
                   ),
-                ),
-              );
+                );
 
-              if (isLast) return tile;
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [tile, const _Slash()],
-              );
-            }),
-          ],
+                if (isLast) return tile;
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [tile, const _Slash()],
+                );
+              }),
+            ],
+          ),
         ),
       ),
     );
