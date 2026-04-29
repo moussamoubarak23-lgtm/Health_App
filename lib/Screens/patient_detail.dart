@@ -461,7 +461,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   Widget _detailItem(String label, String value) => Padding(padding: const EdgeInsets.symmetric(vertical: 8.0), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.textMuted)), const SizedBox(height: 4), Text(value.isEmpty ? "—" : value, style: GoogleFonts.dmSans(fontSize: 14, color: AppColors.textPrimary))]));
 
   Future<void> _createInvoiceFromActs(Map record) async {
-    if (selectedActs.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez sélectionner au moins un acte'))); return; }
+    if (selectedActs.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).t('selectAtLeastOneAct')))); return; }
     showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
     final lines = selectedActs.map((act) => {'product_id': act['id'], 'name': act['name'], 'price': act['list_price']}).toList();
     final result = await OdooApi.createInvoice(patientId: currentPatient['id'], lines: lines);

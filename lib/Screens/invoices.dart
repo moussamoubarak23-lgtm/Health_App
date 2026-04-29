@@ -90,7 +90,9 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).t('invoiceCancelled'))));
       _loadInvoices();
     } else {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur: ${res['error']}")));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("${AppLocalizations.of(context).t('errorPrefix')} ${res['error']}")),
+      );
     }
   }
 
@@ -245,12 +247,12 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
           if (state != 'cancel' && status != 'paid' && status != 'in_payment') ...[
             IconButton(
               icon: const Icon(Icons.check_circle_outline, color: AppColors.green, size: 22),
-              tooltip: "Enregistrer le paiement",
+              tooltip: l10n.t('registerPayment'),
               onPressed: () => _handleValidate(inv),
             ),
             IconButton(
               icon: const Icon(Icons.cancel_outlined, color: AppColors.red, size: 22),
-              tooltip: "Annuler la facture",
+              tooltip: l10n.t('cancelInvoice'),
               onPressed: () => _handleCancel(inv),
             ),
           ] else if (state == 'cancel') Text(l10n.t('invoiceCancelled'), style: const TextStyle(color: AppColors.textMuted, fontSize: 12))

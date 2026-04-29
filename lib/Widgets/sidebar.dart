@@ -68,12 +68,16 @@ class _SidebarState extends State<Sidebar> {
       item.route == '/dashboard_secretaire' ||
           item.route == '/calendar' ||
           item.route == '/patients' ||
-          item.route == '/nurses' ||
           item.route == '/invoices' ||
           item.route == '/settings'
       ).toList();
     } else {
-      navItems = allNavItems;
+      navItems = allNavItems.where((item) =>
+          item.route == '/dashboard' ||
+          item.route == '/calendar' ||
+          item.route == '/patients' ||
+          item.route == '/records' ||
+          item.route == '/settings').toList();
     }
 
     return Directionality(

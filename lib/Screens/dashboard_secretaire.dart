@@ -91,7 +91,7 @@ class _DashboardSecretaireScreenState extends State<DashboardSecretaireScreen> w
                   // HEADER
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Marhaba !!! ,', style: titleStyle(24)),
+                      Text('${l10n.t('welcome')} $secretaryName', style: titleStyle(24)),
                       const SizedBox(height: 4),
                       Text(l10n.t('dashSubtitle'), style: bodyStyle()),
                     ]),

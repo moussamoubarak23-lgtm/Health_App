@@ -246,7 +246,31 @@ class _PatientsScreenState extends State<PatientsScreen> {
     );
   }
 
-  void _showPostCreateOptions(String name, int id, String dossier, AppLocalizations l10n) {
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  Future<bool> _shouldShowCalendarQuickAccess() async {
+    final records = await OdooApi.getMedicalRecords();
+    final today = DateTime.now();
+    final todayPatientIds = <int>{};
+    for (final raw in records) {
+      if (raw is! Map) continue;
+      final rec = Map<String, dynamic>.from(raw);
+      final rawDate = rec['date_consultation']?.toString() ?? '';
+      if (rawDate.isEmpty) continue;
+      final parsed = DateTime.tryParse(rawDate);
+      if (parsed == null || !_isSameDay(parsed, today)) continue;
+      final patientRef = rec['patient_id'];
+      if (patientRef is List && patientRef.isNotEmpty && patientRef.first is int) {
+        todayPatientIds.add(patientRef.first as int);
+      }
+    }
+    return todayPatientIds.length >= 2;
+  }
+
+  Future<void> _showPostCreateOptions(String name, int id, String dossier, AppLocalizations l10n) async {
+    final showCalendarButton = await _shouldShowCalendarQuickAccess();
+    if (!mounted) return;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -286,6 +310,20 @@ class _PatientsScreenState extends State<PatientsScreen> {
             label: Text(l10n.t('scheduleRdv')),
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.green, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
           ),
+          if (showCalendarButton)
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(postCtx);
+                Navigator.pushNamed(context, '/calendar');
+              },
+              icon: const Icon(Icons.event_note_rounded),
+              label: Text(l10n.t('calendarLabel')),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
         ],
       ),
     );

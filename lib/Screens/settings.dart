@@ -752,6 +752,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             color: Colors.orange,
                             onTap: _showCertificateDialog,
                           ),
+                        if (userRole == 'doctor')
+                          _buildMenuTile(
+                            title: loc.t('navSecretaries'),
+                            subtitle: loc.t('manageSecretariesSub'),
+                            icon: Icons.badge_rounded,
+                            color: AppColors.primary,
+                            onTap: () => Navigator.pushReplacementNamed(context, '/secretaries'),
+                          ),
+                        if (userRole == 'doctor')
+                          _buildMenuTile(
+                            title: loc.t('navNurses'),
+                            subtitle: loc.t('manageNursesSub'),
+                            icon: Icons.health_and_safety_rounded,
+                            color: AppColors.primaryMid,
+                            onTap: () => Navigator.pushReplacementNamed(context, '/nurses'),
+                          ),
+                        if (userRole == 'doctor')
+                          _buildMenuTile(
+                            title: loc.t('navInvoices'),
+                            subtitle: loc.t('goToBillingSub'),
+                            icon: Icons.receipt_long_rounded,
+                            color: Colors.teal,
+                            onTap: () => Navigator.pushReplacementNamed(context, '/invoices'),
+                          ),
+                        if (userRole == 'doctor')
+                          _buildMenuTile(
+                            title: loc.t('navAddRecord'),
+                            subtitle: loc.t('createNewConsultationSub'),
+                            icon: Icons.add_circle_rounded,
+                            color: Colors.green,
+                            onTap: () => Navigator.pushReplacementNamed(context, '/add_record'),
+                          ),
                         _buildMenuTile(
                           title: loc.t('identificationPatient'),
                           subtitle: loc.t('idSub'),

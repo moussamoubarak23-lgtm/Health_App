@@ -52,7 +52,7 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
           if (eventSource[day] == null) eventSource[day] = [];
           eventSource[day]!.add(record);
         } catch (e) {
-          debugPrint("Error parsing date: $e");
+          debugPrint("Date parse error: $e");
         }
       }
     }
@@ -71,7 +71,9 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
     final initialDateTime = DateTime.parse(event['date_consultation']).toLocal();
     DateTime selectedDate = DateTime(initialDateTime.year, initialDateTime.month, initialDateTime.day);
     TimeOfDay selectedTime = TimeOfDay(hour: initialDateTime.hour, minute: initialDateTime.minute);
-    final motifCtrl = TextEditingController(text: event['motif'] ?? "Consultation");
+    final motifCtrl = TextEditingController(
+      text: event['motif'] ?? loc.t('defaultConsultationReason'),
+    );
 
     showDialog(
       context: context,
@@ -112,6 +114,8 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
             TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
             ElevatedButton(
               onPressed: () async {
+                final navigator = Navigator.of(context);
+                final messenger = ScaffoldMessenger.of(context);
                 final scheduledDateTime = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, selectedTime.hour, selectedTime.minute);
                 
                 showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
@@ -127,11 +131,12 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
                   datetime: scheduledDateTime.toString().substring(0, 19),
                 );
                 
-                if (mounted) Navigator.pop(context); // Close loader
-                if (mounted) Navigator.pop(context); // Close dialog
+                if (!mounted) return;
+                if (navigator.canPop()) navigator.pop(); // Close loader
+                if (navigator.canPop()) navigator.pop(); // Close dialog
                 
                 if (res['success']) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.t('updatedAppointmentSuccess'))));
+                  messenger.showSnackBar(SnackBar(content: Text(loc.t('updatedAppointmentSuccess'))));
                   _loadData();
                 }
               },
@@ -147,7 +152,7 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
   void _showScheduleAppointmentDialog(AppLocalizations loc) {
     DateTime selectedDate = _selectedDay ?? DateTime.now();
     TimeOfDay selectedTime = const TimeOfDay(hour: 9, minute: 0);
-    final motifCtrl = TextEditingController(text: "Consultation");
+    final motifCtrl = TextEditingController(text: loc.t('defaultConsultationReason'));
     Map? selectedPatient;
 
     showDialog(
@@ -194,9 +199,12 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
             TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))),
             ElevatedButton(
               onPressed: selectedPatient == null ? null : () async {
+                final navigator = Navigator.of(context);
+                final messenger = ScaffoldMessenger.of(context);
                 final scheduledDateTime = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, selectedTime.hour, selectedTime.minute);
                 final prefs = await SharedPreferences.getInstance();
                 final doctorId = prefs.getInt('uid') ?? 0;
+                if (!context.mounted) return;
                 
                 showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
                 
@@ -212,11 +220,12 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
                   medicalFileNumber: (selectedPatient!['medical_file_number'] ?? selectedPatient!['ref'] ?? '').toString(),
                 );
                 
-                if (mounted) Navigator.pop(context); // Close loader
-                if (mounted) Navigator.pop(context); // Close dialog
+                if (!mounted) return;
+                if (navigator.canPop()) navigator.pop(); // Close loader
+                if (navigator.canPop()) navigator.pop(); // Close dialog
                 
                 if (res['success']) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.t('plannedAppointmentSuccess'))));
+                  messenger.showSnackBar(SnackBar(content: Text(loc.t('plannedAppointmentSuccess'))));
                   _loadData();
                 }
               },
@@ -390,7 +399,11 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(patientName, style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 14)),
-                  Text(event['motif'] ?? "Consultation", style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textSecond), overflow: TextOverflow.ellipsis),
+                  Text(
+                    event['motif'] ?? loc.t('defaultConsultationReason'),
+                    style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.textSecond),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),

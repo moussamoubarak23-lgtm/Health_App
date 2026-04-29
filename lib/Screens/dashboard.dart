@@ -232,24 +232,26 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
               child: const Icon(Icons.notifications_active_rounded, color: AppColors.primary, size: 22),
             )
           : const Icon(Icons.notifications_none_rounded, color: AppColors.primary, size: 22),
-        tooltip: 'Mises à jour & Infos',
+        tooltip: AppLocalizations.of(context).t('updatesInfos'),
       ),
     );
   }
 
   void _showUpdateDialog() {
     if (appNotifications.isEmpty) {
+      final l10n = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Aucune notification.'))
+        SnackBar(content: Text(l10n.t('noNotifications')))
       );
       return;
     }
+    final l10n = AppLocalizations.of(context);
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Centre de Notifications', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+        title: Text(l10n.t('notificationCenter'), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
         content: SizedBox(
           width: 400,
           child: ListView.separated(
@@ -273,7 +275,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                       TextButton.icon(
                         onPressed: () => launchUrl(Uri.parse(notif['url'])),
                         icon: const Icon(Icons.download_rounded, size: 16),
-                        label: const Text('Télécharger la mise à jour'),
+                        label: Text(l10n.t('downloadUpdate')),
                       ),
                   ],
                 ),
@@ -282,7 +284,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fermer')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.t('close'))),
         ],
       ),
     );

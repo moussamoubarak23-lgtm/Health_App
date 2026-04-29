@@ -70,6 +70,10 @@ class AppLocalizations {
     'invoiceCountSuffix': {'fr': 'facture(s)', 'ar': 'فاتورة'},
     'paymentRegistered':  {'fr': 'Paiement enregistré et consultation validée', 'ar': 'تم تسجيل الأداء وتأكيد الاستشارة'},
     'paymentErrorPrefix': {'fr': 'Erreur lors du paiement:', 'ar': 'خطأ أثناء الأداء:'},
+    'errorPrefix':        {'fr': 'Erreur :', 'ar': 'خطأ:'},
+    'registerPayment':    {'fr': 'Enregistrer le paiement', 'ar': 'تسجيل الأداء'},
+    'cancelInvoice':      {'fr': 'Annuler la facture', 'ar': 'إلغاء الفاتورة'},
+    'defaultConsultationReason': {'fr': 'Consultation', 'ar': 'استشارة'},
     'invoiceCancelled':   {'fr': 'Facture annulée', 'ar': 'تم إلغاء الفatورة'},
     'appointmentCalendarTitle': {'fr': 'Calendrier des rendez-vous', 'ar': 'تقويم المواعيد'},
     'scheduleAppointment': {'fr': 'Planifier un rendez-vous', 'ar': 'جدولة موعد'},
@@ -151,6 +155,10 @@ class AppLocalizations {
     'certificateSub':     {'fr': 'Générer une document médical', 'ar': 'إنشاء وثيقة طبية'},
     'idSub':              {'fr': 'Scanner ou chercher un patient', 'ar': 'مسح ou البحث عن مريض'},
     'langSub':            {'fr': 'Changer la langue de l\'app', 'ar': 'تغيير لغة التطبيق'},
+    'manageSecretariesSub': {'fr': 'Gérer les secrétaires du cabinet', 'ar': 'إدارة سكرتارية العيادة'},
+    'manageNursesSub':    {'fr': 'Gérer les infirmiers', 'ar': 'إدارة الممرضين'},
+    'goToBillingSub':     {'fr': 'Accéder à la facturation', 'ar': 'الوصول إلى الفوترة'},
+    'createNewConsultationSub': {'fr': 'Créer une nouvelle consultation', 'ar': 'إنشاء استشارة جديدة'},
     'langSidebarHint':    {'fr': 'Fonctionnalité accessible via la sidebar', 'ar': 'الميزة متاحة عبر الشريط الجanbi'},
     'fileNumLongHint':    {'fr': 'N° dossier : repris du patient ou proposé automatiquement (modifiable)', 'ar': 'رقم الملف: مأخوذ من المريض أو مقترح تلقائياً (قابل للتعديل)'},
     'secIdentifierHint':  {'fr': 'Ex: secretaire@clinique.com / 0600000000', 'ar': 'مثال: secretaire@clinique.com / 0600000000'},
@@ -379,10 +387,6 @@ class AppLocalizations {
     'workingHours':       {'fr': 'Horaires de travail',  'ar': 'ساعات العمل'},
     'activeStatus':       {'fr': 'Actif',                'ar': 'نشط'},
     'notes':              {'fr': 'Notes',                'ar': 'ملاحظات'},
-    'secretaryDeleted':   {'fr': 'Secrétaire supprimée', 'ar': 'تم حذف السكرتيرة'},
-    'secretaryCreated':   {'fr': 'Secrétaire créée',     'ar': 'تم إنشاء السكرتيرة'},
-    'secretaryUpdated':   {'fr': 'Secrétaire mise à jour','ar': 'تم تحديث السكرتيرة'},
-
     // ── ACCOUNT / PROFILE ────────────────────────────────────────────────────
     'mySecretarySpace':   {'fr': 'Mon Espace Secrétaire', 'ar': 'مساحة السكرتارية الخاصة بي'},
     'myDoctorSpace':      {'fr': 'Mon Espace Médecin',   'ar': 'مساحة الطبيب الخاصة بي'},
@@ -462,6 +466,17 @@ class AppLocalizations {
     'searchRecord':       {'fr': 'Rechercher un dossier, un patient ou un diagnostic...', 'ar': 'ابحث عن ملف أو مريض أو تشخيص...'},
     'allStatuses':        {'fr': 'Tous les statuts',     'ar': 'كل الحالات'},
     'filteredResults':    {'fr': 'résultat(s) filtré(s)','ar': 'نتيجة مصفاة'},
+    'performConsultation': {'fr': 'Effectuer la consultation', 'ar': 'إجراء الاستشارة'},
+    'selectAtLeastOneAct': {'fr': 'Veuillez sélectionner au moins un acte', 'ar': 'يرجى اختيار عمل طبي واحد على الأقل'},
+    'billingFailed':      {'fr': 'Facturation impossible', 'ar': 'تعذر إنشاء الفاتورة'},
+    'fillRequiredBeforeValidation': {
+      'fr': 'Veuillez renseigner tous les champs obligatoires avant validation : {fields}',
+      'ar': 'يرجى تعبئة جميع الحقول الإلزامية قبل التأكيد: {fields}'
+    },
+    'recordsToConsult':   {'fr': 'Dossiers à consulter', 'ar': 'الملفات المطلوب استشارتها'},
+    'noPendingConsultationRecord': {'fr': 'Aucun dossier en attente de consultation', 'ar': 'لا توجد ملفات في انتظار الاستشارة'},
+    'recordsHistory':     {'fr': 'Historique des dossiers', 'ar': 'سجل الملفات الطبية'},
+    'noRecordInHistory':  {'fr': 'Aucun dossier dans l’historique', 'ar': 'لا توجد ملفات في السجل'},
 
     // ── ADD RECORD ───────────────────────────────────────────────────────────
     'newConsultation':    {'fr': 'Nouvelle consultation','ar': 'استشارة جديدة'},
