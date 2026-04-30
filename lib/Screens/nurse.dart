@@ -208,7 +208,7 @@ class _NursesScreenState extends State<NursesScreen> {
                   Row(children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: specialization,
+                        initialValue: specialization,
                         decoration: _ddDeco(l10n.t('specialization')),
                         items: [
                           DropdownMenuItem(value: 'generaliste', child: Text(l10n.t('generalist'))),
@@ -222,7 +222,7 @@ class _NursesScreenState extends State<NursesScreen> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: state,
+                        initialValue: state,
                         decoration: _ddDeco(l10n.t('status')),
                         items: [
                           DropdownMenuItem(value: 'active', child: Text(l10n.t('active'))),

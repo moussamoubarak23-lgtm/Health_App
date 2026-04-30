@@ -180,11 +180,13 @@ class _PatientsScreenState extends State<PatientsScreen> {
     String sexe = 'H';
     String couverture = 'Sans';
     String nationalite = 'Marocaine';
+    int? createdId;
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (dialogCtx) => StatefulBuilder(
-        builder: (_, setDialogState) => Directionality(
+        builder: (stCtx, setDialogState) => Directionality(
           textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
           child: Dialog(
             backgroundColor: AppColors.surface,
@@ -317,42 +319,68 @@ class _PatientsScreenState extends State<PatientsScreen> {
                             }
                             final fullName =
                                 "${nomCtrl.text.trim()} ${prenomCtrl.text.trim()}";
-                            final warnings = DuplicateGuard.patientWarnings(
-                              patients,
-                              fullName: fullName,
-                              phone: phoneCtrl.text.trim(),
-                              cin: cinCtrl.text.trim(),
-                              dossier: dossierCtrl.text.trim(),
-                            );
-                            if (warnings.isNotEmpty) {
-                              final proceed = await showDuplicateProceedDialog(
-                                dialogCtx,
-                                title: l10n.t('duplicateWarn'),
-                                warnings: warnings,
+                            
+                            // Only check duplicates if we haven't created the patient yet in this session
+                            if (createdId == null) {
+                              final warnings = DuplicateGuard.patientWarnings(
+                                patients,
+                                fullName: fullName,
+                                phone: phoneCtrl.text.trim(),
+                                cin: cinCtrl.text.trim(),
+                                dossier: dossierCtrl.text.trim(),
                               );
-                              if (!proceed) return;
+                              if (warnings.isNotEmpty) {
+                                final proceed = await showDuplicateProceedDialog(
+                                  dialogCtx,
+                                  title: l10n.t('duplicateWarn'),
+                                  warnings: warnings,
+                                );
+                                if (!proceed) return;
+                              }
                             }
-                            final result = await OdooApi.createPatient(
-                              name: fullName,
-                              medicalFileNumber: dossierCtrl.text.trim(),
-                              patientCode: cinCtrl.text.trim(),
-                              phone: phoneCtrl.text.trim(),
-                              insuranceId: couverture,
-                              height: 0.0,
-                              age: int.tryParse(ageCtrl.text.trim()) ?? 0,
-                              comment:
-                                  "Sexe: $sexe | Nationalité: $nationalite",
-                            );
-                            if (!dialogCtx.mounted) return;
-                            Navigator.pop(dialogCtx);
+
+                            Map result;
+                            if (createdId == null) {
+                              result = await OdooApi.createPatient(
+                                name: fullName,
+                                medicalFileNumber: dossierCtrl.text.trim(),
+                                patientCode: cinCtrl.text.trim(),
+                                phone: phoneCtrl.text.trim(),
+                                insuranceId: couverture,
+                                height: 0.0,
+                                age: int.tryParse(ageCtrl.text.trim()) ?? 0,
+                                comment:
+                                    "Sexe: $sexe | Nationalité: $nationalite",
+                              );
+                              if (result['success']) {
+                                setDialogState(() => createdId = result['id']);
+                              }
+                            } else {
+                              result = await OdooApi.updatePatient(
+                                patientId: createdId!,
+                                name: fullName,
+                                phone: phoneCtrl.text.trim(),
+                                email: '',
+                                insuranceId: couverture,
+                                height: 0.0,
+                                age: int.tryParse(ageCtrl.text.trim()) ?? 0,
+                                patientCode: cinCtrl.text.trim(),
+                                medicalFileNumber: dossierCtrl.text.trim(),
+                                comment:
+                                    "Sexe: $sexe | Nationalité: $nationalite",
+                              );
+                            }
+
+                            if (!stCtx.mounted) return;
                             if (result['success']) {
                               _load();
                               _showPostCreateOptions(
                                   fullName,
-                                  result['id'],
+                                  createdId!,
                                   dossierCtrl.text.trim(),
                                   motifCtrl.text.trim(),
-                                  l10n);
+                                  l10n,
+                                  onFinalized: () => Navigator.pop(dialogCtx));
                             } else {
                               _snack(l10n.t('error'), isError: true);
                             }
@@ -404,7 +432,8 @@ class _PatientsScreenState extends State<PatientsScreen> {
   }
 
   Future<void> _showPostCreateOptions(String name, int id, String dossier,
-      String defaultReason, AppLocalizations l10n) async {
+      String defaultReason, AppLocalizations l10n,
+      {VoidCallback? onFinalized}) async {
     final consultationReason = defaultReason.isEmpty
         ? l10n.t('defaultConsultationReason')
         : defaultReason;
@@ -419,6 +448,10 @@ class _PatientsScreenState extends State<PatientsScreen> {
             style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
         content: Text(l10n.t('patientCreatedQuestion')),
         actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(postCtx),
+            child: Text(l10n.t('back')),
+          ),
           OutlinedButton(
             onPressed: () async {
               final prefs = await SharedPreferences.getInstance();
@@ -438,6 +471,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
               );
               if (!postCtx.mounted) return;
               Navigator.pop(postCtx);
+              if (onFinalized != null) onFinalized();
               _snack(l10n.t('consultationAdded'));
             },
             style: OutlinedButton.styleFrom(
@@ -447,9 +481,12 @@ class _PatientsScreenState extends State<PatientsScreen> {
           ),
           ElevatedButton.icon(
             onPressed: () {
-              Navigator.pop(postCtx);
               _showScheduleFromPatient(
-                  id, name, dossier, consultationReason, l10n);
+                  id, name, dossier, consultationReason, l10n,
+                  onSuccess: () {
+                if (postCtx.mounted) Navigator.pop(postCtx);
+                if (onFinalized != null) onFinalized();
+              });
             },
             icon: const Icon(Icons.calendar_month),
             label: Text(l10n.t('scheduleRdv')),
@@ -462,8 +499,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
           if (showCalendarButton)
             ElevatedButton.icon(
               onPressed: () {
-                Navigator.pop(postCtx);
-                Navigator.pushNamed(context, '/calendar');
+                _showCalendarSummaryDialog(l10n);
               },
               icon: const Icon(Icons.event_note_rounded),
               label: Text(l10n.t('calendarLabel')),
@@ -479,8 +515,54 @@ class _PatientsScreenState extends State<PatientsScreen> {
     );
   }
 
+  void _showCalendarSummaryDialog(AppLocalizations l10n) async {
+    setState(() => loading = true);
+    final waiting = await OdooApi.getWaitingRoom();
+    final count = waiting.length;
+    setState(() => loading = false);
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      builder: (summaryCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(l10n.t('todayOverview')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.event_note_rounded, size: 48, color: AppColors.primary),
+            const SizedBox(height: 16),
+            Text(l10n.t('todayConsults'), style: GoogleFonts.dmSans(fontWeight: FontWeight.w500)),
+            const SizedBox(height: 8),
+            Text("$count ${l10n.t('navPatients').toLowerCase()}", 
+              style: GoogleFonts.dmSans(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primary)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(summaryCtx),
+            child: Text(l10n.t('back')),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(summaryCtx);
+              Navigator.pushNamed(context, '/calendar');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text(l10n.t('viewCalendar')),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showScheduleFromPatient(int id, String name, String dossier,
-      String initialReason, AppLocalizations loc) {
+      String initialReason, AppLocalizations loc,
+      {VoidCallback? onSuccess}) {
     DateTime selectedDate = DateTime.now();
     TimeOfDay selectedTime = const TimeOfDay(hour: 9, minute: 0);
     final motifCtrl = TextEditingController(
@@ -543,7 +625,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(schedCtx),
-                child: Text(loc.t('cancel'))),
+                child: Text(loc.t('back'))),
             ElevatedButton(
               onPressed: () async {
                 final scheduledDateTime = DateTime(
@@ -571,6 +653,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
                 Navigator.pop(schedCtx);
                 if (res['success']) {
                   _snack(loc.t('appointmentPlanned'));
+                  if (onSuccess != null) onSuccess();
                 }
               },
               child: Text(loc.t('confirm')),

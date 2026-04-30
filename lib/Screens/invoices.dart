@@ -90,9 +90,11 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).t('invoiceCancelled'))));
       _loadInvoices();
     } else {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("${AppLocalizations.of(context).t('errorPrefix')} ${res['error']}")),
       );
+      }
     }
   }
 
