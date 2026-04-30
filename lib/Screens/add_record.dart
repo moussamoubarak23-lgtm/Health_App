@@ -31,6 +31,9 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
   String  selectedStatus    = 'draft';
   DateTime selectedDate     = DateTime.now();
   int     _uid              = 0;
+  // Validation error flags
+  bool _patientError = false;
+  bool _diagnosticError = false;
 
   @override
   void initState() { super.initState(); _init(); }
@@ -83,14 +86,26 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
 
   Future<void> _save(AppLocalizations l10n) async {
     setState(() { _error = null; _success = null; });
-    if (selectedPatientId == null) {
-      setState(() => _error = l10n.t('patientRequired')); return;
+    
+    // Validate required fields
+    final patientEmpty = selectedPatientId == null;
+    final diagEmpty = _diagnostic.text.trim().isEmpty;
+    
+    setState(() {
+      _patientError = patientEmpty;
+      _diagnosticError = diagEmpty;
+    });
+    
+    if (patientEmpty || diagEmpty) {
+      setState(() => _error = l10n.t('allFieldsRequired')); return;
     }
+
+    if (selectedStatus == 'draft') {
+      setState(() => _error = l10n.t('statusValidationHint')); return;
+    }
+    
     if (_uid == 0) {
       setState(() => _error = l10n.t('sessionExpired')); return;
-    }
-    if (_diagnostic.text.trim().isEmpty) {
-      setState(() => _error = l10n.t('diagnosticRequired')); return;
     }
 
     setState(() => _saving = true);
@@ -195,13 +210,13 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start, children: [
                       _sectionTitle(l10n.t('patientInfo'), Icons.person_rounded, AppColors.primary, AppColors.primaryLight, isRtl),
                       const SizedBox(height: 20),
-                      _fieldLabel(l10n.t('patientRequired2'), isRtl),
+                      _fieldLabel('${l10n.t('selectedPatient')} (*)', isRtl, hasError: _patientError),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<int>(
                         initialValue: selectedPatientId,
                         dropdownColor: AppColors.surface,
                         style: isRtl ? GoogleFonts.cairo(color: AppColors.textPrimary, fontSize: 14) : GoogleFonts.dmSans(color: AppColors.textPrimary, fontSize: 14),
-                        decoration: _inputDeco(l10n.t('selectPatient'), isRtl),
+                        decoration: _inputDeco(l10n.t('selectPatient'), isRtl, hasError: _patientError),
                         items: patients.map<DropdownMenuItem<int>>((p) => DropdownMenuItem(
                           value: p['id'] as int,
                           child: Text(p['name'].toString(), style: isRtl ? GoogleFonts.cairo(color: AppColors.textPrimary, fontSize: 14) : GoogleFonts.dmSans(color: AppColors.textPrimary, fontSize: 14)),
@@ -243,8 +258,18 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                         ),
                       ),
                       const SizedBox(height: 18),
-                      _fieldLabel(l10n.t('status'), isRtl),
+                      _fieldLabel('${l10n.t('status')} (*)', isRtl),
                       const SizedBox(height: 8),
+                      if (selectedStatus == 'draft')
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            l10n.t('statusValidationHint'),
+                            style: isRtl
+                                ? GoogleFonts.cairo(color: AppColors.yellow, fontSize: 10, fontWeight: FontWeight.w500)
+                                : GoogleFonts.dmSans(color: AppColors.yellow, fontSize: 10, fontWeight: FontWeight.w500),
+                          ),
+                        ),
                       DropdownButtonFormField<String>(
                         initialValue: selectedStatus,
                         dropdownColor: AppColors.surface,
@@ -273,9 +298,9 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start, children: [
                       _sectionTitle(l10n.t('medicalData'), Icons.medical_information_rounded, AppColors.red, AppColors.redLight, isRtl),
                       const SizedBox(height: 20),
-                      _fieldLabel(l10n.t('diagnosticLabel'), isRtl),
+                      _fieldLabel('${l10n.t('diagnosticLabel')} (*)', isRtl, hasError: _diagnosticError),
                       const SizedBox(height: 8),
-                      _textArea(_diagnostic, l10n.t('diagnosticHint'), 3, isRtl, accentColor: AppColors.primary),
+                      _textArea(_diagnostic, l10n.t('diagnosticHint'), 3, isRtl, accentColor: _diagnosticError ? AppColors.red : AppColors.primary),
                       const SizedBox(height: 18),
                       _fieldLabel(l10n.t('prescription'), isRtl),
                       const SizedBox(height: 8),
@@ -335,8 +360,14 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
   Widget _summaryTile(String label, String value, IconData icon, Color color, Color bg, bool isRtl) => Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)), child: Row(children: [Container(width: 36, height: 36, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)), child: Icon(icon, size: 18, color: color)), const SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: isRtl ? GoogleFonts.cairo(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w700) : GoogleFonts.dmSans(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w700)), const SizedBox(height: 2), Text(value, overflow: TextOverflow.ellipsis, style: isRtl ? GoogleFonts.cairo(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w700) : GoogleFonts.dmSans(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w700))]))]));
   Widget _guideStep(IconData icon, String text, Color color, Color bg, bool isRtl) => Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.2))), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 15, color: color), const SizedBox(width: 8), Text(text, style: isRtl ? GoogleFonts.cairo(color: color, fontSize: 12, fontWeight: FontWeight.w700) : GoogleFonts.dmSans(color: color, fontSize: 12, fontWeight: FontWeight.w700))]));
   Widget _sectionTitle(String title, IconData icon, Color color, Color bg, bool isRtl) => Row(children: [Container(width: 34, height: 34, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(9)), child: Icon(icon, size: 17, color: color)), const SizedBox(width: 10), Text(title, style: isRtl ? GoogleFonts.cairo(color: AppColors.textPrimary, fontWeight: FontWeight.w700, fontSize: 15) : GoogleFonts.plusJakartaSans(color: AppColors.textPrimary, fontWeight: FontWeight.w700, fontSize: 15))]);
-  Widget _fieldLabel(String text, bool isRtl) => Text(text, style: isRtl ? GoogleFonts.cairo(color: AppColors.textSecond, fontSize: 12, fontWeight: FontWeight.w600) : GoogleFonts.dmSans(color: AppColors.textSecond, fontSize: 12, fontWeight: FontWeight.w600));
-  InputDecoration _inputDeco(String hint, bool isRtl) => InputDecoration(hintText: hint, hintStyle: isRtl ? GoogleFonts.cairo(color: AppColors.textHint, fontSize: 14) : GoogleFonts.dmSans(color: AppColors.textHint, fontSize: 14), filled: true, fillColor: AppColors.inputFill, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 2)), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14));
+  Widget _fieldLabel(String text, bool isRtl, {bool hasError = false}) {
+    final color = hasError ? AppColors.red : (isRtl ? AppColors.textSecond : AppColors.textSecond);
+    return Text(text, style: isRtl ? GoogleFonts.cairo(color: color, fontSize: 12, fontWeight: FontWeight.w600) : GoogleFonts.dmSans(color: color, fontSize: 12, fontWeight: FontWeight.w600));
+  }
+  InputDecoration _inputDeco(String hint, bool isRtl, {bool hasError = false}) {
+    final borderColor = hasError ? AppColors.red : AppColors.border;
+    return InputDecoration(hintText: hint, hintStyle: isRtl ? GoogleFonts.cairo(color: AppColors.textHint, fontSize: 14) : GoogleFonts.dmSans(color: AppColors.textHint, fontSize: 14), filled: true, fillColor: AppColors.inputFill, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderColor)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: hasError ? AppColors.red : AppColors.primary, width: 2)), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14));
+  }
   Widget _textArea(TextEditingController ctrl, String hint, int lines, bool isRtl, {Color accentColor = AppColors.primary}) => TextField(controller: ctrl, maxLines: lines, textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr, style: isRtl ? GoogleFonts.cairo(color: AppColors.textPrimary, fontSize: 14) : GoogleFonts.dmSans(color: AppColors.textPrimary, fontSize: 14), decoration: InputDecoration(hintText: hint, hintStyle: isRtl ? GoogleFonts.cairo(color: AppColors.textHint, fontSize: 13) : GoogleFonts.dmSans(color: AppColors.textHint, fontSize: 13), filled: true, fillColor: AppColors.inputFill, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: accentColor, width: 2)), contentPadding: const EdgeInsets.all(14)));
   Widget _alertBox(String msg, bool isError, bool isRtl) => Container(padding: const EdgeInsets.all(13), decoration: BoxDecoration(color: isError ? AppColors.redLight : AppColors.greenLight, borderRadius: BorderRadius.circular(12), border: Border.all(color: (isError ? AppColors.red : AppColors.green).withOpacity(0.3))), child: Row(children: [Icon(isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded, color: isError ? AppColors.red : AppColors.green, size: 16), const SizedBox(width: 10), Expanded(child: Text(msg, style: isRtl ? GoogleFonts.cairo(color: isError ? AppColors.red : AppColors.green, fontSize: 13) : GoogleFonts.dmSans(color: isError ? AppColors.red : AppColors.green, fontSize: 13)))]));
   TextStyle _titleLg(bool r) => r ? GoogleFonts.cairo(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.textPrimary) : GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.textPrimary);

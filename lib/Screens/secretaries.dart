@@ -129,6 +129,12 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
     String? birthDate = secretary?['birth_date'] is String ? secretary!['birth_date'] : null;
     String? hireDate = secretary?['hire_date'] is String ? secretary!['hire_date'] : null;
     bool active = secretary?['active'] is bool ? secretary!['active'] : true;
+    bool firstNameError = false;
+    bool lastNameError = false;
+    bool emailError = false;
+    bool employeeIdError = false;
+    bool codeError = false;
+    bool birthDateError = false;
 
     showDialog(
       context: context,
@@ -153,9 +159,9 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                   _sectionHeader(l10n.t('personalInfo'), Icons.person_rounded),
                   const SizedBox(height: 16),
                   Row(children: [
-                    Expanded(child: _field("${l10n.t('firstName')} (*)", firstNameCtrl, Icons.person_outline)),
+                    Expanded(child: _field("${l10n.t('firstName')} (*)", firstNameCtrl, Icons.person_outline, hasError: firstNameError)),
                     const SizedBox(width: 16),
-                    Expanded(child: _field("${l10n.t('lastName')} (*)", lastNameCtrl, Icons.person_rounded)),
+                    Expanded(child: _field("${l10n.t('lastName')} (*)", lastNameCtrl, Icons.person_rounded, hasError: lastNameError)),
                   ]),
                   const SizedBox(height: 16),
                   Row(children: [
@@ -170,7 +176,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                       ]),
                     ])),
                     const SizedBox(width: 16),
-                    Expanded(child: _datePickerField("${l10n.t('birthDate')} (*)", birthDate, (d) => setDialogState(() => birthDate = d))),
+                    Expanded(child: _datePickerField("${l10n.t('birthDate')} (*)", birthDate, (d) => setDialogState(() => birthDate = d), hasError: birthDateError)),
                   ]),
                   
                   const SizedBox(height: 24),
@@ -179,7 +185,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                   Row(children: [
                     Expanded(child: _field(l10n.t('phone'), phoneCtrl, Icons.phone_rounded)),
                     const SizedBox(width: 16),
-                    Expanded(child: _field("${l10n.t('email')} (*)", emailCtrl, Icons.email_rounded)),
+                    Expanded(child: _field("${l10n.t('email')} (*)", emailCtrl, Icons.email_rounded, hasError: emailError)),
                   ]),
                   const SizedBox(height: 16),
                   Row(children: [
@@ -193,7 +199,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                   const SizedBox(height: 16),
                   Row(children: [
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text("${l10n.t('secretaryCode')} (*)", style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecond)),
+                      Text("${l10n.t('secretaryCode')} (*)", style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: codeError ? AppColors.red : AppColors.textSecond)),
                       const SizedBox(height: 8),
                       TextField(
                         controller: codeCtrl,
@@ -205,13 +211,13 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                             onPressed: () => setDialogState(() => codeCtrl.text = _generateRandomCode()),
                           ),
                           filled: true, fillColor: AppColors.inputFill,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: codeError ? AppColors.red : AppColors.border)),
                           counterText: '',
                         ),
                       ),
                     ])),
                     const SizedBox(width: 16),
-                    Expanded(child: _field("${l10n.t('employeeId')} (*)", employeeIdCtrl, Icons.assignment_ind_rounded)),
+                    Expanded(child: _field("${l10n.t('employeeId')} (*)", employeeIdCtrl, Icons.assignment_ind_rounded, hasError: employeeIdError)),
                   ]),
                   const SizedBox(height: 16),
                   Row(children: [
@@ -237,16 +243,32 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                     const SizedBox(width: 16),
                     ElevatedButton(
                       onPressed: () async {
-                        if (firstNameCtrl.text.isEmpty || 
-                            lastNameCtrl.text.isEmpty || 
-                            emailCtrl.text.isEmpty || 
-                            employeeIdCtrl.text.isEmpty || 
-                            codeCtrl.text.isEmpty || 
-                            birthDate == null || 
-                            birthDate!.isEmpty) {
+                        final fnEmpty = firstNameCtrl.text.isEmpty;
+                        final lnEmpty = lastNameCtrl.text.isEmpty;
+                        final emailEmpty = emailCtrl.text.isEmpty;
+                        final eidEmpty = employeeIdCtrl.text.isEmpty;
+                        final codeEmpty = codeCtrl.text.isEmpty;
+                        final bdEmpty = birthDate == null || birthDate!.isEmpty;
+                        if (fnEmpty || lnEmpty || emailEmpty || eidEmpty || codeEmpty || bdEmpty) {
+                          setDialogState(() {
+                            firstNameError = fnEmpty;
+                            lastNameError = lnEmpty;
+                            emailError = emailEmpty;
+                            employeeIdError = eidEmpty;
+                            codeError = codeEmpty;
+                            birthDateError = bdEmpty;
+                          });
                           _snack(l10n.t('allFieldsRequired'), isError: true);
                           return;
                         }
+                        setDialogState(() {
+                          firstNameError = false;
+                          lastNameError = false;
+                          emailError = false;
+                          employeeIdError = false;
+                          codeError = false;
+                          birthDateError = false;
+                        });
                         final vals = {
                           'first_name': firstNameCtrl.text.trim(),
                           'last_name': lastNameCtrl.text.trim(),
@@ -317,26 +339,32 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
     );
   }
 
-  Widget _field(String label, TextEditingController ctrl, IconData icon, {int maxLines = 1}) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecond)),
-    const SizedBox(height: 8),
-    TextField(
-      controller: ctrl, maxLines: maxLines,
-      decoration: InputDecoration(
-        prefixIcon: Icon(icon, size: 18, color: AppColors.primary),
-        filled: true, fillColor: AppColors.inputFill,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      ),
-    ),
-  ]);
-
-  Widget _datePickerField(String label, String? value, Function(String) onSelected) {
-    final l10n = AppLocalizations.of(context);
+  Widget _field(String label, TextEditingController ctrl, IconData icon, {int maxLines = 1, bool? hasError}) {
+    final borderColor = hasError == true ? AppColors.red : AppColors.border;
+    final labelColor = hasError == true ? AppColors.red : AppColors.textSecond;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecond)),
+      Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: labelColor)),
+      const SizedBox(height: 8),
+      TextField(
+        controller: ctrl, maxLines: maxLines,
+        decoration: InputDecoration(
+          prefixIcon: Icon(icon, size: 18, color: AppColors.primary),
+          filled: true, fillColor: AppColors.inputFill,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderColor)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _datePickerField(String label, String? value, Function(String) onSelected, {bool? hasError}) {
+    final l10n = AppLocalizations.of(context);
+    final borderColor = hasError == true ? AppColors.red : AppColors.border;
+    final labelColor = hasError == true ? AppColors.red : AppColors.textSecond;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: labelColor)),
       const SizedBox(height: 8),
       InkWell(
         onTap: () async {
@@ -350,7 +378,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(color: AppColors.inputFill, border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(color: AppColors.inputFill, border: Border.all(color: borderColor), borderRadius: BorderRadius.circular(12)),
           child: Row(children: [
             const Icon(Icons.calendar_today_rounded, size: 18, color: AppColors.primary),
             const SizedBox(width: 12),

@@ -868,15 +868,50 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     final diagCtrl = TextEditingController(text: _s(record['diagnostic']));
     final presCtrl = TextEditingController(text: _s(record['prescription']));
     final infoObsCtrl = TextEditingController(text: _s(record['observations']));
+    bool fileNumError = false;
+    bool diagError = false;
+    bool presError = false;
+    bool obsError = false;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(loc.t('confirmConsultation'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
-        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [TextField(controller: fileNumCtrl, decoration: InputDecoration(labelText: loc.t('consultRecordNumber'))), TextField(controller: diagCtrl, decoration: InputDecoration(labelText: loc.t('diagnosticLabel'))), TextField(controller: presCtrl, decoration: InputDecoration(labelText: loc.t('prescription')), maxLines: 2), TextField(controller: infoObsCtrl, decoration: InputDecoration(labelText: loc.t('observations')), maxLines: 2)])),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.t('cancel'))), ElevatedButton(onPressed: () async {
-          final navigator = Navigator.of(context);
-          final newDossier = fileNumCtrl.text.trim();
-          final res = await OdooApi.updateMedicalRecord(recordId: record['id'], motif: _s(record['motif']), diagnostic: diagCtrl.text, prescription: presCtrl.text, observations: infoObsCtrl.text, state: 'confirmed', medicalFileNumber: newDossier);
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text(loc.t('confirmConsultation'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            _buildRequiredField(ctx, setDialogState, loc.t('consultRecordNumber'), fileNumCtrl, Icons.folder_shared, fileNumError),
+            const SizedBox(height: 12),
+            _buildRequiredField(ctx, setDialogState, loc.t('diagnosticLabel'), diagCtrl, Icons.medical_information, diagError),
+            const SizedBox(height: 12),
+            _buildRequiredField(ctx, setDialogState, loc.t('prescription'), presCtrl, Icons.medication, presError, maxLines: 2),
+            const SizedBox(height: 12),
+            _buildRequiredField(ctx, setDialogState, loc.t('observations'), infoObsCtrl, Icons.notes, obsError, maxLines: 2),
+          ])),
+          actions: [TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(loc.t('cancel'))), ElevatedButton(onPressed: () async {
+            // Validate required fields
+            final fnEmpty = fileNumCtrl.text.trim().isEmpty;
+            final dgEmpty = diagCtrl.text.trim().isEmpty;
+            final prEmpty = presCtrl.text.trim().isEmpty;
+            final obEmpty = infoObsCtrl.text.trim().isEmpty;
+
+            setDialogState(() {
+              fileNumError = fnEmpty;
+              diagError = dgEmpty;
+              presError = prEmpty;
+              obsError = obEmpty;
+            });
+
+            if (fnEmpty || dgEmpty || prEmpty || obEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(loc.t('allFieldsRequired')),
+                backgroundColor: AppColors.red,
+              ));
+              return;
+            }
+
+            final navigator = Navigator.of(dialogCtx);
+            final newDossier = fileNumCtrl.text.trim();
+            final res = await OdooApi.updateMedicalRecord(recordId: record['id'], motif: _s(record['motif']), diagnostic: diagCtrl.text.trim(), prescription: presCtrl.text.trim(), observations: infoObsCtrl.text.trim(), state: 'confirmed', medicalFileNumber: newDossier);
 
           if (newDossier.isNotEmpty && newDossier != _s(currentPatient['medical_file_number'])) {
             await OdooApi.updatePatient(
@@ -895,12 +930,35 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
             });
           }
 
-          if (!mounted) return;
+          if (!dialogCtx.mounted) return;
           if (navigator.canPop()) navigator.pop();
           if (res['success']) _loadData();
         }, style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white), child: Text(loc.t('validateAndConfirm')))],
+        ),
       ),
     );
+  }
+
+  Widget _buildRequiredField(BuildContext ctx, Function(VoidCallback) setDialogState, String label, TextEditingController ctrl, IconData icon, bool hasError, {int maxLines = 1}) {
+    final borderColor = hasError ? AppColors.red : AppColors.border;
+    final labelColor = hasError ? AppColors.red : AppColors.textSecond;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('$label (*)', style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: labelColor)),
+      const SizedBox(height: 6),
+      TextField(
+        controller: ctrl,
+        maxLines: maxLines,
+        decoration: InputDecoration(
+          prefixIcon: Icon(icon, size: 18, color: AppColors.primary),
+          filled: true,
+          fillColor: AppColors.inputFill,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: borderColor)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: hasError ? AppColors.red : AppColors.primary, width: 2)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        ),
+      ),
+    ]);
   }
 
   void _showQuickActions(AppLocalizations loc) {

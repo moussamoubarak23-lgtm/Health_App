@@ -126,6 +126,10 @@ class _NursesScreenState extends State<NursesScreen> {
     String specialization = _s(nurse?['specialization']).isEmpty ? 'generaliste' : _s(nurse?['specialization']);
     String? expiryDate = _s(nurse?['license_expiry_date']).isEmpty ? null : _s(nurse?['license_expiry_date']);
     bool active = nurse?['active'] is bool ? nurse!['active'] : true;
+    bool nameError = false;
+    bool emailError = false;
+    bool licenseError = false;
+    bool expiryDateError = false;
 
     showDialog(
       context: context,
@@ -150,7 +154,7 @@ class _NursesScreenState extends State<NursesScreen> {
                   _sectionHeader(l10n.t('personalInfo'), Icons.person_rounded),
                   const SizedBox(height: 16),
                   Row(children: [
-                    Expanded(child: _field("${l10n.t('fullName')} (*)", nameCtrl, Icons.person_rounded)),
+                    Expanded(child: _field("${l10n.t('fullName')} (*)", nameCtrl, Icons.person_rounded, hasError: nameError)),
                     const SizedBox(width: 16),
                     Expanded(child: _field(l10n.t('age'), ageCtrl, Icons.cake_rounded)),
                   ]),
@@ -167,14 +171,14 @@ class _NursesScreenState extends State<NursesScreen> {
                       ]),
                     ])),
                     const SizedBox(width: 16),
-                    Expanded(child: _datePickerField("${l10n.t('licenseExpiry')} (*)", expiryDate, (d) => setDialogState(() => expiryDate = d))),
+                    Expanded(child: _datePickerField("${l10n.t('licenseExpiry')} (*)", expiryDate, (d) => setDialogState(() => expiryDate = d), hasError: expiryDateError)),
                   ]),
 
                   const SizedBox(height: 24),
                   _sectionHeader(l10n.t('contactIdentity'), Icons.contact_phone_rounded),
                   const SizedBox(height: 16),
                   Row(children: [
-                    Expanded(child: _field("${l10n.t('email')} (*)", emailCtrl, Icons.email_rounded)),
+                    Expanded(child: _field("${l10n.t('email')} (*)", emailCtrl, Icons.email_rounded, hasError: emailError)),
                     const SizedBox(width: 16),
                     Expanded(child: _field(l10n.t('phone'), phoneCtrl, Icons.phone_rounded)),
                   ]),
@@ -184,7 +188,7 @@ class _NursesScreenState extends State<NursesScreen> {
                   const SizedBox(height: 16),
                   Row(children: [
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text("${l10n.t('licenseNumber')} (*)", style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecond)),
+                      Text("${l10n.t('licenseNumber')} (*)", style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: licenseError ? AppColors.red : AppColors.textSecond)),
                       const SizedBox(height: 8),
                       TextField(
                         controller: licenseCtrl,
@@ -196,7 +200,7 @@ class _NursesScreenState extends State<NursesScreen> {
                             onPressed: () => setDialogState(() => licenseCtrl.text = _generateRandomLicense()),
                           ),
                           filled: true, fillColor: AppColors.inputFill,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: licenseError ? AppColors.red : AppColors.border)),
                           counterText: '',
                         ),
                       ),
@@ -246,14 +250,26 @@ class _NursesScreenState extends State<NursesScreen> {
                     const SizedBox(width: 16),
                     ElevatedButton(
                       onPressed: () async {
-                        if (nameCtrl.text.isEmpty || 
-                            emailCtrl.text.isEmpty || 
-                            licenseCtrl.text.isEmpty || 
-                            expiryDate == null || 
-                            expiryDate!.isEmpty) {
+                        final nameEmpty = nameCtrl.text.isEmpty;
+                        final emailEmpty = emailCtrl.text.isEmpty;
+                        final licenseEmpty = licenseCtrl.text.isEmpty;
+                        final edEmpty = expiryDate == null || expiryDate!.isEmpty;
+                        if (nameEmpty || emailEmpty || licenseEmpty || edEmpty) {
+                          setDialogState(() {
+                            nameError = nameEmpty;
+                            emailError = emailEmpty;
+                            licenseError = licenseEmpty;
+                            expiryDateError = edEmpty;
+                          });
                           _snack(l10n.t('allFieldsRequired'), isError: true);
                           return;
                         }
+                        setDialogState(() {
+                          nameError = false;
+                          emailError = false;
+                          licenseError = false;
+                          expiryDateError = false;
+                        });
                         final vals = {
                           'name': nameCtrl.text.trim(),
                           'age': int.tryParse(ageCtrl.text.trim()),
@@ -319,26 +335,32 @@ class _NursesScreenState extends State<NursesScreen> {
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
       );
 
-  Widget _field(String label, TextEditingController ctrl, IconData icon, {int maxLines = 1}) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecond)),
-    const SizedBox(height: 8),
-    TextField(
-      controller: ctrl, maxLines: maxLines,
-      decoration: InputDecoration(
-        prefixIcon: Icon(icon, size: 18, color: AppColors.primary),
-        filled: true, fillColor: AppColors.inputFill,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      ),
-    ),
-  ]);
-
-  Widget _datePickerField(String label, String? value, Function(String) onSelected) {
-    final l10n = AppLocalizations.of(context);
+  Widget _field(String label, TextEditingController ctrl, IconData icon, {int maxLines = 1, bool? hasError}) {
+    final borderColor = hasError == true ? AppColors.red : AppColors.border;
+    final labelColor = hasError == true ? AppColors.red : AppColors.textSecond;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecond)),
+      Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: labelColor)),
+      const SizedBox(height: 8),
+      TextField(
+        controller: ctrl, maxLines: maxLines,
+        decoration: InputDecoration(
+          prefixIcon: Icon(icon, size: 18, color: AppColors.primary),
+          filled: true, fillColor: AppColors.inputFill,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderColor)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _datePickerField(String label, String? value, Function(String) onSelected, {bool? hasError}) {
+    final l10n = AppLocalizations.of(context);
+    final borderColor = hasError == true ? AppColors.red : AppColors.border;
+    final labelColor = hasError == true ? AppColors.red : AppColors.textSecond;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: labelColor)),
       const SizedBox(height: 8),
       InkWell(
         onTap: () async {
@@ -352,7 +374,7 @@ class _NursesScreenState extends State<NursesScreen> {
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(color: AppColors.inputFill, border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(color: AppColors.inputFill, border: Border.all(color: borderColor), borderRadius: BorderRadius.circular(12)),
           child: Row(children: [
             const Icon(Icons.calendar_today_rounded, size: 18, color: AppColors.primary),
             const SizedBox(width: 12),

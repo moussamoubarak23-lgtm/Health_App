@@ -250,6 +250,13 @@ class _RecordsScreenState extends State<RecordsScreen> {
       {'value': 'invoiced',  'label': l10n.t('statusInvoiced')},
     ];
 
+    bool fileNumError = false;
+    bool motifError = false;
+    bool diagError = false;
+    bool prescrError = false;
+    bool obsError = false;
+    bool statusError = false;
+
     showDialog(
       context: context,
       builder: (_) => StatefulBuilder(
@@ -281,11 +288,30 @@ class _RecordsScreenState extends State<RecordsScreen> {
                     Icons.folder_shared_rounded,
                     isRtl,
                     requiredField: true,
+                    hasError: fileNumError,
                   ),
                   const SizedBox(height: 12),
 
-                  Text(l10n.t('status'), style: _labelStyle(isRtl)),
+                  Text('${l10n.t('status')} (*)', style: TextStyle(
+                    color: statusError ? AppColors.red : (isRtl ? AppColors.textSecond : AppColors.textSecond),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: isRtl ? 'Cairo' : 'DMSans',
+                  )),
                   const SizedBox(height: 6),
+                  if (selState == 'draft')
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        l10n.t('statusValidationHint'),
+                        style: TextStyle(
+                          color: AppColors.yellow,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: isRtl ? 'Cairo' : 'DMSans',
+                        ),
+                      ),
+                    ),
                   DropdownButtonFormField<String>(
                     initialValue: selState,
                     dropdownColor: AppColors.surface,
@@ -296,7 +322,9 @@ class _RecordsScreenState extends State<RecordsScreen> {
                       filled: true, fillColor: AppColors.inputFill,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: AppColors.border)),
+                          borderSide: BorderSide(color: statusError ? AppColors.red : AppColors.border)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: statusError ? AppColors.red : AppColors.primary, width: 2)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     ),
                     items: statusOpts.map((s) => DropdownMenuItem(
@@ -320,18 +348,18 @@ class _RecordsScreenState extends State<RecordsScreen> {
                   const SizedBox(height: 14),
 
                   _dlgField(l10n.t('reason'), motifCtrl, Icons.info_rounded, isRtl,
-                      maxLines: 2, requiredField: true),
+                      maxLines: 2, requiredField: true, hasError: motifError),
                   const SizedBox(height: 12),
                   _dlgField(l10n.t('diagnostic'), diagnosticCtrl,
                       Icons.medical_information_rounded, isRtl,
-                      maxLines: 3, requiredField: true),
+                      maxLines: 3, requiredField: true, hasError: diagError),
                   const SizedBox(height: 12),
                   _dlgField(l10n.t('prescription'), prescriptionCtrl,
                       Icons.medication_rounded, isRtl,
-                      maxLines: 3, requiredField: true),
+                      maxLines: 3, requiredField: true, hasError: prescrError),
                   const SizedBox(height: 12),
                   _dlgField(l10n.t('observations'), observationsCtrl, Icons.notes_rounded,
-                      isRtl, maxLines: 3, requiredField: true),
+                      isRtl, maxLines: 3, requiredField: true, hasError: obsError),
                   const SizedBox(height: 24),
 
                   Row(mainAxisAlignment: MainAxisAlignment.end, children: [
@@ -348,32 +376,38 @@ class _RecordsScreenState extends State<RecordsScreen> {
                     const SizedBox(width: 12),
                     ElevatedButton.icon(
                       onPressed: () async {
-                        final wantsValidation =
-                            selState == 'confirmed' || selState == 'validated' || selState == 'invoiced';
-                        final missingFields = <String>[];
-                        if (fileNumCtrl.text.trim().isEmpty) {
-                          missingFields.add(l10n.t('medicalFileNumber'));
-                        }
-                        if (motifCtrl.text.trim().isEmpty) {
-                          missingFields.add(l10n.t('reason'));
-                        }
-                        if (diagnosticCtrl.text.trim().isEmpty) {
-                          missingFields.add(l10n.t('diagnostic'));
-                        }
-                        if (prescriptionCtrl.text.trim().isEmpty) {
-                          missingFields.add(l10n.t('prescription'));
-                        }
-                        if (observationsCtrl.text.trim().isEmpty) {
-                          missingFields.add(l10n.t('observations'));
-                        }
+                        // Validate all required fields
+                        final fnEmpty = fileNumCtrl.text.trim().isEmpty;
+                        final mtEmpty = motifCtrl.text.trim().isEmpty;
+                        final dgEmpty = diagnosticCtrl.text.trim().isEmpty;
+                        final prEmpty = prescriptionCtrl.text.trim().isEmpty;
+                        final obEmpty = observationsCtrl.text.trim().isEmpty;
 
-                        if (wantsValidation && missingFields.isNotEmpty) {
-                          _snack(l10n.t(
-                            'fillRequiredBeforeValidation',
-                            args: {'fields': missingFields.join(', ')},
-                          ), isError: true);
+                        setD(() {
+                          fileNumError = fnEmpty;
+                          motifError = mtEmpty;
+                          diagError = dgEmpty;
+                          prescrError = prEmpty;
+                          obsError = obEmpty;
+                        });
+
+                        if (fnEmpty || mtEmpty || dgEmpty || prEmpty || obEmpty) {
+                          _snack(l10n.t('allFieldsRequired'), isError: true);
                           return;
                         }
+
+                        if (selState == 'draft') {
+                          _snack(l10n.t('statusValidationHint'), isError: true);
+                          return;
+                        }
+
+                        setD(() {
+                          fileNumError = false;
+                          motifError = false;
+                          diagError = false;
+                          prescrError = false;
+                          obsError = false;
+                        });
 
                         final result = await OdooApi.updateMedicalRecord(
                           recordId: r['id'],
@@ -785,22 +819,29 @@ class _RecordsScreenState extends State<RecordsScreen> {
   }
 
   Widget _dlgField(String label, TextEditingController ctrl, IconData icon,
-      bool isRtl, {int maxLines = 1, bool requiredField = false}) =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        RichText(
-          text: TextSpan(
-            text: label,
-            style: _labelStyle(isRtl),
-            children: requiredField
-                ? const [
-                    TextSpan(
-                      text: ' *',
-                      style: TextStyle(color: AppColors.red),
-                    )
-                  ]
-                : const [],
+      bool isRtl, {int maxLines = 1, bool requiredField = false, bool hasError = false}) {
+    final labelColor = hasError ? AppColors.red : (isRtl ? AppColors.textSecond : AppColors.textSecond);
+    final borderColor = hasError ? AppColors.red : AppColors.border;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      RichText(
+        text: TextSpan(
+          text: label,
+          style: TextStyle(
+            color: labelColor,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            fontFamily: isRtl ? 'Cairo' : 'DMSans',
           ),
+          children: requiredField
+              ? const [
+                  TextSpan(
+                    text: ' *',
+                    style: TextStyle(color: AppColors.red),
+                  )
+                ]
+              : const [],
         ),
+      ),
         const SizedBox(height: 6),
         TextField(
           controller: ctrl, maxLines: maxLines,
@@ -813,13 +854,14 @@ class _RecordsScreenState extends State<RecordsScreen> {
             filled: true, fillColor: AppColors.inputFill,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.border)),
+                borderSide: BorderSide(color: borderColor)),
             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.primary, width: 2)),
+                borderSide: BorderSide(color: hasError ? AppColors.red : AppColors.primary, width: 2)),
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           ),
         ),
       ]);
+  }
 
   TextStyle _titleLg(bool r) => r
       ? GoogleFonts.cairo(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.textPrimary)

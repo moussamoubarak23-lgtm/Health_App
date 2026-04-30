@@ -181,6 +181,11 @@ class _PatientsScreenState extends State<PatientsScreen> {
     String couverture = 'Sans';
     String nationalite = 'Marocaine';
     int? createdId;
+    bool nomError = false;
+    bool prenomError = false;
+    bool ageError = false;
+    bool sexeError = false;
+    bool nationaliteError = false;
 
     showDialog(
       context: context,
@@ -219,18 +224,18 @@ class _PatientsScreenState extends State<PatientsScreen> {
                       Row(children: [
                         Expanded(
                             child: _field("${l10n.t('lastName')} (*)", nomCtrl,
-                                Icons.person_rounded)),
+                                Icons.person_rounded, hasError: nomError)),
                         const SizedBox(width: 16),
                         Expanded(
                             child: _field("${l10n.t('firstName')} (*)",
-                                prenomCtrl, Icons.person_outline_rounded)),
+                                prenomCtrl, Icons.person_outline_rounded, hasError: prenomError)),
                       ]),
                       const SizedBox(height: 16),
                       Row(children: [
                         Expanded(
                             child: _field("${l10n.t('age')} (*)", ageCtrl,
                                 Icons.cake_rounded,
-                                inputType: TextInputType.number)),
+                                inputType: TextInputType.number, hasError: ageError)),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Column(
@@ -240,7 +245,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
                                     style: GoogleFonts.dmSans(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
-                                        color: AppColors.textMuted)),
+                                        color: sexeError ? AppColors.red : AppColors.textMuted)),
                                 Row(children: [
                                   Radio<String>(
                                       value: 'H',
@@ -289,7 +294,11 @@ class _PatientsScreenState extends State<PatientsScreen> {
                             child: _dropdownSearch(
                                 "${l10n.t('nationality')} (*)",
                                 nationalite,
-                                (v) => setDialogState(() => nationalite = v))),
+                                (v) => setDialogState(() {
+                                  nationalite = v;
+                                  nationaliteError = false;
+                                }),
+                                hasError: nationaliteError)),
                       ]),
                       const SizedBox(height: 16),
                       _dropdown(
@@ -310,13 +319,27 @@ class _PatientsScreenState extends State<PatientsScreen> {
                         const SizedBox(width: 16),
                         ElevatedButton(
                           onPressed: () async {
-                            if (nomCtrl.text.trim().isEmpty ||
-                                prenomCtrl.text.trim().isEmpty ||
-                                ageCtrl.text.trim().isEmpty) {
+                            final nomEmpty = nomCtrl.text.trim().isEmpty;
+                            final prenomEmpty = prenomCtrl.text.trim().isEmpty;
+                            final ageEmpty = ageCtrl.text.trim().isEmpty;
+                            if (nomEmpty || prenomEmpty || ageEmpty) {
+                              setDialogState(() {
+                                nomError = nomEmpty;
+                                prenomError = prenomEmpty;
+                                ageError = ageEmpty;
+                              });
                               _snack(l10n.t('allFieldsRequired'),
                                   isError: true);
                               return;
                             }
+                            // Reset errors on success path
+                            setDialogState(() {
+                              nomError = false;
+                              prenomError = false;
+                              ageError = false;
+                              sexeError = false;
+                              nationaliteError = false;
+                            });
                             final fullName =
                                 "${nomCtrl.text.trim()} ${prenomCtrl.text.trim()}";
                             
@@ -680,6 +703,9 @@ class _PatientsScreenState extends State<PatientsScreen> {
 
     String sexe = 'H';
     String nationalite = 'Marocaine';
+    bool nomError = false;
+    bool prenomError = false;
+    bool ageError = false;
 
     final comment = _s(p['comment']);
     if (comment.contains('Sexe: F')) sexe = 'F';
@@ -724,18 +750,18 @@ class _PatientsScreenState extends State<PatientsScreen> {
                       Row(children: [
                         Expanded(
                             child: _field("${l10n.t('lastName')} (*)", nomCtrl,
-                                Icons.person_rounded)),
+                                Icons.person_rounded, hasError: nomError)),
                         const SizedBox(width: 16),
                         Expanded(
                             child: _field("${l10n.t('firstName')} (*)",
-                                prenomCtrl, Icons.person_outline_rounded)),
+                                prenomCtrl, Icons.person_outline_rounded, hasError: prenomError)),
                       ]),
                       const SizedBox(height: 16),
                       Row(children: [
                         Expanded(
                             child: _field("${l10n.t('age')} (*)", ageCtrl,
                                 Icons.cake_rounded,
-                                inputType: TextInputType.number)),
+                                inputType: TextInputType.number, hasError: ageError)),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Column(
@@ -800,13 +826,24 @@ class _PatientsScreenState extends State<PatientsScreen> {
                         const SizedBox(width: 16),
                         ElevatedButton(
                           onPressed: () async {
-                            if (nomCtrl.text.trim().isEmpty ||
-                                prenomCtrl.text.trim().isEmpty ||
-                                ageCtrl.text.trim().isEmpty) {
+                            final nomEmpty = nomCtrl.text.trim().isEmpty;
+                            final prenomEmpty = prenomCtrl.text.trim().isEmpty;
+                            final ageEmpty = ageCtrl.text.trim().isEmpty;
+                            if (nomEmpty || prenomEmpty || ageEmpty) {
+                              setDialogState(() {
+                                nomError = nomEmpty;
+                                prenomError = prenomEmpty;
+                                ageError = ageEmpty;
+                              });
                               _snack(l10n.t('allFieldsRequired'),
                                   isError: true);
                               return;
                             }
+                            setDialogState(() {
+                              nomError = false;
+                              prenomError = false;
+                              ageError = false;
+                            });
                             final fullName =
                                 "${nomCtrl.text.trim()} ${prenomCtrl.text.trim()}";
                             final pid = p['id'] is int
@@ -866,39 +903,42 @@ class _PatientsScreenState extends State<PatientsScreen> {
   }
 
   Widget _field(String label, TextEditingController ctrl, IconData icon,
-          {TextInputType inputType = TextInputType.text, String? hintText}) =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label,
-            style: GoogleFonts.dmSans(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecond)),
-        const SizedBox(height: 8),
-        TextField(
-          controller: ctrl,
-          keyboardType: inputType,
-          decoration: InputDecoration(
-            hintText: hintText,
-            hintStyle:
-                GoogleFonts.dmSans(color: AppColors.textHint, fontSize: 12),
-            prefixIcon: Icon(icon, size: 18, color: AppColors.primary),
-            filled: true,
-            fillColor: AppColors.inputFill,
-            border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.border)),
-            enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.border)),
-            focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide:
-                    const BorderSide(color: AppColors.primary, width: 2)),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          ),
+          {TextInputType inputType = TextInputType.text, String? hintText, bool? hasError}) {
+    final borderColor = hasError == true ? AppColors.red : AppColors.border;
+    final labelColor = hasError == true ? AppColors.red : AppColors.textSecond;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label,
+          style: GoogleFonts.dmSans(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: labelColor)),
+      const SizedBox(height: 8),
+      TextField(
+        controller: ctrl,
+        keyboardType: inputType,
+        decoration: InputDecoration(
+          hintText: hintText,
+          hintStyle:
+              GoogleFonts.dmSans(color: AppColors.textHint, fontSize: 12),
+          prefixIcon: Icon(icon, size: 18, color: AppColors.primary),
+          filled: true,
+          fillColor: AppColors.inputFill,
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.border)),
+          enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: borderColor)),
+          focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide:
+                  const BorderSide(color: AppColors.primary, width: 2)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
-      ]);
+      ),
+    ]);
+  }
 
   Widget _dropdown(String label, String value, List<String> items,
           Function(String?) onChanged) =>
@@ -927,35 +967,38 @@ class _PatientsScreenState extends State<PatientsScreen> {
       ]);
 
   Widget _dropdownSearch(
-          String label, String current, Function(String) onSelected) =>
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: GoogleFonts.dmSans(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecond)),
-          const SizedBox(height: 8),
-          InkWell(
-            onTap: () => _showNationalityPicker(onSelected),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                  color: AppColors.inputFill,
-                  border: Border.all(color: AppColors.border),
-                  borderRadius: BorderRadius.circular(12)),
-              child: Row(children: [
-                const Icon(Icons.public_rounded,
-                    size: 18, color: AppColors.primary),
-                const SizedBox(width: 12),
-                Expanded(child: Text(current, style: GoogleFonts.dmSans())),
-                const Icon(Icons.arrow_drop_down, color: AppColors.textMuted),
-              ]),
-            ),
+          String label, String current, Function(String) onSelected, {bool? hasError}) {
+    final borderColor = hasError == true ? AppColors.red : AppColors.border;
+    final labelColor = hasError == true ? AppColors.red : AppColors.textSecond;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: GoogleFonts.dmSans(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: labelColor)),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: () => _showNationalityPicker(onSelected),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+                color: AppColors.inputFill,
+                border: Border.all(color: borderColor),
+                borderRadius: BorderRadius.circular(12)),
+            child: Row(children: [
+              const Icon(Icons.public_rounded,
+                  size: 18, color: AppColors.primary),
+              const SizedBox(width: 12),
+              Expanded(child: Text(current, style: GoogleFonts.dmSans())),
+              const Icon(Icons.arrow_drop_down, color: AppColors.textMuted),
+            ]),
           ),
-        ],
-      );
+        ),
+      ],
+    );
+  }
 
   void _showNationalityPicker(Function(String) onSelected) {
     String query = "";

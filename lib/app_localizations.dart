@@ -262,6 +262,7 @@ class AppLocalizations {
     'accountCreated':     {'fr': 'Compte créé avec succès ! Vous pouvez vous connecter.',
                            'ar': 'تم إنشاء الحساب بنجاح! يمكنك تسجيل الدخول الآن.'},
     'allFieldsRequired':  {'fr': 'Veuillez inscrire tous les champs obligatoire (*)', 'ar': 'يرجى ملء جميع الحقول المطلوبة (*)'},
+    'statusValidationHint': {'fr': "Indiquez 'Validé' pour enregistrer", 'ar': 'حدد "مؤكد" للحفظ'},
     'passwordMismatch':   {'fr': 'Les mots de passe ne correspondent pas', 'ar': 'كلمتا المرور غير متطابقتين'},
     'roleDoctor':         {'fr': 'Médecin',                          'ar': 'طبيب'},
     'roleSecretary':      {'fr': 'Secrétaire',                       'ar': 'سكرتير(ة)'},
