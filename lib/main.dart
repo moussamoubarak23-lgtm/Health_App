@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:medical_app/Screens/login.dart';
 import 'package:medical_app/Screens/dashboard.dart';
 import 'package:medical_app/Screens/dashboard_secretaire.dart';
@@ -27,6 +28,30 @@ void main() {
     statusBarIconBrightness: Brightness.dark,
   ));
   runApp(const MedicalApp());
+}
+
+// ─── AUTHENTICATION GUARD ───────────────────────────────────────────────────
+// Routes that require authentication
+const List<String> _protectedRoutes = [
+  '/dashboard',
+  '/dashboard_secretaire',
+  '/patients',
+  '/secretaries',
+  '/nurses',
+  '/records',
+  '/add_record',
+  '/invoices',
+  '/settings',
+  '/calendar',
+  '/account',
+];
+
+// Routes that should redirect to login if user is not authenticated
+Widget _buildProtectedRoute(BuildContext context, String routeName, WidgetBuilder builder) {
+  return _AuthCheckRoute(
+    routeName: routeName,
+    builder: builder,
+  );
 }
 
 class MedicalApp extends StatelessWidget {
@@ -69,22 +94,110 @@ class MedicalApp extends StatelessWidget {
             home: const SplashScreen(),
             routes: {
               '/login':                (_) => const LoginScreen(),
-              '/dashboard':            (_) => const DashboardScreen(),
-              '/dashboard_secretaire': (_) => const DashboardSecretaireScreen(),
-              '/patients':             (_) => const PatientsScreen(),
-              '/secretaries':          (_) => const SecretariesScreen(),
-              '/nurses':               (_) => const NursesScreen(),
-              '/records':              (_) => const RecordsScreen(),
-              '/add_record':           (_) => const AddRecordScreen(),
-              '/invoices':             (_) => const InvoicesScreen(),
-              '/settings':             (_) => const SettingsScreen(),
-              '/calendar':             (_) => const AppointmentsCalendarScreen(),
-              '/account':              (_) => const AccountScreen(),
+              '/dashboard':            (ctx) => _buildProtectedRoute(ctx, '/dashboard', (_) => const DashboardScreen()),
+              '/dashboard_secretaire': (ctx) => _buildProtectedRoute(ctx, '/dashboard_secretaire', (_) => const DashboardSecretaireScreen()),
+              '/patients':             (ctx) => _buildProtectedRoute(ctx, '/patients', (_) => const PatientsScreen()),
+              '/secretaries':          (ctx) => _buildProtectedRoute(ctx, '/secretaries', (_) => const SecretariesScreen()),
+              '/nurses':               (ctx) => _buildProtectedRoute(ctx, '/nurses', (_) => const NursesScreen()),
+              '/records':              (ctx) => _buildProtectedRoute(ctx, '/records', (_) => const RecordsScreen()),
+              '/add_record':           (ctx) => _buildProtectedRoute(ctx, '/add_record', (_) => const AddRecordScreen()),
+              '/invoices':             (ctx) => _buildProtectedRoute(ctx, '/invoices', (_) => const InvoicesScreen()),
+              '/settings':             (ctx) => _buildProtectedRoute(ctx, '/settings', (_) => const SettingsScreen()),
+              '/calendar':             (ctx) => _buildProtectedRoute(ctx, '/calendar', (_) => const AppointmentsCalendarScreen()),
+              '/account':              (ctx) => _buildProtectedRoute(ctx, '/account', (_) => const AccountScreen()),
+            },
+            onGenerateRoute: (settings) {
+              // Handle unknown routes - redirect to login
+              if (settings.name != null && _protectedRoutes.contains(settings.name)) {
+                return MaterialPageRoute(
+                  builder: (_) => _AuthCheckRoute(
+                    routeName: settings.name!,
+                    builder: (ctx) => const Scaffold(body: Center(child: CircularProgressIndicator())),
+                  ),
+                );
+              }
+              return null;
             },
           );
         },
       ),
     );
+  }
+}
+
+// ─── AUTH CHECK WIDGET ──────────────────────────────────────────────────────
+/// This widget checks if the user is authenticated before showing protected routes.
+/// If not authenticated, it redirects to the login screen.
+class _AuthCheckRoute extends StatefulWidget {
+  final String routeName;
+  final WidgetBuilder builder;
+
+  const _AuthCheckRoute({
+    required this.routeName,
+    required this.builder,
+  });
+
+  @override
+  State<_AuthCheckRoute> createState() => _AuthCheckRouteState();
+}
+
+class _AuthCheckRouteState extends State<_AuthCheckRoute> {
+  bool? _isAuthenticated;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAuth();
+  }
+
+  Future<void> _checkAuth() async {
+    // Small delay to prevent flickering
+    await Future.delayed(const Duration(milliseconds: 100));
+    
+    if (!mounted) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getInt('uid');
+    final userRole = prefs.getString('user_role');
+    
+    // Check if user has valid session (uid must be set and > 0)
+    final isAuthenticated = uid != null && uid > 0 && userRole != null;
+    
+    setState(() {
+      _isAuthenticated = isAuthenticated;
+      _isLoading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Show loading indicator while checking authentication
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    // If not authenticated, redirect to login
+    if (_isAuthenticated == false) {
+      // Use addPostFrameCallback to navigate after build is complete
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          Navigator.of(context).pushReplacementNamed('/login');
+        }
+      });
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    // User is authenticated, show the requested page
+    return widget.builder(context);
   }
 }
 

@@ -12,6 +12,7 @@ import 'package:medical_app/utils/duplicate_guard.dart';
 import 'package:medical_app/utils/medical_file_number_suggest.dart';
 import 'package:intl/intl.dart' as intl;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:table_calendar/table_calendar.dart';
 
 class PatientsScreen extends StatefulWidget {
   const PatientsScreen({super.key});
@@ -462,83 +463,139 @@ class _PatientsScreenState extends State<PatientsScreen> {
         : defaultReason;
     final showCalendarButton = await _shouldShowCalendarQuickAccess();
     if (!mounted) return;
+    
+    bool actionTaken = false;
+    
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (postCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(l10n.t('patientCreatedTitle'),
-            style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
-        content: Text(l10n.t('patientCreatedQuestion')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(postCtx),
-            child: Text(l10n.t('back')),
+      builder: (postCtx) => StatefulBuilder(
+        builder: (stCtx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(l10n.t('patientCreatedTitle'),
+                  style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
+              IconButton(
+                onPressed: () {
+                  if (!actionTaken) {
+                    // Show warning dialog
+                    showDialog<bool>(
+                      context: stCtx,
+                      builder: (warnCtx) => AlertDialog(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        title: Text(l10n.t('noActionTakenTitle')),
+                        content: Text(l10n.t('noActionTakenMessage')),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(warnCtx, false),
+                            child: Text(l10n.t('cancel')),
+                          ),
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.pop(warnCtx, true);
+                              // Close the options dialog
+                              if (Navigator.canPop(postCtx)) {
+                                Navigator.pop(postCtx);
+                              }
+                              if (onFinalized != null) onFinalized();
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.red,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: Text(l10n.t('continue')),
+                          ),
+                        ],
+                      ),
+                    );
+                    return;
+                  }
+                  // Close the options dialog
+                  if (Navigator.canPop(postCtx)) {
+                    Navigator.pop(postCtx);
+                  }
+                  if (onFinalized != null) onFinalized();
+                },
+                icon: const Icon(Icons.close_rounded, color: AppColors.textMuted),
+              ),
+            ],
           ),
-          OutlinedButton(
-            onPressed: () async {
-              final prefs = await SharedPreferences.getInstance();
-              final doctorId = prefs.getInt('uid') ?? 0;
-              final now = DateTime.now().toString().substring(0, 19);
+          content: Text(l10n.t('patientCreatedQuestion')),
+          actions: [
+            OutlinedButton(
+              onPressed: () async {
+                actionTaken = true;
+                final prefs = await SharedPreferences.getInstance();
+                final doctorId = prefs.getInt('uid') ?? 0;
+                final now = DateTime.now().toString().substring(0, 19);
 
-              await OdooApi.addMedicalRecord(
-                patientId: id,
-                doctorId: doctorId,
-                datetime: now,
-                consultationReason: consultationReason,
-                diagnostic: '',
-                prescription: '',
-                observations: '',
-                status: 'waiting',
-                medicalFileNumber: dossier,
-              );
-              if (!postCtx.mounted) return;
-              Navigator.pop(postCtx);
-              if (onFinalized != null) onFinalized();
-              _snack(l10n.t('consultationAdded'));
-            },
-            style: OutlinedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8))),
-            child: Text(l10n.t('addConsultation')),
-          ),
-          ElevatedButton.icon(
-            onPressed: () {
-              _showScheduleFromPatient(
-                  id, name, dossier, consultationReason, l10n,
-                  onSuccess: () {
-                if (postCtx.mounted) Navigator.pop(postCtx);
+                await OdooApi.addMedicalRecord(
+                  patientId: id,
+                  doctorId: doctorId,
+                  datetime: now,
+                  consultationReason: consultationReason,
+                  diagnostic: '',
+                  prescription: '',
+                  observations: '',
+                  status: 'waiting',
+                  medicalFileNumber: dossier,
+                );
+                if (!stCtx.mounted) return;
+                Navigator.pop(postCtx);
                 if (onFinalized != null) onFinalized();
-              });
-            },
-            icon: const Icon(Icons.calendar_month),
-            label: Text(l10n.t('scheduleRdv')),
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.green,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8))),
-          ),
-          if (showCalendarButton)
+                _snack(l10n.t('consultationAdded'));
+              },
+              style: OutlinedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8))),
+              child: Text(l10n.t('addConsultation')),
+            ),
             ElevatedButton.icon(
               onPressed: () {
-                _showCalendarSummaryDialog(l10n);
+                _showScheduleFromPatient(
+                    id, name, dossier, consultationReason, l10n,
+                    onBack: () {
+                      // Return to options dialog - do nothing, just stay
+                    },
+                    onSuccess: () {
+                      actionTaken = true;
+                      if (stCtx.mounted) Navigator.pop(postCtx);
+                      if (onFinalized != null) onFinalized();
+                    });
               },
-              icon: const Icon(Icons.event_note_rounded),
-              label: Text(l10n.t('calendarLabel')),
+              icon: const Icon(Icons.calendar_month),
+              label: Text(l10n.t('scheduleRdv')),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-              ),
+                  backgroundColor: AppColors.green,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8))),
             ),
-        ],
+            if (showCalendarButton)
+              ElevatedButton.icon(
+                onPressed: () {
+                  _showCalendarSummaryDialog(l10n, onBack: () {
+                    // Return to options dialog - do nothing, just stay
+                  });
+                },
+                icon: const Icon(Icons.event_note_rounded),
+                label: Text(l10n.t('calendarLabel')),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 
-  void _showCalendarSummaryDialog(AppLocalizations l10n) async {
+  void _showCalendarSummaryDialog(AppLocalizations l10n, {VoidCallback? onBack}) async {
     setState(() => loading = true);
     final waiting = await OdooApi.getWaitingRoom();
     final count = waiting.length;
@@ -549,7 +606,19 @@ class _PatientsScreenState extends State<PatientsScreen> {
       context: context,
       builder: (summaryCtx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(l10n.t('todayOverview')),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(l10n.t('todayOverview')),
+            IconButton(
+              onPressed: () {
+                if (onBack != null) onBack();
+                Navigator.pop(summaryCtx);
+              },
+              icon: const Icon(Icons.arrow_back_rounded, size: 18),
+            ),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -563,7 +632,10 @@ class _PatientsScreenState extends State<PatientsScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(summaryCtx),
+            onPressed: () {
+              if (onBack != null) onBack();
+              Navigator.pop(summaryCtx);
+            },
             child: Text(l10n.t('back')),
           ),
           ElevatedButton(
@@ -585,7 +657,7 @@ class _PatientsScreenState extends State<PatientsScreen> {
 
   void _showScheduleFromPatient(int id, String name, String dossier,
       String initialReason, AppLocalizations loc,
-      {VoidCallback? onSuccess}) {
+      {VoidCallback? onBack, VoidCallback? onSuccess}) {
     DateTime selectedDate = DateTime.now();
     TimeOfDay selectedTime = const TimeOfDay(hour: 9, minute: 0);
     final motifCtrl = TextEditingController(
@@ -599,7 +671,19 @@ class _PatientsScreenState extends State<PatientsScreen> {
         builder: (_, setDialogState) => AlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text("${loc.t('scheduleFor')} $name"),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("${loc.t('scheduleFor')} $name"),
+              IconButton(
+                onPressed: () {
+                  if (onBack != null) onBack();
+                  Navigator.pop(schedCtx);
+                },
+                icon: const Icon(Icons.arrow_back_rounded, size: 18),
+              ),
+            ],
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -643,11 +727,30 @@ class _PatientsScreenState extends State<PatientsScreen> {
                       Text(selectedTime.format(schedCtx))
                     ])),
               ),
+              const SizedBox(height: 16),
+              // Bouton pour voir le calendrier
+              OutlinedButton.icon(
+                onPressed: () {
+                  _showCalendarViewInSchedule(loc, selectedDate, (date) {
+                    setDialogState(() => selectedDate = date);
+                  });
+                },
+                icon: const Icon(Icons.calendar_view_month, size: 18, color: AppColors.primary),
+                label: Text(loc.t('viewCalendar'), style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: AppColors.primary),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
             ],
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(schedCtx),
+                onPressed: () {
+                  if (onBack != null) onBack();
+                  Navigator.pop(schedCtx);
+                },
                 child: Text(loc.t('back'))),
             ElevatedButton(
               onPressed: () async {
@@ -683,6 +786,169 @@ class _PatientsScreenState extends State<PatientsScreen> {
             )
           ],
         ),
+      ),
+    );
+  }
+
+  void _showCalendarViewInSchedule(AppLocalizations loc, DateTime selectedDate, Function(DateTime) onDateSelected) {
+    showDialog(
+      context: context,
+      builder: (calendarCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(loc.t('viewCalendar'), style: GoogleFonts.dmSans(fontWeight: FontWeight.bold)),
+            IconButton(
+              onPressed: () => Navigator.pop(calendarCtx),
+              icon: const Icon(Icons.close_rounded, color: AppColors.textMuted),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 400,
+          child: FutureBuilder<List<dynamic>>(
+            future: OdooApi.getMedicalRecords(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (!snapshot.hasData) {
+                return Center(child: Text(loc.t('noAppointment')));
+              }
+              
+              final records = snapshot.data!;
+              final Map<DateTime, List<dynamic>> events = {};
+              
+              for (var record in records) {
+                final dateStr = record['date_consultation']?.toString() ?? '';
+                if (dateStr.isNotEmpty) {
+                  try {
+                    final date = DateTime.parse(dateStr);
+                    final day = DateTime(date.year, date.month, date.day);
+                    if (events[day] == null) events[day] = [];
+                    events[day]!.add(record);
+                  } catch (e) {
+                    // Ignore parse errors
+                  }
+                }
+              }
+              
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TableCalendar(
+                    firstDay: DateTime.now().subtract(const Duration(days: 30)),
+                    lastDay: DateTime.now().add(const Duration(days: 365)),
+                    focusedDay: selectedDate,
+                    selectedDayPredicate: (day) => intl.DateFormat('dd/MM/yyyy').format(day) == intl.DateFormat('dd/MM/yyyy').format(selectedDate),
+                    eventLoader: (day) => events[DateTime(day.year, day.month, day.day)] ?? [],
+                    onDaySelected: (selectedDay, focusedDay) {
+                      Navigator.pop(calendarCtx);
+                      onDateSelected(selectedDay);
+                    },
+                    calendarFormat: CalendarFormat.month,
+                    locale: loc.isArabic ? 'ar' : 'fr_FR',
+                    headerStyle: const HeaderStyle(
+                      formatButtonVisible: false,
+                      titleCentered: true,
+                    ),
+                    calendarStyle: const CalendarStyle(
+                      outsideDaysVisible: false,
+                      markersMaxCount: 3,
+                    ),
+                    calendarBuilders: CalendarBuilders(
+                      selectedBuilder: (context, date, _) {
+                        return Center(
+                          child: Container(
+                            alignment: Alignment.center,
+                            decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                            width: 28,
+                            height: 28,
+                            child: Text('${date.day}', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          ),
+                        );
+                      },
+                      todayBuilder: (context, date, _) {
+                        return Center(
+                          child: Container(
+                            alignment: Alignment.center,
+                            decoration: const BoxDecoration(color: AppColors.primaryLight, shape: BoxShape.circle),
+                            width: 28,
+                            height: 28,
+                            child: Text('${date.day}', style: const TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.bold)),
+                          ),
+                        );
+                      },
+                      markerBuilder: (context, date, events) {
+                        if (events.isEmpty) return const SizedBox.shrink();
+                        return Positioned(
+                          bottom: 1,
+                          child: Container(
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(
+                              color: AppColors.green,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Liste des rendez-vous pour le jour sélectionné
+                  if (events[DateTime(selectedDate.year, selectedDate.month, selectedDate.day)] != null &&
+                      events[DateTime(selectedDate.year, selectedDate.month, selectedDate.day)]!.isNotEmpty)
+                    ...events[DateTime(selectedDate.year, selectedDate.month, selectedDate.day)]!.take(3).map((event) => _calendarEventTile(event, loc))
+                  else
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(loc.t('noAppointment'), style: GoogleFonts.dmSans(color: AppColors.textMuted)),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _calendarEventTile(Map event, AppLocalizations loc) {
+    final time = DateTime.parse(event['date_consultation']).toLocal();
+    final patientName = event['patient_id'] is List ? event['patient_id'][1] : loc.t('unknownPatient');
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(6)),
+            child: Text(intl.DateFormat('HH:mm').format(time), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(patientName, style: GoogleFonts.dmSans(fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(
+                  event['motif'] ?? loc.t('defaultConsultationReason'),
+                  style: GoogleFonts.dmSans(fontSize: 11, color: AppColors.textSecond),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

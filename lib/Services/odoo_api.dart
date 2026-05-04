@@ -5,24 +5,24 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:medical_app/utils/duplicate_guard.dart';
 
 class OdooApi {
-  static String _odooUrl = 'http://192.168.1.179:8069';
+  static String _odooUrl = 'http://192.168.1.197:8069';
   static String _proxyUrl = 'http://192.168.1.197:8000';
   static String get baseUrl => kIsWeb ? _proxyUrl : _odooUrl;
 
   static const String dbName = String.fromEnvironment(
     'ODOO_DB_NAME',
-    defaultValue: 'Dossier_medical',
+    defaultValue: 'Test_cabinet',
   );
 
-  static const String _adminLogin = 'admin';
-  static const String _adminPassword = 'admin';
+  static const String _adminLogin = 'sds@gmail.com';
+  static const String _adminPassword = 'odoo';
 
   static bool get canRegisterDoctorsFromClient => true;
 
   // ─── INITIALISATION ─────────────────────────────────────────────────────────
   static Future<void> initConfig() async {
     final prefs = await SharedPreferences.getInstance();
-    _odooUrl = prefs.getString('odoo_server_url') ?? 'http://192.168.1.179:8069';
+    _odooUrl = prefs.getString('odoo_server_url') ?? 'http://192.168.1.197:8069';
     _proxyUrl = prefs.getString('proxy_url') ?? 'http://192.168.1.197:8000';
   }
 
@@ -62,7 +62,7 @@ class OdooApi {
   static Future<Map<String, dynamic>?> _callRpc(String path, Map params, {String? cookie}) async {
     try {
       final headers = {'Content-Type': 'application/json'};
-      if (!kIsWeb && cookie != null && cookie.isNotEmpty) {
+      if (cookie != null && cookie.isNotEmpty) {
         headers['Cookie'] = cookie;
       }
       final response = await http.post(
@@ -676,7 +676,10 @@ class OdooApi {
   }
 
   static Future<Map<String, dynamic>> createNurse(Map<String, dynamic> vals) async {
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getInt('uid') ?? 0;
     final cookie = await _getSessionCookie();
+    
     final data = await _callRpc('/web/dataset/call_kw', {
       'model': 'nurse.nurse',
       'method': 'create',
