@@ -5,8 +5,9 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:medical_app/utils/duplicate_guard.dart';
 
 class OdooApi {
-  //Mettre l'adresse du vps
+  // Adresse du serveur Odoo - À CHANGER : remplacez 192.168.1.197 par l'IP de votre VPS
   static String _odooUrl = 'http://192.168.1.197:8069';
+  // Adresse du proxy pour le web - À CHANGER : remplacez 192.168.1.197 par l'IP de votre VPS
   static String _proxyUrl = 'http://192.168.1.197:8000';
   static String get baseUrl => kIsWeb ? _proxyUrl : _odooUrl;
 
@@ -23,8 +24,8 @@ class OdooApi {
   // ─── INITIALISATION ─────────────────────────────────────────────────────────
   static Future<void> initConfig() async {
     final prefs = await SharedPreferences.getInstance();
-    _odooUrl = prefs.getString('odoo_server_url') ?? 'http://192.168.1.197:8069';
-    _proxyUrl = prefs.getString('proxy_url') ?? 'http://192.168.1.197:8000';
+    _odooUrl = prefs.getString('odoo_server_url') ?? 'http://192.168.1.197:8069';//Ici également indiquer l'IP du VPS 
+    _proxyUrl = prefs.getString('proxy_url') ?? 'http://192.168.1.197:8000';  //Ici également indiquer l'IP du VPS
   }
 
   static Future<void> setServerUrl(String newUrl, {bool isProxy = false}) async {
