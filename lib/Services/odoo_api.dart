@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:medical_app/utils/duplicate_guard.dart';
 
 class OdooApi {
+  //Mettre l'adresse du vps
   static String _odooUrl = 'http://192.168.1.197:8069';
   static String _proxyUrl = 'http://192.168.1.197:8000';
   static String get baseUrl => kIsWeb ? _proxyUrl : _odooUrl;
