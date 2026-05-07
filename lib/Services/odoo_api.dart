@@ -1085,12 +1085,8 @@ class OdooApi {
     final finalComment = patientCode.isNotEmpty
         ? "CIN: $patientCode\n${comment ?? ''}"
         : (comment ?? '');
-    final cookie = await _getSessionCookie();
-
-    // ◄ DEBUG : vérifie le cookie
-    print('>>> createPatient cookie: $cookie');
-
-    // ◄ SOLUTION : utilise l'auth admin comme pour les autres fonctions
+    
+    // Use admin session for consistency (same as secretaries and nurses)
     final adminAuth = await _callRpc('/web/session/authenticate', {
       'db': dbName,
       'login': _adminLogin,
@@ -1100,7 +1096,6 @@ class OdooApi {
       return {'success': false, 'error': 'Auth admin failed'};
     }
     final adminCookie = _s(adminAuth['set-cookie']);
-    print('>>> createPatient adminCookie: $adminCookie');
 
     final data = await _callRpc('/web/dataset/call_kw', {
       'model': 'res.partner',
@@ -1113,27 +1108,18 @@ class OdooApi {
           'insurance_id': insuranceId,
           'patient_code': patientCode,
           'ref': medicalFileNumber,
-          'height': height > 0 ? height : false,  // ◄ CHANGÉ POUR ODOO 19
-          'age': age > 0 ? age : false,  // ◄ CHANGÉ POUR ODOO 19
+          'height': height > 0 ? height : false,
+          'age': age > 0 ? age : false,
           'is_patient': true,
           'comment': finalComment,
           'user_id': doctorUid,
         },
       ],
       'kwargs': {},
-    }, cookie: adminCookie);  // ◄ UTILISE adminCookie
-
-    // ◄ AJOUTE CES LIGNES POUR VOIR L'ERREUR
-    print('>>> createPatient response: $data');
-    if (data != null && data['error'] != null) {
-      print('>>> ERREUR: ${data['error']['data']?['message']}');
-      print('>>> DETAILS: ${data['error']['data']?['debug']}');
-    }
+    }, cookie: adminCookie);
 
     if (data != null && data['result'] != null) {
       await _logSecretaryActivity("Création patient", details: name);
-      // ◄ NE PAS créer automatiquement le dossier ici
-      // Le dialog post-création le fera si l'utilisateur sélectionne "Ajouter une consultation"
       return {'success': true, 'id': data['result']};
     }
     return {'success': false, 'error': data?['error']?['data']?['message'] ?? 'Erreur inconnue'};
@@ -1462,24 +1448,30 @@ class OdooApi {
 
   // ─── INFIRMIERS ─────────────────────────────────────────────────────────────
   static Future<List<dynamic>> getNurses() async {
-    // ◄ UTILISE AUTH ADMIN POUR COHÉRENCE
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getInt('uid') ?? 0;
+    print('>>> getNurses: fetching nurses for uid=$uid');
+    
+    // Use admin session for permissions
     final adminAuth = await _callRpc('/web/session/authenticate', {
       'db': dbName,
       'login': _adminLogin,
       'password': _adminPassword,
     });
     if (adminAuth == null || adminAuth['result'] == null) {
+      print('>>> getNurses: admin auth failed');
       return [];
     }
     final adminCookie = _s(adminAuth['set-cookie']);
     
-    // ◄ RÉCUPÈRE TOUS LES INFIRMIERS ACTIFS (pas de filtre doctor_id dans le modèle)
+    // Filter nurses by notes containing doctor UID
     final data = await _callRpc('/web/dataset/call_kw', {
       'model': 'nurse.nurse',
       'method': 'search_read',
       'args': [
         [
           ['active', '=', true],
+          ['notes', 'like', 'doctor_uid:$uid'],
         ],
       ],
       'kwargs': {
@@ -1497,18 +1489,23 @@ class OdooApi {
           'state',
           'active',
           'notes',
-          'create_uid', // Ajouté pour information
         ],
         'limit': 100,
       },
     }, cookie: adminCookie);
-    return data?['result'] ?? [];
+    
+    final nurses = data?['result'] ?? [];
+    print('>>> getNurses: found ${nurses.length} nurses');
+    return nurses;
   }
 
   static Future<Map<String, dynamic>> createNurse(
       Map<String, dynamic> vals,
       ) async {
-    // ◄ UTILISE AUTH ADMIN POUR COHÉRENCE
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getInt('uid') ?? 0;
+    
+    // Use admin session for creation
     final adminAuth = await _callRpc('/web/session/authenticate', {
       'db': dbName,
       'login': _adminLogin,
@@ -1519,15 +1516,17 @@ class OdooApi {
     }
     final adminCookie = _s(adminAuth['set-cookie']);
     
+    // Store doctor UID in notes field
+    vals['notes'] = (vals['notes'] ?? '') + '\ndoctor_uid:$uid';
     final data = await _callRpc('/web/dataset/call_kw', {
       'model': 'nurse.nurse',
       'method': 'create',
       'args': [vals],
       'kwargs': {},
-    }, cookie: adminCookie);  // ◄ UTILISE adminCookie
+    }, cookie: adminCookie);
     
     if (data != null && data['result'] != null) {
-      print('>>> createNurse: created nurse ${data['result']}');
+      print('>>> createNurse: created nurse ${data['result']} with doctor_uid=$uid in notes');
       return {'success': true, 'id': data['result']};
     } else if (data != null && data['error'] != null) {
       print('>>> createNurse ERROR: ${data['error']['data']?['message']}');
