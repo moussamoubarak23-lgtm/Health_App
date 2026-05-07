@@ -558,6 +558,7 @@ class OdooApi {
           'list_price': price,
           'type': 'service',
           'sale_ok': true,
+          'taxes_id': [[6, 0, []]],
           'default_code': 'DOC_ID_$uid',
           if (accountId != null) 'property_account_income_id': accountId,
         },
@@ -648,6 +649,7 @@ class OdooApi {
     final invoiceLines = lines.map((l) => [0, 0, {
       'product_id': l['product_id'], 'name': l['name'],
       'quantity': 1, 'price_unit': l['price'],
+      'tax_ids': [[6, 0, []]],
     }]).toList();
 
     final createData = await _callRpc('/web/dataset/call_kw', {
