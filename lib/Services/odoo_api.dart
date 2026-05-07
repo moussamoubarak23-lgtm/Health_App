@@ -1004,9 +1004,58 @@ class OdooApi {
       },
     }, cookie: adminCookie);
 
-    print('>>> getPatients: ${primaryData?['result']?.length ?? 0} patients trouvés au total');
+    // ◄ RÉCUPÈRE ÉGALEMENT LES PATIENTS CRÉÉS PAR LE MÉDECIN OU SES SECRÉTAIRES (sans consultation)
+    final createdByData = await _callRpc('/web/dataset/call_kw', {
+      'model': 'res.partner',
+      'method': 'search_read',
+      'args': [
+        [
+          ['is_patient', '=', true],
+          ['create_uid', 'in', allowedUserIds],
+        ],
+      ],
+      'kwargs': {
+        'fields': [
+          'id',
+          'name',
+          'phone',
+          'email',
+          'ref',
+          'insurance_id',
+          'patient_code',
+          'height',
+          'age',
+          'comment',
+          'is_patient',
+          'create_uid',
+          'user_id',
+        ],
+        'order': 'id desc',
+      },
+    }, cookie: adminCookie);
 
-    final mergedPatients = (primaryData?['result'] as List?) ?? [];
+    print('>>> getPatients: ${primaryData?['result']?.length ?? 0} patients via consultations');
+    print('>>> getPatients: ${createdByData?['result']?.length ?? 0} patients via create_uid');
+
+    // ◄ FUSIONNE LES DEUX LISTES EN ÉVITANT LES DOUBLONS
+    final Set<int> seenIds = {};
+    final List<dynamic> mergedPatients = [];
+    
+    for (var p in (primaryData?['result'] as List?) ?? []) {
+      if (p['id'] is int && !seenIds.contains(p['id'])) {
+        seenIds.add(p['id']);
+        mergedPatients.add(p);
+      }
+    }
+    
+    for (var p in (createdByData?['result'] as List?) ?? []) {
+      if (p['id'] is int && !seenIds.contains(p['id'])) {
+        seenIds.add(p['id']);
+        mergedPatients.add(p);
+      }
+    }
+
+    print('>>> getPatients: ${mergedPatients.length} patients au total après fusion');
     for (var p in mergedPatients) {
       p['medical_file_number'] = _s(p['ref']);
       p['patient_code'] = _s(p['patient_code']);
@@ -2024,64 +2073,132 @@ class OdooApi {
     final prefs = await SharedPreferences.getInstance();
     final role = prefs.getString('user_role') ?? 'doctor';
     final cookie = await _getSessionCookie();
+    final savedName = prefs.getString('doctor_name') ?? '';
+    final savedLogin = prefs.getString('doctor_login') ?? '';
+    final adminAuth = await _callRpc('/web/session/authenticate', {
+      'db': dbName,
+      'login': _adminLogin,
+      'password': _adminPassword,
+    });
+    final profileCookie = adminAuth != null && adminAuth['result'] != null
+        ? _s(adminAuth['set-cookie'])
+        : cookie;
 
     if (role == 'secretary') {
       final sid = prefs.getInt('secretary_id') ?? 0;
-      final data = await _callRpc('/web/dataset/call_kw', {
+      final data = sid > 0 ? await _callRpc('/web/dataset/call_kw', {
         'model': 'medical.secretary',
         'method': 'read',
         'args': [
           [sid],
-          ['first_name', 'last_name', 'full_name', 'email', 'phone', 'mobile'],
+          [
+            'first_name',
+            'last_name',
+            'full_name',
+            'gender',
+            'birth_date',
+            'email',
+            'phone',
+            'mobile',
+            'secretary_code',
+            'national_id',
+            'address',
+            'employee_id',
+            'hire_date',
+            'office_number',
+            'working_hours',
+            'active',
+            'notes',
+          ],
         ],
         'kwargs': {},
-      }, cookie: cookie);
+      }, cookie: profileCookie) : null;
       if (data != null &&
-          data['result'] != null &&
+          data['result'] is List &&
           (data['result'] as List).isNotEmpty) {
         final d = data['result'][0];
+        final fullName = _s(d['full_name']).isNotEmpty
+            ? _s(d['full_name'])
+            : '${_s(d['first_name'])} ${_s(d['last_name'])}'.trim();
         return {
           'success': true,
           'data': {
-            'name': _s(d['full_name']),
+            'name': fullName.isNotEmpty ? fullName : savedName,
             'email': _s(d['email']),
             'phone': _s(d['phone']),
             'mobile': _s(d['mobile']),
-            'login': _s(d['email']),
+            'login': _s(d['email']).isNotEmpty ? _s(d['email']) : savedLogin,
+            'first_name': _s(d['first_name']),
+            'last_name': _s(d['last_name']),
+            'gender': _s(d['gender']),
+            'birth_date': _s(d['birth_date']),
+            'secretary_code': _s(d['secretary_code']),
+            'national_id': _s(d['national_id']),
+            'address': _s(d['address']),
+            'employee_id': _s(d['employee_id']),
+            'hire_date': _s(d['hire_date']),
+            'office_number': _s(d['office_number']),
+            'working_hours': _s(d['working_hours']),
+            'active': _s(d['active']),
+            'notes': _s(d['notes']),
           },
         };
       }
     } else if (role == 'nurse') {
       final nid = prefs.getInt('nurse_id') ?? 0;
-      final data = await _callRpc('/web/dataset/call_kw', {
+      final data = nid > 0 ? await _callRpc('/web/dataset/call_kw', {
         'model': 'nurse.nurse',
         'method': 'read',
         'args': [
           [nid],
-          ['name', 'email', 'phone'],
+          [
+            'name',
+            'age',
+            'gender',
+            'email',
+            'phone',
+            'license_number',
+            'license_expiry_date',
+            'specialization',
+            'department_id',
+            'state',
+            'active',
+            'notes',
+            'create_uid',
+          ],
         ],
         'kwargs': {},
-      }, cookie: cookie);
+      }, cookie: profileCookie) : null;
       if (data != null &&
-          data['result'] != null &&
+          data['result'] is List &&
           (data['result'] as List).isNotEmpty) {
         final d = data['result'][0];
         return {
           'success': true,
           'data': {
-            'name': _s(d['name']),
+            'name': _s(d['name']).isNotEmpty ? _s(d['name']) : savedName,
             'email': _s(d['email']),
             'phone': _s(d['phone']),
             'mobile': _s(d['phone']),
-            'login': _s(d['email']),
+            'login': _s(d['email']).isNotEmpty ? _s(d['email']) : savedLogin,
+            'age': _s(d['age']),
+            'gender': _s(d['gender']),
+            'license_number': _s(d['license_number']),
+            'license_expiry_date': _s(d['license_expiry_date']),
+            'specialization': _s(d['specialization']),
+            'department_id': d['department_id'] is List ? _s(d['department_id'][1]) : _s(d['department_id']),
+            'state': _s(d['state']),
+            'active': _s(d['active']),
+            'notes': _s(d['notes']),
+            'create_uid': d['create_uid'] is List ? _s(d['create_uid'][1]) : _s(d['create_uid']),
           },
         };
       }
     } else {
       final uid = prefs.getInt('uid') ?? 0;
       final partnerId = prefs.getInt('partner_id') ?? 0;
-      // Odoo 19 : mobile n'est plus sur res.users, on lit depuis res.partner
-      final data = await _callRpc('/web/dataset/call_kw', {
+      print('[getUserProfile] Doctor mode - uid: $uid, partnerId: $partnerId');
+      final data = uid > 0 ? await _callRpc('/web/dataset/call_kw', {
         'model': 'res.users',
         'method': 'read',
         'args': [
@@ -2089,47 +2206,60 @@ class OdooApi {
           ['name', 'login', 'email', 'phone', 'partner_id'],
         ],
         'kwargs': {},
-      }, cookie: cookie);
+      }, cookie: profileCookie) : null;
+      print('[getUserProfile] res.users data: $data');
       if (data != null &&
-          data['result'] != null &&
+          data['result'] is List &&
           (data['result'] as List).isNotEmpty) {
         final d = data['result'][0];
         final pId = d['partner_id'] is List ? d['partner_id'][0] : (partnerId > 0 ? partnerId : 0);
+        print('[getUserProfile] partner_id from user: $pId');
         String mobile = '';
         if (pId > 0) {
           final partnerData = await _callRpc('/web/dataset/call_kw', {
             'model': 'res.partner',
             'method': 'read',
-            'args': [[pId], ['phone']],
+            'args': [[pId], ['phone', 'email']],
             'kwargs': {},
-          }, cookie: cookie);
+          }, cookie: profileCookie);
+          print('[getUserProfile] res.partner data: $partnerData');
           if (partnerData != null &&
               partnerData['result'] is List &&
               (partnerData['result'] as List).isNotEmpty) {
-            mobile = _s(partnerData['result'][0]['phone']);
+            final partner = partnerData['result'][0];
+            mobile = _s(partner['phone']);
           }
         }
         return {
           'success': true,
           'data': {
-            'name': _s(d['name']),
-            'login': _s(d['login']),
+            'name': _s(d['name']).isNotEmpty ? _s(d['name']) : savedName,
+            'login': _s(d['login']).isNotEmpty ? _s(d['login']) : savedLogin,
             'email': _s(d['email']),
             'phone': _s(d['phone']),
             'mobile': mobile,
           },
         };
+      } else {
+        print('[getUserProfile] res.users data is null or empty');
       }
     }
     return {'success': false};
   }
-
   static Future<Map<String, dynamic>> updateUserProfile(
       Map<String, dynamic> vals,
       ) async {
     final prefs = await SharedPreferences.getInstance();
     final role = prefs.getString('user_role') ?? 'doctor';
     final cookie = await _getSessionCookie();
+    final adminAuth = await _callRpc('/web/session/authenticate', {
+      'db': dbName,
+      'login': _adminLogin,
+      'password': _adminPassword,
+    });
+    final profileCookie = adminAuth != null && adminAuth['result'] != null
+        ? _s(adminAuth['set-cookie'])
+        : cookie;
 
     if (role == 'secretary') {
       final sid = prefs.getInt('secretary_id') ?? 0;
@@ -2152,7 +2282,7 @@ class OdooApi {
           secVals,
         ],
         'kwargs': {},
-      }, cookie: cookie);
+      }, cookie: profileCookie);
       if (data?['result'] == true) {
         if (vals.containsKey('name')) {
           await prefs.setString('doctor_name', vals['name']);
@@ -2174,7 +2304,7 @@ class OdooApi {
           nurseVals,
         ],
         'kwargs': {},
-      }, cookie: cookie);
+      }, cookie: profileCookie);
       if (data?['result'] == true) {
         if (vals.containsKey('name')) {
           await prefs.setString('doctor_name', vals['name']);
@@ -2185,29 +2315,38 @@ class OdooApi {
       final uid = prefs.getInt('uid') ?? 0;
       final partnerId = prefs.getInt('partner_id') ?? 0;
 
-      // Odoo 19 : séparer les champs res.users et res.partner
-      final userVals = Map<String, dynamic>.from(vals)..remove('mobile');
-      final data = await _callRpc('/web/dataset/call_kw', {
-        'model': 'res.users',
-        'method': 'write',
-        'args': [
-          [uid],
-          userVals,
-        ],
-        'kwargs': {},
-      }, cookie: cookie);
-
-      // Écrire phone sur res.partner si fourni (mobile supprimé en Odoo 19)
-      if (vals.containsKey('mobile') && partnerId > 0) {
-        await _callRpc('/web/dataset/call_kw', {
-          'model': 'res.partner',
-          'method': 'write',
-          'args': [[partnerId], {'phone': vals['mobile']}],
-          'kwargs': {},
-        }, cookie: cookie);
+      final partnerVals = <String, dynamic>{};
+      if (vals.containsKey('name')) partnerVals['name'] = vals['name'];
+      if (vals.containsKey('email')) partnerVals['email'] = vals['email'];
+      if (vals.containsKey('mobile') && _s(vals['mobile']).isNotEmpty) {
+        partnerVals['phone'] = vals['mobile'];
+      } else if (vals.containsKey('phone')) {
+        partnerVals['phone'] = vals['phone'];
       }
 
-      if (data?['result'] == true) {
+      bool partnerOk = true;
+      if (partnerId > 0 && partnerVals.isNotEmpty) {
+        final partnerData = await _callRpc('/web/dataset/call_kw', {
+          'model': 'res.partner',
+          'method': 'write',
+          'args': [[partnerId], partnerVals],
+          'kwargs': {},
+        }, cookie: profileCookie);
+        partnerOk = partnerData?['result'] == true;
+      }
+
+      bool userOk = true;
+      if (vals.containsKey('password') && _s(vals['password']).isNotEmpty) {
+        final userData = await _callRpc('/web/dataset/call_kw', {
+          'model': 'res.users',
+          'method': 'write',
+          'args': [[uid], {'password': vals['password']}],
+          'kwargs': {},
+        }, cookie: profileCookie);
+        userOk = userData?['result'] == true;
+      }
+
+      if (partnerOk && userOk) {
         if (vals.containsKey('name')) {
           await prefs.setString('doctor_name', _s(vals['name']));
         }

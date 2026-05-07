@@ -27,6 +27,7 @@ class _AccountScreenState extends State<AccountScreen> {
   final TextEditingController _mobileCtrl = TextEditingController();
   final TextEditingController _newPassCtrl = TextEditingController();
   String _login = '';
+  Map<String, dynamic> _profileData = {};
 
   @override
   void initState() {
@@ -37,18 +38,46 @@ class _AccountScreenState extends State<AccountScreen> {
   Future<void> _fetchProfile() async {
     final prefs = await SharedPreferences.getInstance();
     _userRole = prefs.getString('user_role') ?? 'doctor';
-    
-    final res = await OdooApi.getUserProfile();
-    if (res['success']) {
-      final data = res['data'];
-      setState(() {
-        _nameCtrl.text = (data['name'] is String) ? data['name'] : '';
-        _emailCtrl.text = (data['email'] is String) ? data['email'] : '';
-        _phoneCtrl.text = (data['phone'] is String) ? data['phone'] : '';
-        _mobileCtrl.text = (data['mobile'] is String) ? data['mobile'] : '';
-        _login = (data['login'] is String) ? data['login'] : '';
-        _loading = false;
-      });
+    final savedName = prefs.getString('doctor_name') ?? '';
+    final savedLogin = prefs.getString('doctor_login') ?? '';
+
+    print('[Account] Fetching profile for role: $_userRole');
+    print('[Account] secretary_id: ${prefs.getInt('secretary_id')}');
+    print('[Account] nurse_id: ${prefs.getInt('nurse_id')}');
+    print('[Account] uid: ${prefs.getInt('uid')}');
+    print('[Account] partner_id: ${prefs.getInt('partner_id')}');
+
+    try {
+      final res = await OdooApi.getUserProfile();
+      print('[Account] API Response: $res');
+      if (mounted) {
+        if (res['success'] && res['data'] != null) {
+          final data = res['data'];
+          setState(() {
+            _nameCtrl.text = (data['name'] is String && data['name'].toString().isNotEmpty) ? data['name'] : savedName;
+            _emailCtrl.text = (data['email'] is String) ? data['email'] : '';
+            _phoneCtrl.text = (data['phone'] is String) ? data['phone'] : '';
+            _mobileCtrl.text = (data['mobile'] is String) ? data['mobile'] : '';
+            _login = (data['login'] is String && data['login'].toString().isNotEmpty) ? data['login'] : savedLogin;
+            _profileData = Map<String, dynamic>.from(data);
+            _loading = false;
+          });
+          print('[Account] Profile loaded successfully');
+        } else {
+          print('[Account] API returned success: ${res['success']}, data: ${res['data']}');
+          setState(() {
+            _nameCtrl.text = savedName;
+            _login = savedLogin;
+            _profileData = {};
+            _loading = false;
+          });
+        }
+      }
+    } catch (e) {
+      print('[Account] Error fetching profile: $e');
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -123,6 +152,8 @@ class _AccountScreenState extends State<AccountScreen> {
                                     children: [
                                       _buildMainCard(l10n),
                                       const SizedBox(height: 24),
+                                      _buildDetailsCard(),
+                                      const SizedBox(height: 24),
                                       if (_userRole == 'doctor') _buildSecurityCard(l10n),
                                     ],
                                   ),
@@ -193,6 +224,75 @@ class _AccountScreenState extends State<AccountScreen> {
           ),
         ),
       );
+
+  Widget _buildDetailsCard() {
+    final entries = _profileData.entries
+        .where((entry) => !['name', 'login', 'email', 'phone', 'mobile'].contains(entry.key))
+        .where((entry) => entry.value != null && entry.value.toString().isNotEmpty && entry.value != false)
+        .toList();
+
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 20, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle('INFORMATIONS COMPLÉMENTAIRES', Icons.info_outline_rounded),
+          const SizedBox(height: 24),
+          Wrap(
+            spacing: 20,
+            runSpacing: 20,
+            children: entries
+                .map((entry) => SizedBox(
+                      width: 250,
+                      child: _buildReadOnlyField(_fieldLabel(entry.key), _formatValue(entry.value), Icons.article_outlined),
+                    ))
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _fieldLabel(String key) {
+    const labels = {
+      'first_name': 'Prénom',
+      'last_name': 'Nom',
+      'gender': 'Genre',
+      'birth_date': 'Date de naissance',
+      'secretary_code': 'Code secrétaire',
+      'national_id': 'CIN',
+      'address': 'Adresse',
+      'employee_id': 'Matricule employé',
+      'hire_date': 'Date d’embauche',
+      'office_number': 'Bureau',
+      'working_hours': 'Horaires',
+      'active': 'Actif',
+      'notes': 'Notes',
+      'age': 'Âge',
+      'license_number': 'Numéro licence',
+      'license_expiry_date': 'Expiration licence',
+      'specialization': 'Spécialisation',
+      'department_id': 'Département',
+      'state': 'État',
+      'create_uid': 'Créé par',
+    };
+    return labels[key] ?? key.replaceAll('_', ' ');
+  }
+
+  String _formatValue(dynamic value) {
+    if (value == true) return 'Oui';
+    if (value == false || value == null) return '';
+    if (value is List && value.length > 1) return value[1].toString();
+    return value.toString();
+  }
 
   Widget _buildSecurityCard(AppLocalizations l10n) => Container(
         padding: const EdgeInsets.all(32),

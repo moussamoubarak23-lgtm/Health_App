@@ -126,6 +126,16 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                       Text(l10n.t('dashSubtitle'), style: bodyStyle()),
                     ]),
                     Row(children: [
+                      IconButton.filled(
+                        onPressed: _loadData,
+                        icon: const Icon(Icons.refresh_rounded, size: 20),
+                        style: IconButton.styleFrom(
+                          backgroundColor: AppColors.primaryLight,
+                          foregroundColor: AppColors.primary,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
                       _notificationButton(),
                       const SizedBox(width: 12),
                       _dateBadge(l10n),

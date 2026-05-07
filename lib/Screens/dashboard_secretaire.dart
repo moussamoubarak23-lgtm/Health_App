@@ -95,7 +95,19 @@ class _DashboardSecretaireScreenState extends State<DashboardSecretaireScreen> w
                       const SizedBox(height: 4),
                       Text(l10n.t('dashSubtitle'), style: bodyStyle()),
                     ]),
-                    _dateBadge(l10n),
+                    Row(children: [
+                      IconButton.filled(
+                        onPressed: _loadData,
+                        icon: const Icon(Icons.refresh_rounded, size: 20),
+                        style: IconButton.styleFrom(
+                          backgroundColor: AppColors.primaryLight,
+                          foregroundColor: AppColors.primary,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      _dateBadge(l10n),
+                    ]),
                   ]),
                   const SizedBox(height: 12),
                   AppBreadcrumb(

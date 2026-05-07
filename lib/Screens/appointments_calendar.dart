@@ -259,12 +259,24 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(loc.t('appointmentCalendarTitle'), style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                          ElevatedButton.icon(
-                            onPressed: () => _showScheduleAppointmentDialog(loc),
-                            icon: const Icon(Icons.add_task_rounded),
-                            label: Text(loc.t('scheduleRdv')),
-                            style: ElevatedButton.styleFrom(backgroundColor: AppColors.green, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                          ),
+                          Row(children: [
+                            IconButton.filled(
+                              onPressed: _loadData,
+                              icon: const Icon(Icons.refresh_rounded, size: 20),
+                              style: IconButton.styleFrom(
+                                backgroundColor: AppColors.primaryLight,
+                                foregroundColor: AppColors.primary,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            ElevatedButton.icon(
+                              onPressed: () => _showScheduleAppointmentDialog(loc),
+                              icon: const Icon(Icons.add_task_rounded),
+                              label: Text(loc.t('scheduleRdv')),
+                              style: ElevatedButton.styleFrom(backgroundColor: AppColors.green, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                            ),
+                          ]),
                         ],
                       ),
                       const SizedBox(height: 12),

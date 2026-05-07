@@ -505,7 +505,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                     itemCount: availableActs.length,
                     itemBuilder: (context, index) {
                       final act = availableActs[index];
-                      final isSelected = selectedActs.contains(act);
+                      final isSelected = selectedActs.any((a) => a['id'] == act['id']);
                       return CheckboxListTile(
                         title: Text(act['name']),
                         subtitle: Text("${act['list_price']} DH"),
@@ -515,11 +515,12 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                             if (val == true) {
                               selectedActs.add(act);
                             } else {
-                              selectedActs.remove(act);
+                              selectedActs.removeWhere((a) => a['id'] == act['id']);
                             }
                           });
                         },
                         activeColor: AppColors.primary,
+                        controlAffinity: ListTileControlAffinity.leading,
                       );
                     },
                   ),

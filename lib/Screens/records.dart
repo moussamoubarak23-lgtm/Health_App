@@ -190,7 +190,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                     itemCount: availableActs.length,
                     itemBuilder: (context, index) {
                       final act = availableActs[index];
-                      final isSelected = selectedActs.contains(act);
+                      final isSelected = selectedActs.any((a) => a['id'] == act['id']);
                       return CheckboxListTile(
                         title: Text(act['name']),
                         subtitle: Text("${act['list_price']} DH"),
@@ -198,7 +198,6 @@ class _RecordsScreenState extends State<RecordsScreen> {
                         onChanged: (val) {
                           setDialogState(() {
                             if (val == true) {
-                              // Vérifier si l'acte n'est pas déjà sélectionné
                               if (!selectedActs.any((selected) => selected['id'] == act['id'])) {
                                 selectedActs.add(act);
                               }
@@ -208,6 +207,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                           });
                         },
                         activeColor: AppColors.primary,
+                        controlAffinity: ListTileControlAffinity.leading,
                       );
                     },
                   ),

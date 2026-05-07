@@ -437,6 +437,16 @@ class _NursesScreenState extends State<NursesScreen> {
         ),
       ),
       const SizedBox(width: 16),
+      IconButton.filled(
+        onPressed: _load,
+        icon: const Icon(Icons.refresh_rounded, size: 20),
+        style: IconButton.styleFrom(
+          backgroundColor: AppColors.primaryLight,
+          foregroundColor: AppColors.primary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+      const SizedBox(width: 8),
       ElevatedButton.icon(
         onPressed: () => _showAddEditDialog(),
         icon: const Icon(Icons.add, size: 20),
