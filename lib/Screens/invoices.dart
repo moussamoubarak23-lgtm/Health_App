@@ -32,27 +32,38 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   Future<void> _loadInvoices() async {
     if (!mounted) return;
     setState(() => loading = true);
-    final inv = await OdooApi.getInvoices();
-    double invoiced = 0.0;
-    double paid = 0.0;
+    
+    try {
+      final inv = await OdooApi.getInvoices();
+      double invoiced = 0.0;
+      double paid = 0.0;
 
-    for (var i in inv) {
-      if (i['state'] != 'cancel') {
-        invoiced += (i['amount_total'] as num).toDouble();
-        // Odoo utilise 'paid' ou 'in_payment' pour les factures réglées
-        if (i['payment_state'] == 'paid' || i['payment_state'] == 'in_payment') {
-          paid += (i['amount_total'] as num).toDouble();
+      for (var i in inv) {
+        if (i['state'] != 'cancel') {
+          final total = (i['amount_total'] as num).toDouble();
+          invoiced += total;
+          
+          // Odoo utilise 'paid' ou 'in_payment' pour les factures réglées
+          final paymentState = i['payment_state']?.toString() ?? 'not_paid';
+          if (paymentState == 'paid' || paymentState == 'in_payment') {
+            paid += total;
+          }
         }
       }
-    }
 
-    if (mounted) {
-      setState(() {
-        invoices = inv;
-        totalInvoiced = invoiced;
-        totalPaid = paid;
-        loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          invoices = inv;
+          totalInvoiced = invoiced;
+          totalPaid = paid;
+          loading = false;
+        });
+      }
+    } catch (e) {
+      print('[_loadInvoices] Error: $e');
+      if (mounted) {
+        setState(() => loading = false);
+      }
     }
   }
 
@@ -60,27 +71,81 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     final patientId = inv['partner_id'] is List ? inv['partner_id'][0] : null;
 
     // Afficher un indicateur de chargement
+    if (!mounted) return;
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
-    // 1. Enregistrer le paiement dans Odoo (pour passer le statut à 'Payé')
-    final payRes = await OdooApi.registerPayment(inv['id']);
+    try {
+      // 1. Enregistrer le paiement dans Odoo (pour passer le statut à 'Payé')
+      print('[_handleValidate] Starting payment registration for invoice ${inv['id']}');
+      final payRes = await OdooApi.registerPayment(inv['id']);
 
-    // 2. Marquer la consultation comme facturée
-    if (patientId != null) {
-      await OdooApi.markConsultationAsInvoiced(patientId);
-    }
+      print('[_handleValidate] Payment response: $payRes');
 
-    if (mounted) Navigator.pop(context); // Fermer le chargement
+      // 2. Vérifier que la facture est bien payée avant de marquer la consultation
+      if (payRes['success'] == true && patientId != null) {
+        print('[_handleValidate] Payment successful, verifying invoice state...');
+        
+        // Recharger les factures pour vérifier que payment_state == 'paid'
+        final updatedInvoices = await OdooApi.getInvoices(patientId: patientId);
+        final updatedInv = updatedInvoices.firstWhere(
+          (i) => i['id'] == inv['id'],
+          orElse: () => {},
+        );
 
-    if (payRes['success']) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).t('paymentRegistered'))));
-      _loadInvoices();
-    } else {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("${AppLocalizations.of(context).t('paymentErrorPrefix')} ${payRes['error']}")));
+        print('[_handleValidate] Updated invoice: $updatedInv');
+
+        // Seulement si la facture est effectivement payée
+        if (updatedInv.isNotEmpty) {
+          final paymentState = updatedInv['payment_state']?.toString() ?? 'not_paid';
+          print('[_handleValidate] Invoice payment_state: $paymentState');
+          
+          if (paymentState == 'paid' || paymentState == 'in_payment') {
+            print('[_handleValidate] Invoice is paid, marking consultation as invoiced...');
+            await OdooApi.markConsultationAsInvoiced(patientId);
+          } else {
+            print('[_handleValidate] Invoice payment_state is still $paymentState, not marking as invoiced');
+          }
+        }
+      }
+
+      if (mounted) Navigator.pop(context); // Fermer le chargement
+
+      if (payRes['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(AppLocalizations.of(context).t('paymentRegistered')),
+              backgroundColor: const Color(0xFF10B981),
+            ),
+          );
+        }
+        // Recharger les factures pour mettre à jour l'UI
+        await _loadInvoices();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("${AppLocalizations.of(context).t('paymentErrorPrefix')} ${payRes['error'] ?? 'Erreur inconnue'}"),
+              backgroundColor: const Color(0xFFEF4444),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('[_handleValidate] Exception: $e');
+      if (mounted) {
+        Navigator.pop(context); // Fermer le chargement en cas d'erreur
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Erreur: $e"),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
     }
   }
 

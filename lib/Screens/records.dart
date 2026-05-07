@@ -123,37 +123,46 @@ class _RecordsScreenState extends State<RecordsScreen> {
   Future<void> _createInvoiceFromActs(Map record, AppLocalizations l10n) async {
     final patientRef = record['patient_id'];
     final patientId = patientRef is List && patientRef.isNotEmpty ? patientRef[0] as int? : null;
-    if (patientId == null) return;
+    if (patientId == null) {
+      _snack(l10n.t('selectPatientFirst'), isError: true);
+      return;
+    }
+
     if (selectedActs.isEmpty) {
       _snack(l10n.t('selectAtLeastOneAct'), isError: true);
       return;
     }
 
+    print('[_createInvoiceFromActs] Starting: patient=$patientId, consultation=${record['id']}, acts=${selectedActs.length}');
+
     final lines = selectedActs
         .map((act) => {
-              'product_id': act['id'],
-              'name': act['name'],
-              'price': act['list_price'],
-            })
+          'product_id': act['id'],
+          'name': act['name'],
+          'price': act['list_price'],
+        })
         .toList();
+
+    print('[_createInvoiceFromActs] Calling createInvoice with ${lines.length} lines');
     final result = await OdooApi.createInvoice(patientId: patientId, lines: lines);
+    
     if (!result['success']) {
-      _snack(l10n.t('billingFailed'), isError: true);
+      print('[_createInvoiceFromActs] Invoice creation failed: ${result['error']}');
+      _snack('${l10n.t('billingFailed')}: ${result['error'] ?? 'Erreur inconnue'}', isError: true);
       return;
     }
 
-    await OdooApi.updateMedicalRecord(
-      recordId: record['id'],
-      motif: record['motif']?.toString() ?? '',
-      diagnostic: record['diagnostic']?.toString() ?? '',
-      prescription: record['prescription']?.toString() ?? '',
-      observations: record['observations']?.toString() ?? '',
-      state: 'invoiced',
-      medicalFileNumber: record['medical_file_number']?.toString() ?? '',
-    );
+    print('[_createInvoiceFromActs] Invoice created: id=${result['id']}, consultation remains confirmed...');
+
+    // La consultation reste en état 'confirmed' - elle ne passera à 'invoiced' 
+    // que lorsque la facture sera payée via invoices.dart
     if (!mounted) return;
+    
     setState(() => selectedActs = []);
+    
     _snack(l10n.t('invoiceCreated'));
+    print('[_createInvoiceFromActs] Success! Invoice ${result['id']} created, consultation remains confirmed until payment');
+    
     _load();
   }
 
@@ -189,9 +198,12 @@ class _RecordsScreenState extends State<RecordsScreen> {
                         onChanged: (val) {
                           setDialogState(() {
                             if (val == true) {
-                              selectedActs.add(act);
+                              // Vérifier si l'acte n'est pas déjà sélectionné
+                              if (!selectedActs.any((selected) => selected['id'] == act['id'])) {
+                                selectedActs.add(act);
+                              }
                             } else {
-                              selectedActs.remove(act);
+                              selectedActs.removeWhere((selected) => selected['id'] == act['id']);
                             }
                           });
                         },
