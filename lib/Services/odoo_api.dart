@@ -30,7 +30,7 @@ class OdooApi {
     final prefs = await SharedPreferences.getInstance();
     _odooUrl = prefs.getString('odoo_server_url') ?? 'http://192.168.1.197:8069';
     _proxyUrl = prefs.getString('proxy_url') ?? 'http://192.168.1.197:8000';
-    // Charger le CSRF token sauvegardé (s'il existe)
+    // Charger le CSRF token depuis SharedPreferences (pas de chiffrement pour les sessions)
     _csrfToken = prefs.getString('csrf_token') ?? '';
   }
 

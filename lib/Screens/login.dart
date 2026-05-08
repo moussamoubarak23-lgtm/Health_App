@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:medical_app/Services/odoo_api.dart';
+import 'package:medical_app/Services/secure_storage_service.dart';
+import 'package:medical_app/Widgets/privacy_policy_dialog.dart';
 import 'package:medical_app/app_localizations.dart';
 import 'package:medical_app/utils/duplicate_guard.dart';
 import 'package:medical_app/language_provider.dart';
@@ -39,6 +41,26 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     _fadeCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
     _fadeCtrl.forward();
+    _checkGdprConsent();
+  }
+
+  Future<void> _checkGdprConsent() async {
+    final consent = await SecureStorageService.getGdprConsent();
+    if (consent != true && mounted) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => PrivacyPolicyDialog(
+              onAccept: () {
+                setState(() {});
+              },
+            ),
+          );
+        }
+      });
+    }
   }
 
   @override
