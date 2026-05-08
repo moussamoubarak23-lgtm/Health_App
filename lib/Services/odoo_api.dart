@@ -1013,7 +1013,7 @@ class OdooApi {
       'args': [
         [
           ['is_patient', '=', true],
-          ['create_uid', 'in', allowedUserIds],
+          ['user_id', 'in', allowedUserIds],
         ],
       ],
       'kwargs': {
