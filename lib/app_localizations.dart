@@ -287,7 +287,7 @@ class AppLocalizations {
     'navRecords':         {'fr': 'Dossiers médicaux',    'ar': 'الملفات الطبية'},
     'navAddRecord':       {'fr': 'Nouvelle Consultation',      'ar': 'ملف جديد'},
     'navInvoices':        {'fr': 'Facturation',          'ar': 'الفواتير'},
-    'navSettings':        {'fr': 'Paramètres',           'ar': 'الإعدادات'},
+    'navSettings':        {'fr': 'Autres', 'ar': 'أخرى'},
     'logout':             {'fr': 'Déconnexion',          'ar': 'تسجيل الخروج'},
     'logoutConfirmTitle': {'fr': 'Déconnexion',          'ar': 'تسجيل الخروج'},
     'logoutConfirmBody':  {'fr': 'Voulez-vous vraiment vous déconnecter ?',

@@ -51,7 +51,7 @@ class _SidebarState extends State<Sidebar> {
         fontWeight: active ? FontWeight.w700 : FontWeight.w400);
 
     final List<_NavItem> allNavItems = [
-      _NavItem(Icons.grid_view_rounded,      l10n.t('navDashboard'), userRole == 'secretary' ? '/dashboard_secretaire' : '/dashboard', AppColors.primary,  AppColors.primaryLight),
+      _NavItem(Icons.monitor_heart_rounded,      l10n.t('navDashboard'), userRole == 'secretary' ? '/dashboard_secretaire' : '/dashboard', AppColors.primary,  AppColors.primaryLight),
       _NavItem(Icons.calendar_month_rounded, l10n.t('calendarLabel'),           '/calendar',  AppColors.primaryMid, AppColors.primaryLight),
       _NavItem(Icons.people_alt_rounded,     l10n.t('navPatients'),  '/patients',  AppColors.purple,   AppColors.purpleLight),
       _NavItem(Icons.badge_rounded,          l10n.t('navSecretaries'), '/secretaries', AppColors.primary, AppColors.primaryLight),
@@ -59,7 +59,7 @@ class _SidebarState extends State<Sidebar> {
       _NavItem(Icons.add_circle_rounded,     l10n.t('navAddRecord'), '/add_record',AppColors.green,    AppColors.greenLight),
       _NavItem(Icons.folder_special_rounded, l10n.t('navRecords'),   '/records',   AppColors.yellow,   AppColors.yellowLight),
       _NavItem(Icons.receipt_long_rounded,   l10n.t('navInvoices'),  '/invoices',  AppColors.primaryMid, AppColors.primaryLight),
-      _NavItem(Icons.settings_rounded,       l10n.t('navSettings'),  '/settings',  AppColors.textMuted, AppColors.background),
+      _NavItem(Icons.dashboard_customize_rounded, l10n.t('navSettings'), '/settings', AppColors.textMuted, AppColors.background),
     ];
 
     List<_NavItem> navItems;
