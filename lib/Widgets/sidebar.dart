@@ -62,6 +62,7 @@ class _SidebarState extends State<Sidebar> {
       _NavItem(Icons.dashboard_customize_rounded, l10n.t('navSettings'), '/settings', AppColors.textMuted, AppColors.background),
     ];
 
+
     List<_NavItem> navItems;
     if (userRole == 'secretary' || userRole == 'nurse') {
       navItems = allNavItems.where((item) =>
