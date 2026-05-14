@@ -16,7 +16,7 @@ class OdooApi {
 
   // Adresse du serveur Odoo - À CHANGER : remplacez 192.168.1.197 par l'IP de votre VPS
 
-  static String _odooUrl = 'http://192.168.1.197:8069';
+  static String _odooUrl = 'https://med.smartds.ma/';
 
   // Adresse du proxy pour le web - À CHANGER : remplacez 192.168.1.197 par l'IP de votre VPS
 
@@ -60,7 +60,7 @@ class OdooApi {
 
     final prefs = await SharedPreferences.getInstance();
 
-    _odooUrl = prefs.getString('odoo_server_url') ?? 'http://192.168.1.197:8069';
+    _odooUrl = prefs.getString('odoo_server_url') ?? 'https://med.smartds.ma/';
 
     _proxyUrl = prefs.getString('proxy_url') ?? 'http://192.168.1.197:8000';
 
@@ -2006,6 +2006,8 @@ class OdooApi {
 
           'user_id',
 
+          'create_date',
+
         ],
 
         'order': 'id desc',
@@ -2065,6 +2067,8 @@ class OdooApi {
           'create_uid',
 
           'user_id',
+
+          'create_date',
 
         ],
 
@@ -2138,6 +2142,56 @@ class OdooApi {
 
     return mergedPatients;
 
+  }
+
+  static Future<Map<int, Map<String, dynamic>>> getPatientsByIds(List<int> patientIds) async {
+    print('>>> getPatientsByIds: called with ${patientIds.length} IDs: $patientIds');
+    if (patientIds.isEmpty) return {};
+
+    // Auth admin
+    final adminAuth = await _callRpc('/web/session/authenticate', {
+      'db': dbName,
+      'login': _adminLogin,
+      'password': _adminPassword,
+    });
+
+    if (adminAuth == null || adminAuth['result'] == null) {
+      print('>>> getPatientsByIds: auth admin failed');
+      return {};
+    }
+
+    final adminCookie = _s(adminAuth['set-cookie']);
+    print('>>> getPatientsByIds: auth successful, cookie obtained');
+
+    final data = await _callRpc('/web/dataset/call_kw', {
+      'model': 'res.partner',
+      'method': 'search_read',
+      'args': [[['id', 'in', patientIds]]],
+      'kwargs': {
+        'fields': [
+          'id',
+          'name',
+          'age',
+          'insurance_id',
+          'comment',
+        ],
+      },
+    }, cookie: adminCookie);
+
+    print('>>> getPatientsByIds: RPC response = ${data != null ? "success" : "null"}');
+    print('>>> getPatientsByIds: response data = ${data != null ? data['result']?.length : 0} patients');
+
+    if (data != null && data['result'] != null) {
+      final Map<int, Map<String, dynamic>> patientsMap = {};
+      for (var p in data['result']) {
+        patientsMap[p['id'] as int] = p as Map<String, dynamic>;
+        print('>>> getPatientsByIds: patient ${p['id']} - age: ${p['age']}, insurance: ${p['insurance_id']}, comment: ${p['comment']}');
+      }
+      return patientsMap;
+    }
+
+    print('>>> getPatientsByIds: returning empty map due to null data or null result');
+    return {};
   }
 
 

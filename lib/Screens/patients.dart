@@ -974,9 +974,11 @@ class _PatientsScreenState extends State<PatientsScreen> {
     bool ageError = false;
 
     final comment = _s(p['comment']);
-    if (comment.contains('Sexe: F')) sexe = 'F';
-    if (comment.contains('Nationalité:')) {
-      nationalite = comment.split('Nationalité:')[1].split('|').first.trim();
+    // Nettoyer les balises HTML du comment
+    final cleanComment = comment.replaceAll(RegExp(r'<[^>]*>'), '').trim();
+    if (cleanComment.contains('Sexe: F')) sexe = 'F';
+    if (cleanComment.contains('Nationalité:')) {
+      nationalite = cleanComment.split('Nationalité:')[1].split('|').first.trim();
     }
 
     showDialog(

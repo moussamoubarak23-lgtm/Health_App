@@ -258,7 +258,12 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(loc.t('appointmentCalendarTitle'), style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                          AppBreadcrumb(
+                            items: [
+                              BreadcrumbItem(label: loc.t('home'), route: '/dashboard'),
+                              BreadcrumbItem(label: loc.t('calendarLabel')),
+                            ],
+                          ),
                           Row(children: [
                             IconButton.filled(
                               onPressed: _loadData,
@@ -280,12 +285,7 @@ class _AppointmentsCalendarScreenState extends State<AppointmentsCalendarScreen>
                         ],
                       ),
                       const SizedBox(height: 12),
-                      AppBreadcrumb(
-                        items: [
-                          BreadcrumbItem(label: loc.t('home'), route: '/dashboard'),
-                          BreadcrumbItem(label: loc.t('calendarLabel')),
-                        ],
-                      ),
+                      Text(loc.t('appointmentCalendarTitle'), style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                       const SizedBox(height: 24),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,

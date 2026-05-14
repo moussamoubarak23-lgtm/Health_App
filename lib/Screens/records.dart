@@ -21,6 +21,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
   List selectedActs = [];
   bool loading = true;
   Map? patient;
+  Map<int, Map<String, dynamic>> patientsDetails = {};
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
   String _statusFilter = 'all';
@@ -48,6 +49,26 @@ class _RecordsScreenState extends State<RecordsScreen> {
     if (!mounted) return;
     allRecords = List.from(results[0]);
     availableActs = List.from(results[1]);
+    
+    // Récupérer les IDs des patients uniques
+    final Set<int> patientIds = {};
+    for (var record in allRecords) {
+      if (record['patient_id'] is List && (record['patient_id'] as List).isNotEmpty) {
+        final patientId = record['patient_id'][0];
+        if (patientId is int) {
+          patientIds.add(patientId);
+        }
+      }
+    }
+    
+    print('>>> records.dart: Found ${patientIds.length} unique patient IDs: $patientIds');
+    
+    // Charger les détails des patients
+    if (patientIds.isNotEmpty) {
+      patientsDetails = await OdooApi.getPatientsByIds(patientIds.toList());
+      print('>>> records.dart: Loaded details for ${patientsDetails.length} patients');
+    }
+    
     _applyFilters();
   }
 
@@ -256,6 +277,9 @@ class _RecordsScreenState extends State<RecordsScreen> {
     final rawState = r['state'];
     String selState = (rawState is String && allowedStates.contains(rawState)) ? rawState : 'draft';
 
+    // Si le dossier est facturé, seul diagnostic, prescription et observations sont modifiables
+    final isInvoiced = selState == 'invoiced';
+
     final statusOpts = [
       {'value': 'draft',     'label': l10n.t('statusDraft')},
       {'value': 'confirmed', 'label': l10n.t('statusConfirmed')},
@@ -301,6 +325,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                     isRtl,
                     requiredField: true,
                     hasError: fileNumError,
+                    enabled: !isInvoiced,
                   ),
                   const SizedBox(height: 12),
 
@@ -355,12 +380,12 @@ class _RecordsScreenState extends State<RecordsScreen> {
                             : GoogleFonts.dmSans(color: AppColors.textPrimary, fontSize: 14)),
                       ]),
                     )).toList(),
-                    onChanged: (v) => setD(() => selState = v ?? 'draft'),
+                    onChanged: isInvoiced ? null : (v) => setD(() => selState = v ?? 'draft'),
                   ),
                   const SizedBox(height: 14),
 
                   _dlgField(l10n.t('reason'), motifCtrl, Icons.info_rounded, isRtl,
-                      maxLines: 2, requiredField: true, hasError: motifError),
+                      maxLines: 2, requiredField: true, hasError: motifError, enabled: !isInvoiced),
                   const SizedBox(height: 12),
                   _dlgField(l10n.t('diagnostic'), diagnosticCtrl,
                       Icons.medical_information_rounded, isRtl,
@@ -371,7 +396,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                       maxLines: 3, requiredField: true, hasError: prescrError),
                   const SizedBox(height: 12),
                   _dlgField(l10n.t('observations'), observationsCtrl, Icons.notes_rounded,
-                      isRtl, maxLines: 3, requiredField: true, hasError: obsError),
+                      isRtl, maxLines: 3, requiredField: false, hasError: obsError),
                   const SizedBox(height: 24),
 
                   Row(mainAxisAlignment: MainAxisAlignment.end, children: [
@@ -393,22 +418,28 @@ class _RecordsScreenState extends State<RecordsScreen> {
                         final mtEmpty = motifCtrl.text.trim().isEmpty;
                         final dgEmpty = diagnosticCtrl.text.trim().isEmpty;
                         final prEmpty = prescriptionCtrl.text.trim().isEmpty;
-                        final obEmpty = observationsCtrl.text.trim().isEmpty;
 
                         setD(() {
                           fileNumError = fnEmpty;
                           motifError = mtEmpty;
                           diagError = dgEmpty;
                           prescrError = prEmpty;
-                          obsError = obEmpty;
                         });
 
-                        if (fnEmpty || mtEmpty || dgEmpty || prEmpty || obEmpty) {
-                          _snack(l10n.t('allFieldsRequired'), isError: true);
-                          return;
+                        // Si le dossier est facturé, seul diagnostic et prescription sont requis
+                        if (isInvoiced) {
+                          if (dgEmpty || prEmpty) {
+                            _snack(l10n.t('allFieldsRequired'), isError: true);
+                            return;
+                          }
+                        } else {
+                          if (fnEmpty || mtEmpty || dgEmpty || prEmpty) {
+                            _snack(l10n.t('allFieldsRequired'), isError: true);
+                            return;
+                          }
                         }
 
-                        if (selState == 'draft') {
+                        if (!isInvoiced && selState == 'draft') {
                           _snack(l10n.t('statusValidationHint'), isError: true);
                           return;
                         }
@@ -418,7 +449,6 @@ class _RecordsScreenState extends State<RecordsScreen> {
                           motifError = false;
                           diagError = false;
                           prescrError = false;
-                          obsError = false;
                         });
 
                         final result = await OdooApi.updateMedicalRecord(
@@ -427,7 +457,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                           diagnostic: diagnosticCtrl.text.trim(),
                           prescription: prescriptionCtrl.text.trim(),
                           observations: observationsCtrl.text.trim(),
-                          state: selState,
+                          state: isInvoiced ? selState : selState,
                           medicalFileNumber: fileNumCtrl.text.trim(),
                         );
                         if (ctx.mounted) {
@@ -703,6 +733,55 @@ class _RecordsScreenState extends State<RecordsScreen> {
     final dossier = r['medical_file_number']?.toString() ?? '';
     final date = (r['date_consultation']?.toString() ?? '').split(' ').first;
 
+    // Récupérer les détails du patient
+    int? patientId;
+    if (r['patient_id'] is List && (r['patient_id'] as List).isNotEmpty) {
+      patientId = r['patient_id'][0] as int?;
+    }
+    final patientData = patientId != null ? patientsDetails[patientId] : null;
+
+    // Extraire les informations du patient
+    final patientAge = patientData?['age']?.toString() ?? '';
+    final comment = patientData?['comment']?.toString() ?? '';
+    
+    // Nettoyer les balises HTML du comment
+    final cleanComment = comment.replaceAll(RegExp(r'<[^>]*>'), '').trim();
+    
+    // Extraire le genre depuis le comment (format: "Sexe: H | Nationalité: Marocaine")
+    String patientGender = '';
+    if (cleanComment.contains('Sexe:')) {
+      final sexeMatch = RegExp(r'Sexe:\s*(\w+)').firstMatch(cleanComment);
+      if (sexeMatch != null) {
+        patientGender = sexeMatch.group(1) ?? '';
+      }
+    }
+    
+    // Extraire la nationalité depuis le comment
+    String patientNationality = '';
+    if (cleanComment.contains('Nationalité:')) {
+      final natMatch = RegExp(r'Nationalité:\s*([^|]+)').firstMatch(cleanComment);
+      if (natMatch != null) {
+        patientNationality = natMatch.group(1)?.trim() ?? '';
+      }
+    }
+    
+    String patientInsurance = '';
+    if (patientData != null && patientData['insurance_id'] != null) {
+      if (patientData['insurance_id'] is List && (patientData['insurance_id'] as List).isNotEmpty) {
+        patientInsurance = patientData['insurance_id'][1]?.toString() ?? '';
+      } else {
+        patientInsurance = patientData['insurance_id']?.toString() ?? '';
+      }
+    }
+
+    String _formatGender(String? gender) {
+      if (gender == null || gender.isEmpty) return '';
+      final g = gender.toLowerCase();
+      if (g == 'h' || g == 'm') return l10n.t('maleLabel');
+      if (g == 'f') return l10n.t('femaleLabel');
+      return gender;
+    }
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -750,18 +829,39 @@ class _RecordsScreenState extends State<RecordsScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            dossier.isEmpty || dossier == 'false'
-                ? '${l10n.t('medicalFileNumber')}: —'
-                : '${l10n.t('medicalFileNumber')}: $dossier',
-            style: GoogleFonts.dmSans(color: AppColors.textSecond, fontSize: 11),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  dossier.isEmpty || dossier == 'false'
+                      ? '${l10n.t('medicalFileNumber')}: —'
+                      : '${l10n.t('medicalFileNumber')}: $dossier',
+                  style: GoogleFonts.dmSans(color: AppColors.textSecond, fontSize: 11),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                date.isEmpty ? '—' : date,
+                style: GoogleFonts.dmSans(color: AppColors.textMuted, fontSize: 11),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            date.isEmpty ? '—' : date,
-            style: GoogleFonts.dmSans(color: AppColors.textMuted, fontSize: 11),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              if (patientAge.isNotEmpty)
+                _infoChip('${l10n.t('age')}: $patientAge', isRtl),
+              if (patientGender.isNotEmpty)
+                _infoChip('${l10n.t('gender')}: ${_formatGender(patientGender)}', isRtl),
+              if (patientInsurance.isNotEmpty)
+                _infoChip('${l10n.t('insurance')}: $patientInsurance', isRtl),
+              if (patientNationality.isNotEmpty)
+                _infoChip('${l10n.t('nationality')}: $patientNationality', isRtl),
+            ],
           ),
           const Spacer(),
           Row(
@@ -808,6 +908,25 @@ class _RecordsScreenState extends State<RecordsScreen> {
     );
   }
 
+  Widget _infoChip(String text, bool isRtl) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceAlt,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppColors.border, width: 0.5),
+      ),
+      child: Text(
+        text,
+        style: isRtl
+            ? GoogleFonts.cairo(color: AppColors.textSecond, fontSize: 10, fontWeight: FontWeight.w500)
+            : GoogleFonts.dmSans(color: AppColors.textSecond, fontSize: 10, fontWeight: FontWeight.w500),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
   // ── WIDGETS HELPERS ──────────────────────────────────────────────────────────
   Widget _filterChip(String value, String label, int count, Color color, bool isRtl) {
     final active = _statusFilter == value;
@@ -831,7 +950,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
   }
 
   Widget _dlgField(String label, TextEditingController ctrl, IconData icon,
-      bool isRtl, {int maxLines = 1, bool requiredField = false, bool hasError = false}) {
+      bool isRtl, {int maxLines = 1, bool requiredField = false, bool hasError = false, bool enabled = true}) {
     final labelColor = hasError ? AppColors.red : (isRtl ? AppColors.textSecond : AppColors.textSecond);
     final borderColor = hasError ? AppColors.red : AppColors.border;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -858,6 +977,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
         TextField(
           controller: ctrl, maxLines: maxLines,
           textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+          enabled: enabled,
           style: isRtl
               ? GoogleFonts.cairo(color: AppColors.textPrimary, fontSize: 13)
               : GoogleFonts.dmSans(color: AppColors.textPrimary, fontSize: 13),

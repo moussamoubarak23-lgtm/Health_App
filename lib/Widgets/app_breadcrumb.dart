@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:medical_app/theme.dart';
+import 'package:medical_app/utils/navigation_history.dart';
 
 class BreadcrumbItem {
   final String label;
@@ -28,6 +29,7 @@ class AppBreadcrumb extends StatelessWidget {
       return;
     }
     if (item.route != null && item.route!.isNotEmpty) {
+      NavigationHistory().addRoute(item.route!);
       Navigator.pushReplacementNamed(context, item.route!);
       return;
     }
@@ -74,49 +76,110 @@ class AppBreadcrumb extends StatelessWidget {
               ),
             ],
           ),
-          child: Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 6,
-            runSpacing: 6,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.home_rounded, size: 16, color: AppColors.textMuted),
-              const _Slash(),
-              ...List.generate(safeItems.length, (index) {
-                final isLast = index == safeItems.length - 1;
-                final item = safeItems[index];
+              // Bouton Retour
+              _NavBackButton(),
+              // Bouton Avant
+              _NavForwardButton(),
+              const SizedBox(width: 8),
+              Flexible(
+                fit: FlexFit.loose,
+                child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    const Icon(Icons.home_rounded, size: 16, color: AppColors.textMuted),
+                    const _Slash(),
+                    ...List.generate(safeItems.length, (index) {
+                      final isLast = index == safeItems.length - 1;
+                      final item = safeItems[index];
 
-                final tile = InkWell(
-                  onTap: isLast ? null : () => _handleTap(context, item),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    child: Text(
-                      item.label,
-                      style: isLast
-                          ? GoogleFonts.dmSans(
-                              color: AppColors.primaryDark,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                            )
-                          : GoogleFonts.dmSans(
-                              color: AppColors.textSecond,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
-                    ),
-                  ),
-                );
+                      final tile = InkWell(
+                        onTap: isLast ? null : () => _handleTap(context, item),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          child: Text(
+                            item.label,
+                            style: isLast
+                                ? GoogleFonts.dmSans(
+                                    color: AppColors.primaryDark,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  )
+                                : GoogleFonts.dmSans(
+                                    color: AppColors.textSecond,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                          ),
+                        ),
+                      );
 
-                if (isLast) return tile;
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [tile, const _Slash()],
-                );
-              }),
+                      if (isLast) return tile;
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [tile, const _Slash()],
+                      );
+                    }),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _NavBackButton extends StatelessWidget {
+  const _NavBackButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final navHistory = NavigationHistory();
+    return ListenableBuilder(
+      listenable: navHistory,
+      builder: (context, child) {
+        return IconButton(
+          onPressed: navHistory.canGoBack ? () {
+            navHistory.goBack();
+            Navigator.pushNamed(context, navHistory.currentRoute ?? '/');
+          } : null,
+          icon: const Icon(Icons.arrow_back_rounded, size: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          iconSize: 18,
+        );
+      },
+    );
+  }
+}
+
+class _NavForwardButton extends StatelessWidget {
+  const _NavForwardButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final navHistory = NavigationHistory();
+    return ListenableBuilder(
+      listenable: navHistory,
+      builder: (context, child) {
+        return IconButton(
+          onPressed: navHistory.canGoForward ? () {
+            navHistory.goForward();
+            Navigator.pushNamed(context, navHistory.currentRoute ?? '/');
+          } : null,
+          icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          iconSize: 18,
+        );
+      },
     );
   }
 }

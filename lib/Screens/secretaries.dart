@@ -105,7 +105,7 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
     final rnd = Random();
     return String.fromCharCodes(Iterable.generate(
-        8, (_) => chars.codeUnitAt(rnd.nextInt(chars.length))));
+        4, (_) => chars.codeUnitAt(rnd.nextInt(chars.length))));
   }
 
   void _showAddEditDialog({Map? secretary}) {
@@ -200,10 +200,10 @@ class _SecretariesScreenState extends State<SecretariesScreen> {
                   Row(children: [
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text("${l10n.t('secretaryCode')} (*)", style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: codeError ? AppColors.red : AppColors.textSecond)),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       TextField(
                         controller: codeCtrl,
-                        maxLength: 8,
+                        maxLength: 4,
                         decoration: InputDecoration(
                           prefixIcon: Icon(Icons.qr_code_rounded, size: 18, color: AppColors.primary),
                           suffixIcon: IconButton(

@@ -92,9 +92,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       setState(() => _loading = false);
       if (result['success'] == true) {
         if (result['role'] == 'secretary') {
-          Navigator.pushReplacementNamed(context, '/dashboard_secretaire');
+          Navigator.pushNamed(context, '/dashboard_secretaire');
         } else {
-          Navigator.pushReplacementNamed(context, '/dashboard');
+          Navigator.pushNamed(context, '/dashboard');
         }
       } else {
         setState(() => _error = result['error'] ?? loc.t('loginError'));

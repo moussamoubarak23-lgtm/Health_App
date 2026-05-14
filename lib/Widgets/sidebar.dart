@@ -7,6 +7,7 @@ import 'package:medical_app/app_localizations.dart';
 import 'package:medical_app/language_provider.dart';
 import 'package:medical_app/language_selector.dart';
 import 'package:medical_app/theme.dart';
+import 'package:medical_app/utils/navigation_history.dart';
 
 class Sidebar extends StatefulWidget {
   final String currentRoute;
@@ -32,6 +33,7 @@ class _SidebarState extends State<Sidebar> {
 
   void _goToAccount() {
     if (widget.currentRoute != '/account') {
+      NavigationHistory().addRoute('/account');
       Navigator.pushReplacementNamed(context, '/account');
     }
   }
@@ -278,6 +280,7 @@ class _SidebarState extends State<Sidebar> {
     return GestureDetector(
       onTap: () {
         if (item.route != widget.currentRoute) {
+          NavigationHistory().addRoute(item.route);
           Navigator.pushReplacementNamed(context, item.route);
         }
       },

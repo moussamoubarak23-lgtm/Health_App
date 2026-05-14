@@ -698,16 +698,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(loc.t('navSettings'), style: GoogleFonts.plusJakartaSans(fontSize: 26, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                    const SizedBox(height: 6),
-                    Text(loc.t('settingsSubtitle'), style: GoogleFonts.dmSans(fontSize: 14, color: AppColors.textSecond)),
-                    const SizedBox(height: 10),
                     AppBreadcrumb(
                       items: [
                         BreadcrumbItem(label: loc.t('home'), route: '/dashboard'),
                         BreadcrumbItem(label: loc.t('settingsLabel')),
                       ],
                     ),
+                    const SizedBox(height: 10),
+                    Text(loc.t('navSettings'), style: GoogleFonts.plusJakartaSans(fontSize: 26, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                    const SizedBox(height: 6),
+                    Text(loc.t('settingsSubtitle'), style: GoogleFonts.dmSans(fontSize: 14, color: AppColors.textSecond)),
                     const SizedBox(height: 28),
                     Wrap(
                       spacing: 18,

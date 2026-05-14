@@ -343,7 +343,9 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                         age: int.tryParse(ageCtrl.text.trim()) ?? 0,
                         patientCode: cinCtrl.text.trim(),
                         medicalFileNumber: dossierCtrl.text.trim(),
-                        comment: currentPatient['comment'] is String ? currentPatient['comment'].toString().replaceAll(RegExp(r'Nationalité:.*'), 'Nationalité: $nationalite') : 'Nationalité: $nationalite',
+                        comment: currentPatient['comment'] is String 
+                        ? currentPatient['comment'].toString().replaceAll(RegExp(r'<[^>]*>'), '').replaceAll(RegExp(r'Nationalité:.*'), 'Nationalité: $nationalite') 
+                        : 'Nationalité: $nationalite',
                       );
                       if (res['success']) {
                         setState(() {
@@ -353,7 +355,9 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                           currentPatient['insurance_id'] = couverture;
                           currentPatient['patient_code'] = cinCtrl.text.trim();
                           currentPatient['medical_file_number'] = dossierCtrl.text.trim();
-                          currentPatient['comment'] = currentPatient['comment'] is String ? currentPatient['comment'].toString().replaceAll(RegExp(r'Nationalité:.*'), 'Nationalité: $nationalite') : 'Nationalité: $nationalite';
+                          currentPatient['comment'] = currentPatient['comment'] is String 
+                            ? currentPatient['comment'].toString().replaceAll(RegExp(r'<[^>]*>'), '').replaceAll(RegExp(r'Nationalité:.*'), 'Nationalité: $nationalite') 
+                            : 'Nationalité: $nationalite';
                         });
                         if (!mounted) return;
                         if (navigator.canPop()) navigator.pop();
@@ -872,7 +876,6 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     bool fileNumError = false;
     bool diagError = false;
     bool presError = false;
-    bool obsError = false;
 
     showDialog(
       context: context,
@@ -886,27 +889,27 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
             const SizedBox(height: 12),
             _buildRequiredField(ctx, setDialogState, loc.t('prescription'), presCtrl, Icons.medication, presError, maxLines: 2),
             const SizedBox(height: 12),
-            _buildRequiredField(ctx, setDialogState, loc.t('observations'), infoObsCtrl, Icons.notes, obsError, maxLines: 2),
+            _buildOptionalField(loc.t('observations'), infoObsCtrl, Icons.notes, maxLines: 2),
           ])),
           actions: [TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(loc.t('cancel'))), ElevatedButton(onPressed: () async {
             // Validate required fields
             final fnEmpty = fileNumCtrl.text.trim().isEmpty;
             final dgEmpty = diagCtrl.text.trim().isEmpty;
             final prEmpty = presCtrl.text.trim().isEmpty;
-            final obEmpty = infoObsCtrl.text.trim().isEmpty;
 
             setDialogState(() {
               fileNumError = fnEmpty;
               diagError = dgEmpty;
               presError = prEmpty;
-              obsError = obEmpty;
             });
 
-            if (fnEmpty || dgEmpty || prEmpty || obEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(loc.t('allFieldsRequired')),
-                backgroundColor: AppColors.red,
-              ));
+            if (fnEmpty || dgEmpty || prEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(loc.t('allFieldsRequired')),
+                  backgroundColor: AppColors.red,
+                ),
+              );
               return;
             }
 
@@ -956,6 +959,26 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
           enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: borderColor)),
           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: hasError ? AppColors.red : AppColors.primary, width: 2)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _buildOptionalField(String label, TextEditingController ctrl, IconData icon, {int maxLines = 1}) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecond)),
+      const SizedBox(height: 6),
+      TextField(
+        controller: ctrl,
+        maxLines: maxLines,
+        decoration: InputDecoration(
+          prefixIcon: Icon(icon, size: 18, color: AppColors.primary),
+          filled: true,
+          fillColor: AppColors.inputFill,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         ),
       ),

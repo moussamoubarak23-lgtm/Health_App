@@ -180,19 +180,19 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
               padding: const EdgeInsets.all(32),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(l10n.t('invoicesTitle'), style: _titleLg(isRtl)),
-                    Text('${invoices.length} ${l10n.t('invoiceCountSuffix')}', style: _mutedStyle(isRtl)),
-                  ]),
+                  AppBreadcrumb(
+                    items: [
+                      BreadcrumbItem(label: l10n.t('home'), route: '/dashboard'),
+                      BreadcrumbItem(label: l10n.t('invoicesLabel')),
+                    ],
+                  ),
                   _refreshButton(),
                 ]),
                 const SizedBox(height: 12),
-                AppBreadcrumb(
-                  items: [
-                    BreadcrumbItem(label: l10n.t('home'), route: '/dashboard'),
-                    BreadcrumbItem(label: l10n.t('invoicesLabel')),
-                  ],
-                ),
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(l10n.t('invoicesTitle'), style: _titleLg(isRtl)),
+                  Text('${invoices.length} ${l10n.t('invoiceCountSuffix')}', style: _mutedStyle(isRtl)),
+                ]),
                 const SizedBox(height: 24),
                 _statsCards(l10n, isRtl),
                 const SizedBox(height: 24),
