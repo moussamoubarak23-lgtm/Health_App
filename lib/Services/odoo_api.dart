@@ -894,7 +894,11 @@ class OdooApi {
 
     _proxyCsrfCookie = '';
 
-    await prefs.clear();
+    // Ne pas supprimer le consentement GDPR
+    await SecureStorageService.clearAll();
+
+    // Supprimer user_role séparément (pas dans clearAll)
+    await prefs.remove('user_role');
 
   }
 
